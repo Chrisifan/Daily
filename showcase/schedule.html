@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Schedule Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-neutral">
+    <div class="page-frame">
+      <header class="page-topbar">
+        <a class="brand-inline" href="./index.html">
+          <span class="brand-badge">D</span>
+          <span>Daily Showcase</span>
+        </a>
+        <nav class="page-nav">
+          <a class="nav-link" href="./home.html">首页</a>
+          <a class="nav-link active" href="./schedule.html">日程</a>
+          <a class="nav-link" href="./workspaces.html">工作区</a>
+          <a class="nav-link" href="./integrations.html">集成</a>
+        </nav>
+      </header>
+
+      <main class="schedule-layout">
+        <section class="panel schedule-sidebar">
+          <p class="eyebrow">Filters</p>
+          <h1>日程总览</h1>
+          <div class="filter-stack">
+            <span class="chip active">今天</span>
+            <span class="chip">本周</span>
+            <span class="chip">本月</span>
+          </div>
+          <div class="filter-stack">
+            <span class="chip active">全部来源</span>
+            <span class="chip">日历</span>
+            <span class="chip">邮件生成</span>
+            <span class="chip">手动创建</span>
+          </div>
+          <div class="panel muted-panel">
+            <p class="eyebrow">Conflicts</p>
+            <h2>今日冲突</h2>
+            <p class="subtle">10:00 存在通勤风险，13:30 评审前建议保留 30 分钟准备时间。</p>
+          </div>
+        </section>
+
+        <section class="panel schedule-main">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Timeline</p>
+              <h2>3月17日 · 周二</h2>
+            </div>
+            <div class="filter-stack">
+              <span class="chip active">日视图</span>
+              <span class="chip">周视图</span>
+              <span class="chip">月视图</span>
+            </div>
+          </div>
+          <div class="timeline-list" id="schedule-timeline"></div>
+        </section>
+
+        <section class="panel schedule-inspector">
+          <p class="eyebrow">Inspector</p>
+          <h2>当前焦点</h2>
+          <div class="stack gap-sm">
+            <div class="insight-box">
+              <p class="meta-kicker">13:30</p>
+              <h3>产品设计评审</h3>
+              <p class="subtle">已关联 2 封邮件、1 份文档、1 个工作区。</p>
+            </div>
+            <div class="insight-box">
+              <p class="meta-kicker">建议</p>
+              <p class="subtle">12:50 前完成演示主线确认，雨天通勤留出额外 20 分钟。</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./showcase.js"></script>
+    <script src="./schedule.js"></script>
+  </body>
+</html>

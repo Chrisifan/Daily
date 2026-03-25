@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Workspaces Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-neutral">
+    <div class="page-frame">
+      <header class="page-topbar">
+        <a class="brand-inline" href="./index.html">
+          <span class="brand-badge">D</span>
+          <span>Daily Showcase</span>
+        </a>
+        <nav class="page-nav">
+          <a class="nav-link" href="./home.html">首页</a>
+          <a class="nav-link" href="./schedule.html">日程</a>
+          <a class="nav-link active" href="./workspaces.html">工作区</a>
+          <a class="nav-link" href="./integrations.html">集成</a>
+        </nav>
+      </header>
+
+      <main class="workspace-layout">
+        <section class="panel workspace-types">
+          <p class="eyebrow">Templates</p>
+          <h1>工作区类型</h1>
+          <div class="type-grid" id="workspace-types"></div>
+        </section>
+
+        <section class="panel workspace-list-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Active Workspaces</p>
+              <h2>当前工作区</h2>
+            </div>
+            <button class="btn btn-primary">新建工作区</button>
+          </div>
+          <div class="workspace-list" id="workspace-list"></div>
+        </section>
+
+        <section class="panel workspace-detail-panel">
+          <p class="eyebrow">Workspace Detail</p>
+          <h2>客户项目 Atlas</h2>
+          <div class="stack gap-sm">
+            <div class="workspace-summary-box">
+              <p class="meta-kicker">写作工作区</p>
+              <p class="subtle">已绑定邮件、Google Calendar 和本地资料目录。今天重点是评审、回信和文档修改。</p>
+            </div>
+            <div class="mini-list" id="workspace-detail-items"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./showcase.js"></script>
+    <script src="./workspaces.js"></script>
+  </body>
+</html>

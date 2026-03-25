@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Integrations Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-neutral">
+    <div class="page-frame">
+      <header class="page-topbar">
+        <a class="brand-inline" href="./index.html">
+          <span class="brand-badge">D</span>
+          <span>Daily Showcase</span>
+        </a>
+        <nav class="page-nav">
+          <a class="nav-link" href="./home.html">首页</a>
+          <a class="nav-link" href="./schedule.html">日程</a>
+          <a class="nav-link" href="./workspaces.html">工作区</a>
+          <a class="nav-link active" href="./integrations.html">集成</a>
+        </nav>
+      </header>
+
+      <main class="integration-layout">
+        <section class="panel integration-accounts">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Accounts</p>
+              <h1>邮箱与日历接入</h1>
+            </div>
+          </div>
+          <div class="account-list" id="account-list"></div>
+        </section>
+
+        <section class="panel integration-flow">
+          <p class="eyebrow">Flow</p>
+          <h2>同步与归类流程</h2>
+          <div class="flow-list" id="flow-list"></div>
+        </section>
+
+        <section class="panel integration-security">
+          <p class="eyebrow">Privacy</p>
+          <h2>权限与安全</h2>
+          <div class="mini-list" id="security-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./showcase.js"></script>
+    <script src="./integrations.js"></script>
+  </body>
+</html>

@@ -1,0 +1,618 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  font-family: "Manrope", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: #1f2329;
+  /* 背景放在 #root 上，html/body 保持透明，确保窗口圆角可以裁剪 */
+  background-color: transparent;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  background: transparent; /* 必须透明，否则会盖住 #root 的圆角 */
+}
+
+/* 无系统标题栏时，窗口圆角由 #root 实现 */
+#root {
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;      /* 裁剪内容，让圆角生效 */
+  background-color: #d5dbe2; /* 应用背景色放这里 */
+}
+
+body {
+  min-height: 100vh;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 选中文字样式 */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #fff;
+}
+
+/* 链接样式 */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* 按钮重置 */
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* 输入框重置 */
+input, textarea {
+  font-family: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+/* 列表重置 */
+ul, ol {
+  list-style: none;
+}
+
+/* 图片重置 */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ============================================================
+   Component layer — 所有业务组件的样式均在此定义，禁止内联 style
+   ============================================================ */
+@layer components {
+
+  /* ── HomePage ───────────────────────────────────────────── */
+  .page-home {
+    min-height: 100vh;
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at 12% 12%, rgba(255,225,173,0.26), transparent 24%),
+      linear-gradient(180deg,
+        rgba(229,232,236,0.96) 0%,
+        rgba(195,210,226,0.9)  30%,
+        rgba(104,184,243,0.82) 58%,
+        rgba(109,147,101,0.72) 100%);
+  }
+
+  .page-home__inner {
+    max-width: 1380px;
+    margin-inline: auto;
+    padding: 8px 20px 12px;
+  }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: 140px 140px minmax(220px, auto);
+    gap: 12px;
+  }
+
+  .home-grid__hero   { grid-column: 1 / 2; grid-row: 1 / 3; }
+  .home-grid__tasks  { grid-column: 1 / 2; grid-row: 3 / 4; }
+  .home-grid__ws     { grid-column: 2 / 4; grid-row: 3 / 4; }
+
+  /* ── AppNav ─────────────────────────────────────────────── */
+  .nav-root { margin-bottom: 10px; }
+
+  .nav-traffic-row {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    margin-bottom: 6px;
+  }
+
+  .nav-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #1f2329;
+  }
+
+  .nav-brand__badge {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.80);
+    border: 1px solid rgba(255,255,255,0.90);
+    font-size: 20px;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+  }
+
+  /* 应用名称：加大字号、使用更现代字体 */
+  .nav-brand__name {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    font-family: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    background: linear-gradient(135deg, #1a202c 0%, #4a5568 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .nav-capsule {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.32);
+    background: rgba(255,255,255,0.16);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 6px 16px rgba(90,102,116,0.05);
+  }
+
+  /* 纯图标导航项 + CSS tooltip */
+  .nav-link {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(31,35,41,0.60);
+    background: transparent;
+    box-shadow: none;
+    text-decoration: none;
+    transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  }
+  .nav-link:hover {
+    color: #1f2329;
+    background: rgba(255,255,255,0.28);
+  }
+  .nav-link--active {
+    color: #3f56d6;
+    background: rgba(230,236,255,0.88);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.78);
+  }
+  .nav-link--active:hover {
+    color: #3f56d6;
+    background: rgba(230,236,255,0.88);
+  }
+
+  /* CSS tooltip */
+  .nav-link::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(31,35,41,0.88);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 150ms ease;
+    backdrop-filter: blur(8px);
+  }
+  .nav-link:hover::after {
+    opacity: 1;
+  }
+
+  /* TrafficLights */
+  .traffic-lights {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .traffic-btn {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 0.5px solid rgba(0,0,0,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(0,0,0,0.55);
+    line-height: 1;
+    transition: background 120ms ease;
+    cursor: pointer;
+  }
+
+  .traffic-btn__icon {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .traffic-lights:hover .traffic-btn__icon {
+    opacity: 1;
+  }
+
+  /* ── Glass card (共用) ──────────────────────────────────── */
+  .glass-card {
+    border: 1px solid rgba(255,255,255,0.56);
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 20px 50px rgba(74,83,97,0.12);
+    transform-style: preserve-3d;
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  /* ── MainCard ───────────────────────────────────────────── */
+  .hero-card {
+    border-radius: 32px 32px 38px 28px;
+    grid-template-rows: auto auto 1fr auto;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.76), rgba(255,255,255,0.70)),
+      radial-gradient(circle at right top, rgba(111,158,255,0.12), transparent 28%);
+  }
+
+  .hero-orb {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 999px;
+    filter: blur(12px);
+  }
+  .hero-orb--one {
+    top: -24px; right: -18px;
+    width: 144px; height: 144px;
+    background: rgba(108,151,255,0.16);
+  }
+  .hero-orb--two {
+    left: -18px; bottom: 34px;
+    width: 92px; height: 92px;
+    background: rgba(255,217,125,0.18);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(31,35,41,0.64);
+  }
+
+  .weather-status-hint {
+    font-size: 10px;
+    color: rgba(31,35,41,0.42);
+  }
+
+  .btn-retry {
+    font-size: 11px;
+    color: rgba(31,35,41,0.48);
+    background: rgba(255,255,255,0.54);
+    border-radius: 999px;
+    padding: 2px 8px;
+    cursor: pointer;
+  }
+
+  .btn-refresh {
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    color: rgba(31,35,41,0.36);
+    background: transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 180ms ease;
+  }
+  .btn-refresh:hover { color: rgba(31,35,41,0.64); }
+
+  .hero-title {
+    font-size: clamp(28px, 2.6vw, 46px);
+    letter-spacing: -0.05em;
+    color: #1f2329;
+  }
+
+  .hero-subtitle { color: rgba(31,35,41,0.64); }
+
+  .metric-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+
+  .metric-item {
+    display: grid;
+    gap: 4px;
+    padding: 8px;
+    min-height: 62px;
+    border-radius: 14px;
+  }
+
+  .metric-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2329;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    color: rgba(31,35,41,0.64);
+  }
+
+  .display-time {
+    font-size: clamp(48px, 4vw, 76px);
+    letter-spacing: -0.06em;
+    color: #1f2329;
+  }
+
+  .btn-primary {
+    border-radius: 999px;
+    background: linear-gradient(180deg, #7d8cff, #6070f7);
+    transition: opacity 180ms ease;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+
+  .btn-secondary {
+    border-radius: 999px;
+    background: rgba(255,255,255,0.56);
+    color: #1f2329;
+    transition: background 180ms ease;
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.72); }
+
+  /* ── SummaryCards ───────────────────────────────────────── */
+  .summary-grid {
+    grid-column: 2 / 4;
+    grid-row: 1 / 3;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .mini-card {
+    border-radius: 24px; /* 默认；每张卡通过 style 覆盖异形圆角 */
+    /* transform 由 inline style 传入（card-float 异形偏转，数据驱动） */
+    transition: box-shadow 180ms ease;
+  }
+
+  .mini-card__deco {
+    position: absolute;
+    pointer-events: none;
+    right: -16px; bottom: -18px;
+    width: 72px; height: 72px;
+    border-radius: 22px;
+    background: rgba(255,255,255,0.28);
+    transform: rotate(18deg);
+  }
+
+  .mini-card__icon {
+    display: block;
+    width: 30px;
+    height: 30px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    /* background 由 inline style 传入（图标色，数据驱动） */
+  }
+
+  .mini-number { color: #1f2329; }
+  .mini-number--lg { font-size: 42px; }
+  .mini-number--sm { font-size: 24px; }
+
+  .mini-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #1f2329;
+  }
+
+  .mini-text {
+    font-size: 12px;
+    color: rgba(31,35,41,0.64);
+  }
+
+  /* ── TodayTasks ─────────────────────────────────────────── */
+  .tasks-card {
+    border-radius: 28px;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .panel-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(31,35,41,0.64);
+    margin: 0 0 8px;
+  }
+
+  .panel-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2329;
+    margin: 0;
+  }
+
+  .meta-pill {
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.54);
+    color: rgba(31,35,41,0.64);
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .task-list { display: grid; content: start; }
+
+  .task-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 10px;
+    border-top: 1px solid rgba(31,35,41,0.08);
+  }
+  .task-row:first-child { border-top: none; padding-top: 0; }
+
+  .task-main {
+    display: grid;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .task-text       { font-size: 14px; color: #1f2329; }
+  .task-text--add  { color: rgba(31,35,41,0.48); }
+  .task-meta       { font-size: 12px; color: rgba(31,35,41,0.56); }
+
+  .task-badge {
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 11px;
+    min-width: 50px;
+    border-radius: 999px;
+    padding: 4px 8px;
+    /* bg + color 由 inline style 传入（优先级色，数据驱动） */
+  }
+
+  /* ── WorkspaceOverview ──────────────────────────────────── */
+  .ws-card { border-radius: 28px; }
+
+  .ws-link-btn {
+    background: transparent;
+    color: rgba(31,35,41,0.64);
+    font-size: 14px;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .tag-pill {
+    border-radius: 999px;
+    font-size: 12px;
+    padding: 8px 12px;
+    /* bg + color 由 inline style 传入（tag 色，数据驱动） */
+  }
+
+  .split-grid {
+    display: grid;
+    gap: 16px;
+    /* grid-template-columns 由 inline style 传入（展开状态，动态） */
+    transition: grid-template-columns 300ms ease;
+  }
+
+  .ws-stack { color: #1f2329; }
+
+  .workspace-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.48);
+    background: rgba(255,255,255,0.62);
+  }
+
+  .workspace-box__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1f2329;
+    margin: 0;
+  }
+
+  .workspace-box__progress {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1f2329;
+  }
+
+  .workspace-box__desc {
+    font-size: 12px;
+    color: rgba(31,35,41,0.64);
+    margin: 0;
+  }
+
+  .chip {
+    border-radius: 999px;
+    background: rgba(255,255,255,0.66);
+    font-size: 11px;
+    color: rgba(31,35,41,0.72);
+    padding: 6px 9px;
+    cursor: pointer;
+  }
+
+  .fab-toggle {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #7185ff, #5a6df5);
+    font-size: 26px;
+    line-height: 1;
+    box-shadow: 0 12px 26px rgba(90,109,245,0.26);
+    transition: transform 180ms ease, box-shadow 180ms ease;
+    display: grid;
+    place-items: center;
+    color: white;
+    font-weight: 500;
+  }
+  .fab-toggle--expanded {
+    transform: scale(1.06) rotate(90deg);
+  }
+}

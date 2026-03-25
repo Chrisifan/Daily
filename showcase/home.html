@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Home Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-weather home-prototype">
+    <div class="page-frame">
+      <header class="page-topbar home-topbar">
+        <a class="brand-inline home-brand" href="./index.html">
+          <span class="brand-badge">D</span>
+          <span>Daily Showcase</span>
+        </a>
+        <nav class="page-nav home-nav">
+          <a class="nav-link active" href="./home.html">首页</a>
+          <a class="nav-link" href="./schedule.html">日程</a>
+          <a class="nav-link" href="./workspaces.html">工作区</a>
+          <a class="nav-link" href="./integrations.html">集成</a>
+        </nav>
+      </header>
+
+      <main class="home-board home-board-refined">
+        <section class="hero-card panel panel-large home-hero-card tilt-card">
+          <div class="hero-orb hero-orb-one"></div>
+          <div class="hero-orb hero-orb-two"></div>
+          <div>
+            <p class="eyebrow">Shanghai · 晴天模式</p>
+            <h1 class="display-title">晚上好，Sifan.</h1>
+            <p class="subtle">3月17日 星期二</p>
+          </div>
+
+          <div class="metric-strip" id="home-metric-strip"></div>
+
+          <div>
+            <p class="display-time">20:19</p>
+            <p class="subtle">当前位置天气会驱动首页风景与提示策略</p>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-primary">进入工作台</button>
+            <button class="btn btn-ghost">查看概览</button>
+          </div>
+        </section>
+
+        <section class="summary-grid home-summary-grid">
+          <section class="mini-card home-mini-card card-float-a" id="schedule-summary-card"></section>
+          <section class="mini-card home-mini-card card-float-b" id="workspace-summary-card"></section>
+          <section class="mini-card home-mini-card card-float-c" id="mail-summary-card"></section>
+          <section class="mini-card home-mini-card card-float-d" id="calendar-summary-card"></section>
+        </section>
+
+        <section class="panel panel-tasks home-panel tilt-card">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Today Schedule</p>
+              <h2>今日待办</h2>
+            </div>
+            <span class="meta-pill">4 / 7 已完成</span>
+          </div>
+          <div class="task-list" id="home-task-list"></div>
+        </section>
+
+        <section class="panel panel-overview home-panel tilt-card" id="home-plan-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h2>今日总览与工作区</h2>
+            </div>
+            <button class="link-button">查看总览</button>
+          </div>
+
+          <div class="tag-row">
+            <span class="tag green">活跃项目 3</span>
+            <span class="tag blue">工作区 4</span>
+            <span class="tag purple">新邮件 2</span>
+          </div>
+
+          <div class="split-grid">
+            <div class="stack" id="home-plan-copy"></div>
+            <div class="workspace-card" id="home-workspace-card"></div>
+          </div>
+
+          <button class="fab-toggle" id="home-plan-toggle" aria-label="展开总览">+</button>
+        </section>
+      </main>
+    </div>
+
+    <script src="./showcase.js"></script>
+    <script src="./home.js"></script>
+  </body>
+</html>
