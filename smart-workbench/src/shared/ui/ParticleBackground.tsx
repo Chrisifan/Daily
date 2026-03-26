@@ -54,15 +54,6 @@ const weatherThemes: Record<WeatherCondition, WeatherTheme> = {
     textColor: "#f7fafc",
     accentColor: "#e2e8f0"
   },
-  storm: {
-    condition: "storm",
-    backgroundGradient: "linear-gradient(135deg, #0d1117 0%, #000000 50%, #0d1117 100%)",
-    particleColor: "rgba(147, 112, 219, 0.5)",
-    particleCount: 40,
-    glassOpacity: 0.08,
-    textColor: "#a0aec0",
-    accentColor: "#9f7aea"
-  },
   night: {
     condition: "night",
     backgroundGradient: "linear-gradient(135deg, #0f172a 0%, #020617 50%, #0f172a 100%)",
@@ -71,6 +62,33 @@ const weatherThemes: Record<WeatherCondition, WeatherTheme> = {
     glassOpacity: 0.1,
     textColor: "#e2e8f0",
     accentColor: "#818cf8"
+  },
+  overcast: {
+    condition: "overcast",
+    backgroundGradient: "linear-gradient(135deg, #374151 0%, #1f2937 50%, #374151 100%)",
+    particleColor: "rgba(156, 163, 175, 0.3)",
+    particleCount: 20,
+    glassOpacity: 0.1,
+    textColor: "#f3f4f6",
+    accentColor: "#9ca3af"
+  },
+  haze: {
+    condition: "haze",
+    backgroundGradient: "linear-gradient(135deg, #78716c 0%, #57534e 50%, #78716c 100%)",
+    particleColor: "rgba(217, 119, 6, 0.25)",
+    particleCount: 35,
+    glassOpacity: 0.08,
+    textColor: "#fef3c7",
+    accentColor: "#d97706"
+  },
+  thunderstorm: {
+    condition: "thunderstorm",
+    backgroundGradient: "linear-gradient(135deg, #0d1117 0%, #000000 50%, #0d1117 100%)",
+    particleColor: "rgba(147, 112, 219, 0.5)",
+    particleCount: 40,
+    glassOpacity: 0.08,
+    textColor: "#a0aec0",
+    accentColor: "#9f7aea"
   }
 };
 

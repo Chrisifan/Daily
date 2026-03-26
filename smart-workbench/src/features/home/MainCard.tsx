@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { getGreeting, getCurrentTimeString, getCurrentDateString } from "../../shared/utils/date";
 import type { WeatherSnapshot } from "../../domain/weather/types";
 import type { WeatherStatus } from "../../shared/hooks/useWeather";
+import { WeatherBackground } from "../../shared/ui/WeatherBackground";
 
 interface MainCardProps {
   weather: WeatherSnapshot;
@@ -68,17 +69,22 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
         ref={cardRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative overflow-hidden h-full grid p-6 gap-4 glass-card hero-card"
+        className="relative overflow-hidden h-full grid p-8 gap-8 glass-card hero-card"
       >
         {/* orb 装饰 */}
         <div className="hero-orb hero-orb--one" />
         <div className="hero-orb hero-orb--two" />
+
+        {/* Canvas 天气背景 */}
+        <WeatherBackground condition={weather.condition} />
   
+        {/* 卡片内容层 */}
+        <div className="relative z-10">
         {/* 行 1: eyebrow + 标题 + 日期 */}
         <div>
           <div className="flex items-center gap-2 mb-2">
             <p className="m-0 eyebrow">
-              {weather.city} · {weather.description}模式
+              {weather.city} · {weather.description}
             </p>
             {weatherStatus === "locating" && (
               <span className="weather-status-hint">定位中…</span>
@@ -104,11 +110,10 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
           <h1 className="m-0 font-bold leading-[0.98] hero-title">
             {greeting}，Sifan.
           </h1>
-          <p className="m-0 mt-1 text-sm hero-subtitle">{currentDate}</p>
         </div>
   
         {/* 行 2: metric-strip 5列 */}
-        <div className="metric-strip">
+        <div className="metric-strip mt-12">
           {METRICS.map((item, i) => (
             <div
               key={item.label}
@@ -122,21 +127,20 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
         </div>
   
         {/* 行 3 (1fr): 大时钟 + 副文 */}
-        <div className="flex flex-col justify-end">
-          <p className="m-0 font-bold leading-[0.88] display-time">{currentTime}</p>
-          <p className="m-0 mt-1 text-sm hero-subtitle">
-            当前位置天气会驱动首页风景与提示策略
-          </p>
+        <div className="absolute top-4 right-6 text-right">
+          <p className="m-0 font-bold leading-[0.88] text-4xl md:text-5xl text-gray-800">{currentTime}</p>
+          <p className="m-0 mt-2 mb-4 text-sm hero-subtitle">{currentDate}</p>
         </div>
   
         {/* 行 4: 操作按钮 */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 mt-8">
           <button className="text-sm font-medium text-white px-4 py-2.5 btn-primary">
             进入工作台
           </button>
           <button className="text-sm font-medium px-4 py-2.5 btn-secondary">
             查看概览
           </button>
+        </div>
         </div>
       </div>
     </motion.div>

@@ -1,4 +1,11 @@
-export type WeatherCondition = "sunny" | "cloudy" | "rainy" | "snow" | "storm" | "night";
+export type WeatherCondition = "sunny" | "cloudy" | "overcast" | "rainy" | "thunderstorm" | "haze" | "snow" | "night";
+
+export interface HourlyForecast {
+  time: string; // "HH:MM" format
+  temperature: number;
+  condition: WeatherCondition;
+  description: string;
+}
 
 export interface WeatherSnapshot {
   condition: WeatherCondition;
@@ -10,6 +17,7 @@ export interface WeatherSnapshot {
   description: string;
   sunrise: string;
   sunset: string;
+  hourlyForecast: HourlyForecast[];
   updatedAt: string;
 }
 

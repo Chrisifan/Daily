@@ -1,7 +1,6 @@
 import { useParams } from "react-router-dom";
-import { ParticleBackground } from "../../shared/ui/ParticleBackground";
 import { GlassCard } from "../../shared/ui/GlassCard";
-import { mockWeather, mockWorkspaces, mockTasks, mockSchedules } from "../../storage/seeds/mockData";
+import { mockWorkspaces, mockTasks, mockSchedules } from "../../storage/seeds/mockData";
 import { Code2, Image, FileText, Folder, ArrowLeft, Calendar, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { WorkspaceType } from "../../domain/workspace/types";
@@ -26,13 +25,11 @@ export function WorkspaceDetailPage() {
   const workspace = mockWorkspaces.find(w => w.id === id) || mockWorkspaces[0];
   const Icon = workspaceIcons[workspace.type];
 
-  // 过滤出该工作区的任务和日程
   const workspaceTasks = mockTasks.filter(t => t.workspaceId === workspace.id);
   const workspaceSchedules = mockSchedules.filter(s => s.workspaceId === workspace.id);
 
   return (
     <div className="min-h-screen relative">
-      <ParticleBackground condition={mockWeather.condition} />
       
       <div className="relative z-10 p-6">
         {/* 返回按钮 */}

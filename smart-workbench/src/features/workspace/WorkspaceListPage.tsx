@@ -1,6 +1,5 @@
-import { ParticleBackground } from "../../shared/ui/ParticleBackground";
 import { GlassCard } from "../../shared/ui/GlassCard";
-import { mockWeather, mockWorkspaces } from "../../storage/seeds/mockData";
+import { mockWorkspaces } from "../../storage/seeds/mockData";
 import { Code2, Image, FileText, Folder, Plus, MoreHorizontal } from "lucide-react";
 import type { WorkspaceType } from "../../domain/workspace/types";
 
@@ -27,7 +26,6 @@ const statusLabels = {
 export function WorkspaceListPage() {
   return (
     <div className="min-h-screen relative">
-      <ParticleBackground condition={mockWeather.condition} />
       
       <div className="relative z-10 p-6">
         <header className="mb-6 flex items-center justify-between">

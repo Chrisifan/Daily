@@ -2,7 +2,6 @@ import { MainCard } from "./MainCard";
 import { SummaryCards } from "./SummaryCards";
 import { TodayTasks } from "./TodayTasks";
 import { WorkspaceOverview } from "./WorkspaceOverview";
-import { AppNav } from "../../app/layout/AppNav";
 import { mockWorkspaces, mockSchedules, mockInboxItems } from "../../storage/seeds/mockData";
 import { useWeather } from "../../shared/hooks/useWeather";
 
@@ -11,8 +10,6 @@ export function HomePage() {
   return (
     <div className="page-home">
       <div className="page-home__inner">
-        <AppNav />
-
         <main className="home-grid">
           {/* Hero 卡: col 1, row 1-2 */}
           <div className="home-grid__hero">

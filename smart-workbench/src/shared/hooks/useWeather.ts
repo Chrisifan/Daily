@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WeatherSnapshot } from "../../domain/weather/types";
 import {
-  getCurrentPosition,
+  fetchCurrentPosition,
   fetchWeatherByCoords,
   reverseGeocode,
 } from "../services/weatherService";
@@ -13,55 +14,88 @@ export interface UseWeatherResult {
   weather: WeatherSnapshot;
   status: WeatherStatus;
   error: string | null;
-  /** 手动重新获取 */
   refresh: () => void;
 }
 
+async function fetchWeather(): Promise<WeatherSnapshot> {
+  console.log(`[fetchWeather] 开始获取天气数据`);
+
+  let coords;
+  try {
+    coords = await fetchCurrentPosition();
+  } catch (err) {
+    console.warn(`[fetchWeather] 定位失败，使用默认坐标:`, err);
+    coords = { latitude: 31.2304, longitude: 121.4737 };
+  }
+
+  const { latitude: lat, longitude: lon } = coords;
+  console.log(`[fetchWeather] 坐标: lat=${lat}, lon=${lon}`);
+
+  let city = "上海";
+  let snapshot;
+
+  try {
+    [city, snapshot] = await Promise.all([
+      reverseGeocode(lat, lon),
+      fetchWeatherByCoords(lat, lon, city),
+    ]);
+  } catch (err) {
+    console.warn(`[fetchWeather] 天气/城市获取失败，使用默认:`, err);
+    snapshot = {
+      condition: "cloudy" as const,
+      temperature: 20,
+      feelsLike: 19,
+      humidity: 65,
+      windSpeed: 3.5,
+      city,
+      description: "多云",
+      sunrise: "06:00",
+      sunset: "18:00",
+      hourlyForecast: [],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  console.log(`[fetchWeather] 完成: city=${city}, weather=${snapshot.description}`);
+  return { ...snapshot, city };
+}
+
 export function useWeather(): UseWeatherResult {
-  const [weather, setWeather] = useState<WeatherSnapshot>(mockWeather);
-  const [status, setStatus] = useState<WeatherStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    let cancelled = false;
+  const { data, status, error, isPending, isFetching, isSuccess } = useQuery({
+    queryKey: ["weather"],
+    queryFn: fetchWeather,
+    staleTime: 15 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+    retry: 1,
+    initialData: undefined,
+  });
 
-    async function load() {
-      try {
-        // Step 1: 获取定位
-        setStatus("locating");
-        const coords = await getCurrentPosition();
-        if (cancelled) return;
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["weather"] });
+  }, [queryClient]);
 
-        const { latitude: lat, longitude: lon } = coords;
+  const weather = data ?? mockWeather;
 
-        // Step 2: 并行请求天气 + 城市名
-        setStatus("fetching");
-        const [city, snapshot] = await Promise.all([
-          reverseGeocode(lat, lon),
-          // 先用占位城市，等 geocode 结果后再合并
-          fetchWeatherByCoords(lat, lon, ""),
-        ]);
-        if (cancelled) return;
+  let mappedStatus: WeatherStatus;
+  if (isPending) {
+    mappedStatus = "locating";
+  } else if (isFetching) {
+    mappedStatus = "fetching";
+  } else if (isSuccess) {
+    mappedStatus = "success";
+  } else if (status === "error") {
+    mappedStatus = "error";
+  } else {
+    mappedStatus = "idle";
+  }
 
-        setWeather({ ...snapshot, city });
-        setStatus("success");
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "天气获取失败";
-        console.warn("[useWeather]", msg);
-        setError(msg);
-        setStatus("error");
-        // fallback 保持 mockWeather，不覆盖 state
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [tick]);
-
-  const refresh = () => setTick((n) => n + 1);
-
-  return { weather, status, error, refresh };
+  const errorMessage = error instanceof Error ? error.message : null;
+  return {
+    weather,
+    status: mappedStatus,
+    error: errorMessage,
+    refresh,
+  };
 }
