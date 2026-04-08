@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Calendar Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-calendar">
+    <div class="calendar-demo-shell" data-calendar-demo>
+      <section class="calendar-demo-card">
+        <header class="calendar-demo-header">
+          <div>
+            <p class="calendar-demo-title">
+              <span class="calendar-demo-title-strong" data-calendar-title>2026年4月7日</span>
+              <span class="calendar-demo-title-arrow">›</span>
+            </p>
+          </div>
+          <div class="calendar-demo-actions">
+            <button class="calendar-icon-group" type="button" aria-label="切换日期">
+              <span class="calendar-icon-button">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.5 5.5L8 12l6.5 6.5" />
+                </svg>
+              </span>
+              <span class="calendar-icon-button">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9.5 5.5L16 12l-6.5 6.5" />
+                </svg>
+              </span>
+            </button>
+            <button class="calendar-ai-button" type="button">✦ AI</button>
+            <button class="calendar-settings-button" type="button" aria-label="设置">⚙</button>
+          </div>
+        </header>
+
+        <section class="calendar-week-strip" id="calendar-week-strip" aria-label="周视图日期"></section>
+
+        <section class="calendar-demo-body">
+          <div class="calendar-expanded-panel" aria-hidden="true">
+            <div class="calendar-time-rail" id="calendar-time-rail"></div>
+            <div class="calendar-week-columns" id="calendar-week-columns"></div>
+          </div>
+
+          <button
+            class="calendar-drag-handle"
+            id="calendar-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="calendar-detail-sheet"
+            aria-label="展开日历详情"
+          >
+            <span></span>
+          </button>
+
+          <section class="calendar-detail-sheet" id="calendar-detail-sheet">
+            <div class="calendar-detail-grid">
+              <div class="calendar-detail-time-column">
+                <span>08:00</span>
+                <span>09:00</span>
+                <span>10:00</span>
+                <span class="calendar-detail-time-strong">11:27</span>
+                <span>14:00</span>
+                <span>18:00</span>
+                <span>22:00</span>
+              </div>
+
+              <div class="calendar-detail-track">
+                <article class="calendar-detail-entry wake">
+                  <div class="calendar-detail-node coral">
+                    <span>⏰</span>
+                  </div>
+                  <div class="calendar-detail-copy">
+                    <p class="calendar-detail-meta">08:00 ◌</p>
+                    <h3>起床啦!</h3>
+                  </div>
+                </article>
+
+                <article class="calendar-detail-note">zz 时间利用得很好!</article>
+
+                <article class="calendar-detail-entry focus">
+                  <div class="calendar-detail-node coral">@</div>
+                  <div class="calendar-detail-copy">
+                    <p class="calendar-detail-meta">10:00 – 10:15 (15 分钟)</p>
+                    <h3>回复邮件</h3>
+                  </div>
+                </article>
+
+                <div class="calendar-detail-helper">
+                  <p>◔ 任务在前 <strong>10小时33分钟</strong> 进行准备。</p>
+                  <button type="button">＋ 添加任务</button>
+                </div>
+
+                <article class="calendar-detail-entry sleep">
+                  <div class="calendar-detail-node blue">☾</div>
+                  <div class="calendar-detail-copy">
+                    <p class="calendar-detail-meta">22:00 ◌</p>
+                    <h3>晚安!</h3>
+                  </div>
+                </article>
+              </div>
+
+              <div class="calendar-detail-status-column">
+                <span class="status-ring coral"></span>
+                <span class="status-ring coral"></span>
+                <span class="status-ring blue"></span>
+              </div>
+            </div>
+
+            <button class="calendar-add-fab" type="button" aria-label="新增事件">+</button>
+          </section>
+        </section>
+      </section>
+    </div>
+
+    <script src="./calendar-control.js"></script>
+  </body>
+</html>

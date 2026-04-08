@@ -90,13 +90,16 @@ export const mockWorkspaces: Workspace[] = [
   }
 ];
 
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0];
+
 export const mockSchedules: ScheduleItem[] = [
   {
     id: "sch-1",
     source: "manual",
     title: "站会",
-    startAt: "2024-03-25T09:30:00Z",
-    endAt: "2024-03-25T09:45:00Z",
+    startAt: `${todayStr}T09:00:00Z`,
+    endAt: `${todayStr}T09:30:00Z`,
     timezone: "Asia/Shanghai",
     location: "会议室 A",
     priority: "medium",
@@ -109,8 +112,8 @@ export const mockSchedules: ScheduleItem[] = [
     id: "sch-2",
     source: "manual",
     title: "前端评审",
-    startAt: "2024-03-25T14:00:00Z",
-    endAt: "2024-03-25T15:30:00Z",
+    startAt: `${todayStr}T11:00:00Z`,
+    endAt: `${todayStr}T12:00:00Z`,
     timezone: "Asia/Shanghai",
     location: "线上",
     priority: "high",
@@ -123,8 +126,8 @@ export const mockSchedules: ScheduleItem[] = [
     id: "sch-3",
     source: "manual",
     title: "设计评审",
-    startAt: "2024-03-25T16:00:00Z",
-    endAt: "2024-03-25T17:00:00Z",
+    startAt: `${todayStr}T15:00:00Z`,
+    endAt: `${todayStr}T16:30:00Z`,
     timezone: "Asia/Shanghai",
     location: "设计室",
     priority: "high",

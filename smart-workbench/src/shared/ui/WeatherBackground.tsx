@@ -138,10 +138,10 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
     const sunRadius = Math.min(canvas.width, canvas.height) * 0.15;
 
     const glowGradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunRadius * 2.5);
-    glowGradient.addColorStop(0, "rgba(255, 250, 200, 1)");
-    glowGradient.addColorStop(0.15, "rgba(255, 240, 160, 0.9)");
-    glowGradient.addColorStop(0.4, "rgba(255, 220, 120, 0.5)");
-    glowGradient.addColorStop(0.7, "rgba(255, 200, 80, 0.15)");
+    glowGradient.addColorStop(0, "rgba(255, 250, 200, 0.5)");
+    glowGradient.addColorStop(0.15, "rgba(255, 240, 160, 0.35)");
+    glowGradient.addColorStop(0.4, "rgba(255, 220, 120, 0.2)");
+    glowGradient.addColorStop(0.7, "rgba(255, 200, 80, 0.08)");
     glowGradient.addColorStop(1, "rgba(255, 180, 60, 0)");
 
     ctx.fillStyle = glowGradient;
@@ -171,7 +171,7 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
         cloud.x = -cloud.width;
       }
 
-      const baseAlpha = dark ? 0.25 : 0.35;
+      const baseAlpha = dark ? 0.12 : 0.18;
 
       cloud.layers.forEach((layer, i) => {
         const layerX = cloud.x + layer.ox;
@@ -209,8 +209,8 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
 
   const drawOvercast = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, time: number) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(180, 185, 195, 0.25)");
-    gradient.addColorStop(1, "rgba(150, 155, 165, 0.3)");
+    gradient.addColorStop(0, "rgba(180, 185, 195, 0.12)");
+    gradient.addColorStop(1, "rgba(150, 155, 165, 0.15)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -221,7 +221,7 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
         cloud.y = Math.random() * canvas.height * 0.5;
       }
 
-      const baseAlpha = 0.3;
+      const baseAlpha = 0.15;
 
       cloud.layers.forEach((layer, i) => {
         const layerX = cloud.x + layer.ox;
@@ -257,8 +257,8 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
 
   const drawRainy = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(100, 120, 150, 0.35)");
-    gradient.addColorStop(1, "rgba(80, 100, 130, 0.45)");
+    gradient.addColorStop(0, "rgba(100, 120, 150, 0.15)");
+    gradient.addColorStop(1, "rgba(80, 100, 130, 0.2)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -283,8 +283,8 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
 
   const drawThunderstorm = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, _time: number) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(70, 85, 110, 0.5)");
-    gradient.addColorStop(1, "rgba(50, 65, 90, 0.6)");
+    gradient.addColorStop(0, "rgba(70, 85, 110, 0.25)");
+    gradient.addColorStop(1, "rgba(50, 65, 90, 0.3)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -382,9 +382,9 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
 
   const drawHaze = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, _time: number) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(180, 170, 160, 0.4)");
-    gradient.addColorStop(0.5, "rgba(200, 185, 175, 0.35)");
-    gradient.addColorStop(1, "rgba(160, 150, 140, 0.45)");
+    gradient.addColorStop(0, "rgba(180, 170, 160, 0.2)");
+    gradient.addColorStop(0.5, "rgba(200, 185, 175, 0.15)");
+    gradient.addColorStop(1, "rgba(160, 150, 140, 0.22)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -409,8 +409,8 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
 
   const drawSnow = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, time: number) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(180, 195, 215, 0.4)");
-    gradient.addColorStop(1, "rgba(160, 175, 200, 0.5)");
+    gradient.addColorStop(0, "rgba(180, 195, 215, 0.2)");
+    gradient.addColorStop(1, "rgba(160, 175, 200, 0.25)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -437,9 +437,9 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
 
   const drawNight = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, time: number) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(40, 50, 90, 0.4)");
-    gradient.addColorStop(0.5, "rgba(50, 60, 100, 0.35)");
-    gradient.addColorStop(1, "rgba(60, 70, 110, 0.45)");
+    gradient.addColorStop(0, "rgba(40, 50, 90, 0.2)");
+    gradient.addColorStop(0.5, "rgba(50, 60, 100, 0.18)");
+    gradient.addColorStop(1, "rgba(60, 70, 110, 0.22)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 

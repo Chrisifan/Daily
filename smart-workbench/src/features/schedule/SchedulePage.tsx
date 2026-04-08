@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
 import { CalendarView } from "./CalendarView";
 import { ScheduleModal } from "./ScheduleModal";
 import { useScheduleStore } from "../../shared/hooks/useScheduleStore";
@@ -13,8 +12,8 @@ export function SchedulePage() {
   const [editingSchedule, setEditingSchedule] = useState<ScheduleItem | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const handleAddSchedule = (date: Date) => {
-    setSelectedDate(date);
+  const handleAddSchedule = (date?: Date) => {
+    setSelectedDate(date ?? null);
     setEditingSchedule(null);
     setModalOpen(true);
   };
@@ -40,6 +39,29 @@ export function SchedulePage() {
     handleModalClose();
   };
 
+  const getDefaultTimes = () => {
+    if (selectedDate) {
+      const clickedTime = format(selectedDate, "HH:mm");
+      const [hours, minutes] = clickedTime.split(':').map(Number);
+      let endHours = hours;
+      let endMinutes = minutes + 30;
+      if (endMinutes >= 60) {
+        endHours += 1;
+        endMinutes = 0;
+      }
+      const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+      return {
+        startAt: format(selectedDate, "yyyy-MM-dd'T'") + clickedTime + ':00',
+        endAt: format(selectedDate, "yyyy-MM-dd'T'") + endTime + ':00',
+      };
+    }
+    const today = format(new Date(), "yyyy-MM-dd");
+    return {
+      startAt: `${today}T09:00:00`,
+      endAt: `${today}T09:30:00`,
+    };
+  };
+
   const handleDelete = () => {
     if (editingSchedule) {
       deleteSchedule(editingSchedule.id);
@@ -48,23 +70,9 @@ export function SchedulePage() {
   };
 
   return (
-    <div className="min-h-screen relative">
+    <div className="relative z-10 -mr-12">
 
-      <div className="relative z-10 p-6 max-w-6xl mx-auto">
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-medium text-white/90">日程总览</h1>
-            <p className="text-white/50 mt-1">管理你的所有日程安排</p>
-          </div>
-          <button
-            onClick={() => handleAddSchedule(new Date())}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors backdrop-blur-sm border border-white/20"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">新建日程</span>
-          </button>
-        </header>
-
+      <div className="flex-1 min-h-0">
         <CalendarView
           schedules={schedules}
           onEditSchedule={handleEditSchedule}
@@ -81,10 +89,7 @@ export function SchedulePage() {
           editingSchedule
             ? editingSchedule
             : selectedDate
-            ? {
-                startAt: format(selectedDate, "yyyy-MM-dd'T'09:00:00"),
-                endAt: format(selectedDate, "yyyy-MM-dd'T'10:00:00"),
-              }
+            ? getDefaultTimes()
             : undefined
         }
         mode={editingSchedule ? "edit" : "create"}

@@ -2,6 +2,46 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ScheduleItem } from "../../domain/schedule/types";
 
+interface RustScheduleItem {
+  id: string;
+  source: string;
+  source_event_id?: string;
+  title: string;
+  start_at: string;
+  end_at: string;
+  timezone: string;
+  location?: string;
+  notes?: string;
+  workspace_id?: string;
+  priority: string;
+  preparation_minutes?: number;
+  travel_minutes?: number;
+  is_flexible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+function rustToScheduleItem(rust: RustScheduleItem): ScheduleItem {
+  return {
+    id: rust.id,
+    source: rust.source as ScheduleItem["source"],
+    sourceEventId: rust.source_event_id,
+    title: rust.title,
+    startAt: rust.start_at,
+    endAt: rust.end_at,
+    timezone: rust.timezone,
+    location: rust.location,
+    notes: rust.notes,
+    workspaceId: rust.workspace_id,
+    priority: rust.priority as ScheduleItem["priority"],
+    preparationMinutes: rust.preparation_minutes,
+    travelMinutes: rust.travel_minutes,
+    isFlexible: rust.is_flexible,
+    createdAt: rust.created_at,
+    updatedAt: rust.updated_at,
+  };
+}
+
 interface CreateScheduleInput {
   title: string;
   start_at: string;
@@ -43,8 +83,8 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<ScheduleItem[]>("get_schedules");
-      setSchedules(result);
+      const result = await invoke<RustScheduleItem[]>("get_schedules");
+      setSchedules(result.map(rustToScheduleItem));
     } catch (e) {
       console.error("Failed to fetch schedules:", e);
       setError(e as string);
@@ -70,9 +110,10 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
         is_flexible: data.isFlexible,
       };
 
-      const result = await invoke<ScheduleItem>("create_schedule", { input });
-      setSchedules((prev) => [...prev, result]);
-      return result;
+      const result = await invoke<RustScheduleItem>("create_schedule", { input });
+      const schedule = rustToScheduleItem(result);
+      setSchedules((prev) => [...prev, schedule]);
+      return schedule;
     },
     []
   );
@@ -89,8 +130,9 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
       if (data.priority !== undefined) input.priority = data.priority;
       if (data.isFlexible !== undefined) input.is_flexible = data.isFlexible;
 
-      const result = await invoke<ScheduleItem>("update_schedule", { id, input });
-      setSchedules((prev) => prev.map((s) => (s.id === id ? result : s)));
+      const result = await invoke<RustScheduleItem>("update_schedule", { id, input });
+      const schedule = rustToScheduleItem(result);
+      setSchedules((prev) => prev.map((s) => (s.id === id ? schedule : s)));
     },
     []
   );

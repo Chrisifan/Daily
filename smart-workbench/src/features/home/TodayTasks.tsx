@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
 
-// 对齐原型 showcase.js tasks
 const TASKS = [
   { title: "添加新任务",   meta: "",                              priority: "" as const,       isAdd: true  },
   { title: "13:30 产品设计评审，整理主线与评审纪要模板",         meta: "关联工作区：客户项目 Atlas", priority: "high" as const,   isAdd: false },
@@ -10,9 +9,9 @@ const TASKS = [
 ];
 
 const PRIORITY_STYLE = {
-  high:   { bg: "rgba(243,122,145,0.16)", color: "#b13d59", label: "高" },
-  medium: { bg: "rgba(255,214,122,0.18)", color: "#9a7422", label: "中" },
-  low:    { bg: "rgba(140,221,164,0.20)", color: "#2c8d4d", label: "低" },
+  high:   { bg: "rgba(239, 68, 68, 0.1)", color: "var(--color-error)", label: "高" },
+  medium: { bg: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)", label: "中" },
+  low:    { bg: "rgba(34, 197, 94, 0.1)", color: "var(--color-success)", label: "低" },
 } as const;
 
 export function TodayTasks() {
@@ -25,13 +24,14 @@ export function TodayTasks() {
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
     el.style.transform = `perspective(900px) rotateX(${(0.5 - y) * 5}deg) rotateY(${(x - 0.5) * 5}deg) translateY(-2px)`;
-    el.style.boxShadow = "0 24px 48px rgba(74,83,97,0.18)";
+    el.style.boxShadow = "var(--shadow-xl)";
   }
+
   function handleMouseLeave() {
     const el = cardRef.current;
     if (!el) return;
     el.style.transform = "";
-    el.style.boxShadow = "0 20px 50px rgba(74,83,97,0.12)";
+    el.style.boxShadow = "var(--shadow-lg)";
   }
 
   return (
@@ -45,9 +45,9 @@ export function TodayTasks() {
         ref={cardRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="h-full p-5 flex flex-col glass-card tasks-card"
+        className="h-full p-5 flex flex-col tasks-card"
+        style={{ boxShadow: "var(--shadow-lg)" }}
       >
-        {/* panel-head */}
         <div className="panel-head">
           <div>
             <p className="panel-eyebrow">Today Schedule</p>
@@ -56,7 +56,6 @@ export function TodayTasks() {
           <span className="meta-pill">4 / 7 已完成</span>
         </div>
 
-        {/* task-list */}
         <div className="flex-1 task-list">
           {TASKS.map((task, index) => (
             <motion.article

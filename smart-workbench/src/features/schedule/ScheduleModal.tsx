@@ -1,8 +1,92 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { X, ChevronDown, ChevronUp } from "lucide-react";
 import type { ScheduleItem, Priority } from "../../domain/schedule/types";
 import { format } from "date-fns";
+
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+  const hours = Math.floor(i / 2);
+  const minutes = (i % 2) * 30;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+});
+
+function getEndTimeFromStart(startTime: string): string {
+  const [hours, minutes] = startTime.split(':').map(Number);
+  let endHours = hours;
+  let endMinutes = minutes + 30;
+  if (endMinutes >= 60) {
+    endHours += 1;
+    endMinutes = 0;
+  }
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+}
+
+interface TimeSelectProps {
+  value: string;
+  onChange: (time: string) => void;
+}
+
+function TimeSelect({ value, onChange }: TimeSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
+      >
+        <span>{value}</span>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 max-h-48 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {TIME_SLOTS.map((time) => (
+              <button
+                key={time}
+                onClick={() => {
+                  onChange(time);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                  time === value 
+                    ? "bg-blue-50 text-blue-600 font-medium" 
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {time}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 interface ScheduleModalProps {
   open: boolean;
@@ -19,10 +103,15 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
+  const [endTime, setEndTime] = useState("09:30");
   const [priority, setPriority] = useState<Priority>("medium");
   const [location, setLocation] = useState("");
   const [isFlexible, setIsFlexible] = useState(false);
+
+  const handleStartTimeChange = (time: string) => {
+    setStartTime(time);
+    setEndTime(getEndTimeFromStart(time));
+  };
 
   useEffect(() => {
     if (open && initialData) {
@@ -51,7 +140,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
       setStartDate(format(now, "yyyy-MM-dd"));
       setEndDate(format(now, "yyyy-MM-dd"));
       setStartTime("09:00");
-      setEndTime("10:00");
+      setEndTime("09:30");
     }
   }, [open, initialData]);
 
@@ -147,19 +236,9 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                   时间区间 <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-3">
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                  />
+                  <TimeSelect value={startTime} onChange={handleStartTimeChange} />
                   <span className="text-gray-400">至</span>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                  />
+                  <TimeSelect value={endTime} onChange={setEndTime} />
                 </div>
               </div>
 
