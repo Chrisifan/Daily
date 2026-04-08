@@ -23,8 +23,10 @@ CREATE TABLE IF NOT EXISTS schedule_items (
   source_event_id TEXT,
   title TEXT NOT NULL,
   start_at TEXT NOT NULL,
-  end_at TEXT NOT NULL,
   timezone TEXT NOT NULL DEFAULT 'UTC',
+  duration_minutes INTEGER NOT NULL DEFAULT 30,
+  repeat_mode TEXT NOT NULL DEFAULT 'none' CHECK (repeat_mode IN ('none', 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'semi_annually', 'annually')),
+  repeat_group_id TEXT,
   location TEXT,
   attendees TEXT DEFAULT '[]',
   notes TEXT,
@@ -132,6 +134,7 @@ CREATE TABLE IF NOT EXISTS workspace_activities (
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_schedule_items_start_at ON schedule_items(start_at);
 CREATE INDEX IF NOT EXISTS idx_schedule_items_workspace_id ON schedule_items(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_items_repeat_group_id ON schedule_items(repeat_group_id);
 CREATE INDEX IF NOT EXISTS idx_inbox_items_received_at ON inbox_items(received_at);
 CREATE INDEX IF NOT EXISTS idx_inbox_items_workspace_id ON inbox_items(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_at ON tasks(due_at);

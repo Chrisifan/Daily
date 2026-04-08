@@ -42,23 +42,19 @@ export function SchedulePage() {
   const getDefaultTimes = () => {
     if (selectedDate) {
       const clickedTime = format(selectedDate, "HH:mm");
-      const [hours, minutes] = clickedTime.split(':').map(Number);
-      let endHours = hours;
-      let endMinutes = minutes + 30;
-      if (endMinutes >= 60) {
-        endHours += 1;
-        endMinutes = 0;
-      }
-      const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
       return {
         startAt: format(selectedDate, "yyyy-MM-dd'T'") + clickedTime + ':00',
-        endAt: format(selectedDate, "yyyy-MM-dd'T'") + endTime + ':00',
+        durationMinutes: 30,
+        repeatMode: "none" as const,
+        icon: "clock" as const,
       };
     }
     const today = format(new Date(), "yyyy-MM-dd");
     return {
       startAt: `${today}T09:00:00`,
-      endAt: `${today}T09:30:00`,
+      durationMinutes: 30,
+      repeatMode: "none" as const,
+      icon: "clock" as const,
     };
   };
 

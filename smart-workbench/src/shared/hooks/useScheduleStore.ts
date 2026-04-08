@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { ScheduleItem } from "../../domain/schedule/types";
+import type { ScheduleItem, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
 
 interface RustScheduleItem {
   id: string;
   source: string;
   source_event_id?: string;
   title: string;
+  icon: string;
   start_at: string;
-  end_at: string;
   timezone: string;
+  duration_minutes: number;
+  repeat_mode: string;
+  repeat_group_id?: string;
   location?: string;
   notes?: string;
   workspace_id?: string;
@@ -27,9 +30,12 @@ function rustToScheduleItem(rust: RustScheduleItem): ScheduleItem {
     source: rust.source as ScheduleItem["source"],
     sourceEventId: rust.source_event_id,
     title: rust.title,
+    icon: rust.icon as ScheduleIcon,
     startAt: rust.start_at,
-    endAt: rust.end_at,
     timezone: rust.timezone,
+    durationMinutes: rust.duration_minutes,
+    repeatMode: rust.repeat_mode as RepeatMode,
+    repeatGroupId: rust.repeat_group_id,
     location: rust.location,
     notes: rust.notes,
     workspaceId: rust.workspace_id,
@@ -44,9 +50,12 @@ function rustToScheduleItem(rust: RustScheduleItem): ScheduleItem {
 
 interface CreateScheduleInput {
   title: string;
+  icon: ScheduleIcon;
   start_at: string;
-  end_at: string;
   timezone: string;
+  duration_minutes: number;
+  repeat_mode: RepeatMode;
+  repeat_group_id?: string;
   location?: string;
   notes?: string;
   priority: string;
@@ -55,9 +64,12 @@ interface CreateScheduleInput {
 
 interface UpdateScheduleInput {
   title?: string;
+  icon?: ScheduleIcon;
   start_at?: string;
-  end_at?: string;
   timezone?: string;
+  duration_minutes?: number;
+  repeat_mode?: RepeatMode;
+  repeat_group_id?: string;
   location?: string;
   notes?: string;
   priority?: string;
@@ -71,6 +83,7 @@ export interface UseScheduleStore {
   addSchedule: (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => Promise<ScheduleItem>;
   updateSchedule: (id: string, data: Partial<Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">>) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  deleteAllSchedules: () => Promise<void>;
   refreshSchedules: () => Promise<void>;
 }
 
@@ -101,9 +114,12 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
     async (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">): Promise<ScheduleItem> => {
       const input: CreateScheduleInput = {
         title: data.title,
+        icon: data.icon,
         start_at: data.startAt,
-        end_at: data.endAt,
         timezone: data.timezone,
+        duration_minutes: data.durationMinutes,
+        repeat_mode: data.repeatMode,
+        repeat_group_id: data.repeatGroupId,
         location: data.location,
         notes: data.notes,
         priority: data.priority,
@@ -122,9 +138,12 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
     async (id: string, data: Partial<Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">>): Promise<void> => {
       const input: UpdateScheduleInput = {};
       if (data.title !== undefined) input.title = data.title;
+      if (data.icon !== undefined) input.icon = data.icon;
       if (data.startAt !== undefined) input.start_at = data.startAt;
-      if (data.endAt !== undefined) input.end_at = data.endAt;
       if (data.timezone !== undefined) input.timezone = data.timezone;
+      if (data.durationMinutes !== undefined) input.duration_minutes = data.durationMinutes;
+      if (data.repeatMode !== undefined) input.repeat_mode = data.repeatMode;
+      if (data.repeatGroupId !== undefined) input.repeat_group_id = data.repeatGroupId;
       if (data.location !== undefined) input.location = data.location;
       if (data.notes !== undefined) input.notes = data.notes;
       if (data.priority !== undefined) input.priority = data.priority;
@@ -142,6 +161,11 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
     setSchedules((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
+  const deleteAllSchedules = useCallback(async (): Promise<void> => {
+    await invoke("delete_all_schedules");
+    setSchedules([]);
+  }, []);
+
   return {
     schedules,
     loading,
@@ -149,6 +173,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
     addSchedule,
     updateSchedule,
     deleteSchedule,
+    deleteAllSchedules,
     refreshSchedules,
   };
 }

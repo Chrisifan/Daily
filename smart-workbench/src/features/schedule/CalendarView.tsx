@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Inbox, ChevronLeft, ChevronRight, ChevronDown, Plus, Clock, MapPin, AlertCircle } from "lucide-react";
+import { Inbox, ChevronLeft, ChevronRight, ChevronDown, Plus, Clock, MapPin, AlertCircle, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
 import {
   format,
   startOfWeek,
@@ -15,7 +15,19 @@ import {
   startOfDay,
   areIntervalsOverlapping,
 } from "date-fns";
-import type { ScheduleItem } from "../../domain/schedule/types";
+import type { ScheduleItem, ScheduleIcon } from "../../domain/schedule/types";
+
+const ICON_MAP: Record<ScheduleIcon, typeof Clock> = {
+  clock: Clock,
+  meeting: Calendar,
+  call: Phone,
+  focus: Focus,
+  break: Coffee,
+  travel: Plane,
+  meal: Utensils,
+  exercise: Dumbbell,
+  sleep: Moon,
+};
 
 interface CalendarViewProps {
   schedules: ScheduleItem[];
@@ -26,13 +38,14 @@ interface CalendarViewProps {
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
-const TIMELINE_LEFT_WIDTH = 56;
-const TIMELINE_RIGHT_WIDTH = 40;
+const TIMELINE_LEFT_WIDTH = 36;
+const TIMELINE_RIGHT_WIDTH = 32;
 const CARD_PADDING = 16;
-const SLOT_HEIGHT = 48;
+const SLOT_HEIGHT = 32;
 const HOURS_IN_DAY = 24;
 const TOTAL_SLOTS = HOURS_IN_DAY * 2;
 const TIMELINE_HEIGHT = TOTAL_SLOTS * SLOT_HEIGHT;
+const NODE_SIZE = 32;
 
 const PRIORITY_COLORS = {
   high: { bg: "rgba(239,68,68,0.12)", border: "#ef4444", text: "#dc2626", ring: "#fca5a5" },
@@ -51,14 +64,16 @@ function getGapMessage(index: number): string {
   return GAP_MESSAGES[index % GAP_MESSAGES.length];
 }
 
-function formatDuration(startAt: string, endAt: string): string {
-  const start = parseISO(startAt);
-  const end = parseISO(endAt);
-  const minutes = differenceInMinutes(end, start);
+function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}分钟`;
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return mins > 0 ? `${hours}小时${mins}分` : `${hours}小时`;
+}
+
+function getEndTime(startAt: string, durationMinutes: number): Date {
+  const start = parseISO(startAt);
+  return new Date(start.getTime() + durationMinutes * 60 * 1000);
 }
 
 export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: CalendarViewProps) {
@@ -101,9 +116,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
         const a = daySchedules[i];
         const b = daySchedules[j];
         const aStart = parseISO(a.startAt);
-        const aEnd = parseISO(a.endAt);
+        const aEnd = getEndTime(a.startAt, a.durationMinutes);
         const bStart = parseISO(b.startAt);
-        const bEnd = parseISO(b.endAt);
+        const bEnd = getEndTime(b.startAt, b.durationMinutes);
         if (areIntervalsOverlapping({ start: aStart, end: aEnd }, { start: bStart, end: bEnd })) {
           if (!overlaps[a.id]) overlaps[a.id] = [];
           if (!overlaps[b.id]) overlaps[b.id] = [];
@@ -195,10 +210,11 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       slots.push({
         hour: i,
         label: `${i.toString().padStart(2, '0')}:00`,
-        keyTimes: i === 0 || i === 24 || daySchedules.some(s => {
+        keyTimes: i === 0 || daySchedules.some(s => {
           const startHour = parseISO(s.startAt).getHours();
-          const endHour = parseISO(s.endAt).getHours();
-          return startHour === i || (endHour === i && parseISO(s.endAt).getMinutes() > 0);
+          const endTime = getEndTime(s.startAt, s.durationMinutes);
+          const endHour = endTime.getHours();
+          return startHour === i || (endHour === i && endTime.getMinutes() > 0);
         }),
       });
     }
@@ -443,7 +459,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 rounded-3xl overflow-hidden"
+            className="flex-1 rounded-3xl overflow-hidden px-12"
             style={{
               backgroundColor: "rgba(255,255,255,0.95)",
               boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
@@ -458,13 +474,13 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
             <div className="flex" style={{ height: TIMELINE_HEIGHT + CARD_PADDING * 2 }}>
               <div
                 className="shrink-0 flex flex-col py-4"
-                style={{ width: TIMELINE_LEFT_WIDTH }}
+                style={{ width: TIMELINE_LEFT_WIDTH, height: TIMELINE_HEIGHT + CARD_PADDING * 2 }}
               >
                 {timeSlots.map(({ hour, label, keyTimes }) => (
                   <div
                     key={hour}
                     className="flex items-start justify-end pr-3 relative"
-                    style={{ height: SLOT_HEIGHT }}
+                    style={{ height: SLOT_HEIGHT * 2 }}
                   >
                     {keyTimes && (
                       <span
@@ -474,19 +490,11 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                           fontWeight: hour === 0 ? "600" : "400",
                         }}
                       >
-                        {hour === 0 ? "开始" : label}
+                        {label}
                       </span>
                     )}
                   </div>
                 ))}
-                <div
-                  className="flex items-start justify-end pr-3"
-                  style={{ height: SLOT_HEIGHT }}
-                >
-                  <span className="text-[11px] font-medium shrink-0" style={{ color: "rgba(99,102,241,0.6)" }}>
-                    24:00
-                  </span>
-                </div>
               </div>
 
               <div
@@ -495,21 +503,18 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                 onClick={handleTimelineClick}
               >
                 <div
-                  className="absolute left-1/2 w-0.5 h-full -translate-x-1/2"
+                  className="absolute w-0.5 h-full"
                   style={{
-                    background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.15) 5%, rgba(99,102,241,0.15) 95%, transparent 100%)",
+                    left: TIMELINE_LEFT_WIDTH,
+                    background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.2) 5%, rgba(99,102,241,0.2) 95%, transparent 100%)",
                   }}
                 />
 
                 {currentTimeSlot >= 0 && (
                   <div
-                    className="absolute left-0 right-0 flex items-center z-20 pointer-events-none"
-                    style={{ top: slotToTop(currentTimeSlot) }}
+                    className="absolute right-0 flex items-center z-20 pointer-events-none"
+                    style={{ top: slotToTop(currentTimeSlot), left: TIMELINE_LEFT_WIDTH }}
                   >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full -ml-1.25"
-                      style={{ backgroundColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.2)" }}
-                    />
                     <div className="flex-1 h-0.5" style={{ backgroundColor: "#ef4444" }} />
                     <span className="text-[10px] font-medium text-red-500 mr-2 -mt-3">
                       {format(new Date(), "HH:mm")}
@@ -533,128 +538,142 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                     </p>
                   </div>
                 ) : (
-                  <div className="absolute inset-0">
+                  <div className="absolute inset-0 -left-[24px]">
                     {daySchedules.map((schedule, index) => {
                       const startDate = parseISO(schedule.startAt);
-                      const endDate = parseISO(schedule.endAt);
+                      const endDate = getEndTime(schedule.startAt, schedule.durationMinutes);
                       const startSlot = getSlotIndex(startDate);
                       const endSlot = getSlotIndex(endDate);
+                      const durationSlots = Math.max(endSlot - startSlot, 1);
                       const colors = PRIORITY_COLORS[schedule.priority];
+                      const IconComponent = ICON_MAP[schedule.icon] || Clock;
                       const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
                       const overlappingIds = scheduleOverlaps[schedule.id] || [];
                       const startTop = slotToTop(startSlot);
-                      const endTop = slotToTop(endSlot);
+                      const nodeHeight = durationSlots * SLOT_HEIGHT;
+                      const nodeWidth = NODE_SIZE;
+                      const nodeTop = startTop - nodeHeight / 2;
+                      const prevEndSlot = index > 0 ? getSlotIndex(getEndTime(daySchedules[index - 1].startAt, daySchedules[index - 1].durationMinutes)) : 0;
+                      const isDashed = index > 0 && (startSlot - prevEndSlot) > 1;
 
                       return (
                         <div key={schedule.id}>
                           {index > 0 && (
-                            <>
-                              {(() => {
-                                const prevEndSlot = getSlotIndex(parseISO(daySchedules[index - 1].endAt));
-                                const gap = startSlot - prevEndSlot;
-                                if (gap > 1) {
-                                  return (
-                                    <div
-                                      className="absolute flex flex-col items-center left-1/2 -translate-x-1/2"
-                                      style={{
-                                        top: slotToTop(prevEndSlot) + SLOT_HEIGHT / 2,
-                                        height: startTop - slotToTop(prevEndSlot) - SLOT_HEIGHT / 2,
-                                      }}
-                                    >
-                                      <div
-                                        className="w-px h-full"
-                                        style={{
-                                          background: "repeating-linear-gradient(180deg, rgba(99,102,241,0.2) 0, rgba(99,102,241,0.2) 4px, transparent 4px, transparent 8px)",
-                                        }}
-                                      />
-                                      <motion.div
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: 0.1 }}
-                                        className="px-2 py-1 rounded-lg text-[10px] whitespace-nowrap"
-                                        style={{
-                                          backgroundColor: "rgba(99,102,241,0.08)",
-                                          color: "rgba(99,102,241,0.7)",
-                                        }}
-                                      >
-                                        {getGapMessage(index - 1)}
-                                      </motion.div>
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </>
+                            <div
+                              className="absolute flex flex-col items-center"
+                              style={{
+                                top: slotToTop(prevEndSlot),
+                                height: startTop - slotToTop(prevEndSlot),
+                                width: 2,
+                                left: TIMELINE_LEFT_WIDTH + 24,
+                              }}
+                            >
+                              <div
+                                className="w-px flex-1"
+                                style={{
+                                  background: isDashed
+                                    ? "repeating-linear-gradient(180deg, rgba(99,102,241,0.25) 0, rgba(99,102,241,0.25) 4px, transparent 4px, transparent 8px)"
+                                    : "linear-gradient(180deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.25) 100%)",
+                                  left: TIMELINE_LEFT_WIDTH + 8,
+                                }}
+                              />
+                              {isDashed && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: 0.1 }}
+                                  className="px-2 py-0.5 rounded text-[10px] whitespace-nowrap"
+                                  style={{
+                                    backgroundColor: "rgba(99,102,241,0.08)",
+                                    color: "rgba(99,102,241,0.7)",
+                                    left: TIMELINE_LEFT_WIDTH + 8
+                                  }}
+                                >
+                                  {getGapMessage(index - 1)}
+                                </motion.div>
+                              )}
+                            </div>
                           )}
 
                           <motion.button
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.25, delay: index * 0.05 }}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.2, delay: index * 0.05 }}
                             onClick={(e) => {
                               e.stopPropagation();
                               onEditSchedule?.(schedule);
                             }}
-                            className="event-capsule absolute flex items-center gap-3 py-2.5 px-3 rounded-xl cursor-pointer transition-all hover:brightness-98 active:scale-[0.99]"
+                            className="event-capsule absolute cursor-pointer transition-all hover:brightness-95 active:scale-95"
                             style={{
-                              top: startTop,
-                              height: Math.max(endTop - startTop, 36),
-                              minHeight: 36,
-                              backgroundColor: colors.bg,
-                              borderLeft: `3px solid ${colors.border}`,
-                              width: "calc(50% - 24px)",
-                              left: "calc(50% - 24px)",
+                              top: nodeTop,
+                              height: nodeHeight,
+                              width: nodeWidth,
+                              left: TIMELINE_LEFT_WIDTH + 8,
                             }}
                           >
                             <div
-                              className="w-3 h-3 rounded-full shrink-0"
-                              style={{ backgroundColor: colors.border, boxShadow: `0 0 0 3px ${colors.ring}` }}
-                            />
+                              className="w-full h-full rounded-full flex items-center justify-center"
+                              style={{
+                                backgroundColor: colors.bg,
+                                border: `2px solid ${colors.border}`,
+                                boxShadow: `0 0 0 4px ${colors.ring}`,
+                              }}
+                            >
+                              <IconComponent className="w-4 h-4" style={{ color: colors.text }} />
+                            </div>
+                            {hasOverlap && (
+                              <div
+                                className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                                style={{ backgroundColor: "#ef4444" }}
+                              >
+                                <AlertCircle className="w-2 h-2 text-white" />
+                              </div>
+                            )}
+                          </motion.button>
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-baseline gap-2">
-                                <h4
-                                  className="text-sm font-semibold truncate"
-                                  style={{ color: "#1f2329" }}
+                          <div
+                            className="absolute left-20 right-4 flex flex-col justify-center"
+                            style={{ top: nodeTop, height: nodeHeight }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <h4
+                                className="text-sm font-semibold truncate"
+                                style={{ color: "#1f2329" }}
+                              >
+                                {schedule.title}
+                              </h4>
+                              {hasOverlap && (
+                                <span
+                                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
+                                  style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
                                 >
-                                  {schedule.title}
-                                </h4>
-                                {hasOverlap && (
-                                  <span
-                                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
-                                    style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
-                                  >
-                                    <AlertCircle className="w-3 h-3" />
-                                    重叠
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[11px]" style={{ color: colors.text }}>
-                                  {format(startDate, "HH:mm")} - {format(endDate, "HH:mm")}
+                                  <AlertCircle className="w-3 h-3" />
+                                  重叠
                                 </span>
-                                <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.35)" }}>
-                                  {formatDuration(schedule.startAt, schedule.endAt)}
-                                </span>
-                              </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[11px]" style={{ color: colors.text }}>
+                                {formatDuration(schedule.durationMinutes)}
+                              </span>
                               {schedule.location && (
-                                <div className="flex items-center gap-1 mt-1">
+                                <div className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3" style={{ color: "rgba(31,35,41,0.3)" }} />
                                   <span className="text-[10px] truncate" style={{ color: "rgba(31,35,41,0.45)" }}>
                                     {schedule.location}
                                   </span>
                                 </div>
                               )}
-                              {hasOverlap && (
-                                <div
-                                  className="mt-1.5 px-2 py-1 rounded text-[10px]"
-                                  style={{ backgroundColor: "rgba(239,68,68,0.08)", color: "rgba(239,68,68,0.7)" }}
-                                >
-                                  与 {overlappingIds.length} 个日程重叠
-                                </div>
-                              )}
                             </div>
-                          </motion.button>
+                            {hasOverlap && (
+                              <div
+                                className="mt-1 px-2 py-0.5 rounded text-[10px]"
+                                style={{ backgroundColor: "rgba(239,68,68,0.08)", color: "rgba(239,68,68,0.7)" }}
+                              >
+                                与 {overlappingIds.length} 个日程重叠
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -663,46 +682,37 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
               </div>
 
               <div
-                className="shrink-0 flex flex-col items-center py-4 gap-3"
+                className="shrink-0 flex flex-col items-center py-4"
                 style={{ width: TIMELINE_RIGHT_WIDTH }}
               >
                 {daySchedules.length === 0 ? (
-                  <>
-                    <div
-                      className="w-6 h-6 rounded-full"
-                      style={{ border: "2px solid rgba(99,102,241,0.2)" }}
-                    />
-                    <div
-                      className="w-6 h-6 rounded-full"
-                      style={{ border: "2px solid rgba(99,102,241,0.15)" }}
-                    />
-                    <div
-                      className="w-6 h-6 rounded-full"
-                      style={{ border: "2px solid rgba(99,102,241,0.1)" }}
-                    />
-                  </>
+                  <div
+                    className="w-6 h-6 rounded-full"
+                    style={{ border: "2px solid rgba(99,102,241,0.2)" }}
+                  />
                 ) : (
                   daySchedules.map((schedule, index) => {
                     const colors = PRIORITY_COLORS[schedule.priority];
                     const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
+                    const startSlot = getSlotIndex(parseISO(schedule.startAt));
+                    const endSlot = getSlotIndex(getEndTime(schedule.startAt, schedule.durationMinutes));
+                    const durationSlots = Math.max(endSlot - startSlot, 1);
+                    const nodeHeight = durationSlots * SLOT_HEIGHT;
+                    const nodeTop = slotToTop(startSlot) - nodeHeight / 2;
                     return (
                       <motion.div
                         key={schedule.id}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2, delay: index * 0.05 + 0.1 }}
-                        className="relative"
-                        style={{ height: Math.max(slotToTop(getSlotIndex(parseISO(schedule.endAt))) - slotToTop(getSlotIndex(parseISO(schedule.startAt))), 36) }}
+                        className="flex items-center justify-center"
+                        style={{ height: nodeHeight, marginTop: index === 0 ? nodeTop : 0 }}
                       >
                         <div
                           className={`w-6 h-6 rounded-full ${hasOverlap ? 'animate-pulse' : ''}`}
                           style={{
                             border: `2px solid ${hasOverlap ? '#ef4444' : colors.ring}`,
                             backgroundColor: hasOverlap ? 'rgba(239,68,68,0.1)' : 'transparent',
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
                           }}
                         />
                       </motion.div>

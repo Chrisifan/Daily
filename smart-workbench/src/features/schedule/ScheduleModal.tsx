@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronDown, ChevronUp } from "lucide-react";
-import type { ScheduleItem, Priority } from "../../domain/schedule/types";
+import { X, ChevronDown, ChevronUp, Repeat, Clock, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
+import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
+import { REPEAT_MODE_LABELS, SCHEDULE_ICON_LABELS } from "../../domain/schedule/types";
 import { format } from "date-fns";
 
 const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
@@ -10,16 +11,28 @@ const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 });
 
-function getEndTimeFromStart(startTime: string): string {
-  const [hours, minutes] = startTime.split(':').map(Number);
-  let endHours = hours;
-  let endMinutes = minutes + 30;
-  if (endMinutes >= 60) {
-    endHours += 1;
-    endMinutes = 0;
-  }
-  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
-}
+const DURATION_OPTIONS = [
+  { value: 15, label: "15分钟" },
+  { value: 30, label: "30分钟" },
+  { value: 45, label: "45分钟" },
+  { value: 60, label: "1小时" },
+  { value: 90, label: "1.5小时" },
+  { value: 120, label: "2小时" },
+  { value: 180, label: "3小时" },
+  { value: 240, label: "4小时" },
+];
+
+const ICON_OPTIONS: { value: ScheduleIcon; icon: typeof Clock }[] = [
+  { value: "clock", icon: Clock },
+  { value: "meeting", icon: Calendar },
+  { value: "call", icon: Phone },
+  { value: "focus", icon: Focus },
+  { value: "break", icon: Coffee },
+  { value: "travel", icon: Plane },
+  { value: "meal", icon: Utensils },
+  { value: "exercise", icon: Dumbbell },
+  { value: "sleep", icon: Moon },
+];
 
 interface TimeSelectProps {
   value: string;
@@ -88,6 +101,222 @@ function TimeSelect({ value, onChange }: TimeSelectProps) {
   );
 }
 
+interface DurationSelectProps {
+  value: number;
+  onChange: (duration: number) => void;
+}
+
+function DurationSelect({ value, onChange }: DurationSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const selectedLabel = DURATION_OPTIONS.find(d => d.value === value)?.label || `${value}分钟`;
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
+      >
+        <span>{selectedLabel}</span>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {DURATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                  opt.value === value 
+                    ? "bg-blue-50 text-blue-600 font-medium" 
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+interface RepeatSelectProps {
+  value: RepeatMode;
+  onChange: (mode: RepeatMode) => void;
+}
+
+function RepeatSelect({ value, onChange }: RepeatSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const repeatModes: RepeatMode[] = ["none", "daily", "weekly", "biweekly", "monthly", "quarterly", "semi_annually", "annually"];
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2">
+          <Repeat className="w-4 h-4 text-gray-400" />
+          <span>{REPEAT_MODE_LABELS[value]}</span>
+        </div>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {repeatModes.map((mode) => (
+              <button
+                key={mode}
+                onClick={() => {
+                  onChange(mode);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center justify-between ${
+                  mode === value 
+                    ? "bg-blue-50 text-blue-600 font-medium" 
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <span>{REPEAT_MODE_LABELS[mode]}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+interface IconSelectProps {
+  value: ScheduleIcon;
+  onChange: (icon: ScheduleIcon) => void;
+}
+
+function IconSelect({ value, onChange }: IconSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const selectedOption = ICON_OPTIONS.find(opt => opt.value === value);
+  const SelectedIcon = selectedOption?.icon || Clock;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center gap-2"
+      >
+        <SelectedIcon className="w-4 h-4" style={{ color: "#6366f1" }} />
+        <span>{SCHEDULE_ICON_LABELS[value]}</span>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 ml-auto" /> : <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {ICON_OPTIONS.map((opt) => {
+              const IconComponent = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2 ${
+                    opt.value === value 
+                      ? "bg-blue-50 text-blue-600 font-medium" 
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4" />
+                  <span>{SCHEDULE_ICON_LABELS[opt.value]}</span>
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 interface ScheduleModalProps {
   open: boolean;
   onClose: () => void;
@@ -102,60 +331,77 @@ function getInitialValues(initialData?: Partial<ScheduleItem>) {
     const start = new Date(initialData.startAt);
     return {
       title: initialData.title || "",
+      icon: (initialData.icon || "clock") as ScheduleIcon,
       notes: initialData.notes || "",
       priority: (initialData.priority || "medium") as Priority,
       location: initialData.location || "",
       isFlexible: initialData.isFlexible || false,
       startDate: format(start, "yyyy-MM-dd"),
       startTime: format(start, "HH:mm"),
-      endDate: initialData.endAt ? format(new Date(initialData.endAt), "yyyy-MM-dd") : format(start, "yyyy-MM-dd"),
-      endTime: initialData.endAt ? format(new Date(initialData.endAt), "HH:mm") : getEndTimeFromStart(format(start, "HH:mm")),
+      durationMinutes: initialData.durationMinutes || 30,
+      repeatMode: (initialData.repeatMode || "none") as RepeatMode,
     };
   }
   const now = new Date();
   return {
     title: "",
+    icon: "clock" as ScheduleIcon,
     notes: "",
     priority: "medium" as Priority,
     location: "",
     isFlexible: false,
     startDate: format(now, "yyyy-MM-dd"),
     startTime: "09:00",
-    endDate: format(now, "yyyy-MM-dd"),
-    endTime: "09:30",
+    durationMinutes: 30,
+    repeatMode: "none" as RepeatMode,
   };
 }
 
 export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, mode = "create" }: ScheduleModalProps) {
   const initialValues = getInitialValues(initialData);
   const [title, setTitle] = useState(initialValues.title);
+  const [icon, setIcon] = useState<ScheduleIcon>(initialValues.icon);
   const [notes, setNotes] = useState(initialValues.notes);
   const [startDate, setStartDate] = useState(initialValues.startDate);
-  const [endDate, setEndDate] = useState(initialValues.endDate);
   const [startTime, setStartTime] = useState(initialValues.startTime);
-  const [endTime, setEndTime] = useState(initialValues.endTime);
+  const [durationMinutes, setDurationMinutes] = useState(initialValues.durationMinutes);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>(initialValues.repeatMode);
   const [priority, setPriority] = useState<Priority>(initialValues.priority);
   const [location, setLocation] = useState(initialValues.location);
   const [isFlexible, setIsFlexible] = useState(initialValues.isFlexible);
 
-  const handleStartTimeChange = (time: string) => {
-    setStartTime(time);
-    setEndTime(getEndTimeFromStart(time));
-  };
+  useEffect(() => {
+    if (open) {
+      const values = getInitialValues(initialData);
+      setTitle(values.title);
+      setIcon(values.icon);
+      setNotes(values.notes);
+      setStartDate(values.startDate);
+      setStartTime(values.startTime);
+      setDurationMinutes(values.durationMinutes);
+      setRepeatMode(values.repeatMode);
+      setPriority(values.priority);
+      setLocation(values.location);
+      setIsFlexible(values.isFlexible);
+    }
+  }, [open, initialData]);
 
   const handleSubmit = () => {
     if (!title.trim()) return;
-    if (!startDate || !endDate) return;
+    if (!startDate) return;
 
     const startAt = new Date(`${startDate}T${startTime}:00`).toISOString();
-    const endAt = new Date(`${endDate}T${endTime}:00`).toISOString();
+    const repeatGroupId = repeatMode !== "none" ? `group-${Date.now()}` : undefined;
 
     onSubmit({
       title: title.trim(),
+      icon,
       notes: notes.trim() || undefined,
       startAt,
-      endAt,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      durationMinutes,
+      repeatMode,
+      repeatGroupId,
       location: location.trim() || undefined,
       priority,
       isFlexible,
@@ -163,7 +409,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
     onClose();
   };
 
-  const isValid = title.trim() && startDate && endDate && startTime && endTime;
+  const isValid = title.trim() && startDate && startTime;
 
   return (
     <AnimatePresence>
@@ -210,39 +456,47 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                 />
               </div>
 
-              <fieldset>
-                <legend className="block text-sm font-medium text-gray-700 mb-1.5">
-                  日期区间 <span className="text-red-500">*</span>
-                </legend>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="schedule-start-date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                  />
-                  <span className="text-gray-400">至</span>
-                  <input
-                    id="schedule-end-date"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                  />
-                </div>
-              </fieldset>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  图标
+                </label>
+                <IconSelect value={icon} onChange={setIcon} />
+              </div>
 
-              <fieldset>
-                <legend className="block text-sm font-medium text-gray-700 mb-1.5">
-                  时间区间 <span className="text-red-500">*</span>
-                </legend>
-                <div className="flex items-center gap-3">
-                  <TimeSelect value={startTime} onChange={handleStartTimeChange} />
-                  <span className="text-gray-400">至</span>
-                  <TimeSelect value={endTime} onChange={setEndTime} />
+              <div>
+                <label htmlFor="schedule-date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  日期 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="schedule-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    开始时间 <span className="text-red-500">*</span>
+                  </label>
+                  <TimeSelect value={startTime} onChange={setStartTime} />
                 </div>
-              </fieldset>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    时长
+                  </label>
+                  <DurationSelect value={durationMinutes} onChange={setDurationMinutes} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  重复
+                </label>
+                <RepeatSelect value={repeatMode} onChange={setRepeatMode} />
+              </div>
 
               <div>
                 <span className="block text-sm font-medium text-gray-700 mb-1.5">
