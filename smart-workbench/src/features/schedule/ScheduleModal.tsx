@@ -97,52 +97,51 @@ interface ScheduleModalProps {
   mode?: "create" | "edit";
 }
 
+function getInitialValues(initialData?: Partial<ScheduleItem>) {
+  if (initialData?.startAt) {
+    const start = new Date(initialData.startAt);
+    return {
+      title: initialData.title || "",
+      notes: initialData.notes || "",
+      priority: (initialData.priority || "medium") as Priority,
+      location: initialData.location || "",
+      isFlexible: initialData.isFlexible || false,
+      startDate: format(start, "yyyy-MM-dd"),
+      startTime: format(start, "HH:mm"),
+      endDate: initialData.endAt ? format(new Date(initialData.endAt), "yyyy-MM-dd") : format(start, "yyyy-MM-dd"),
+      endTime: initialData.endAt ? format(new Date(initialData.endAt), "HH:mm") : getEndTimeFromStart(format(start, "HH:mm")),
+    };
+  }
+  const now = new Date();
+  return {
+    title: "",
+    notes: "",
+    priority: "medium" as Priority,
+    location: "",
+    isFlexible: false,
+    startDate: format(now, "yyyy-MM-dd"),
+    startTime: "09:00",
+    endDate: format(now, "yyyy-MM-dd"),
+    endTime: "09:30",
+  };
+}
+
 export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, mode = "create" }: ScheduleModalProps) {
-  const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("09:30");
-  const [priority, setPriority] = useState<Priority>("medium");
-  const [location, setLocation] = useState("");
-  const [isFlexible, setIsFlexible] = useState(false);
+  const initialValues = getInitialValues(initialData);
+  const [title, setTitle] = useState(initialValues.title);
+  const [notes, setNotes] = useState(initialValues.notes);
+  const [startDate, setStartDate] = useState(initialValues.startDate);
+  const [endDate, setEndDate] = useState(initialValues.endDate);
+  const [startTime, setStartTime] = useState(initialValues.startTime);
+  const [endTime, setEndTime] = useState(initialValues.endTime);
+  const [priority, setPriority] = useState<Priority>(initialValues.priority);
+  const [location, setLocation] = useState(initialValues.location);
+  const [isFlexible, setIsFlexible] = useState(initialValues.isFlexible);
 
   const handleStartTimeChange = (time: string) => {
     setStartTime(time);
     setEndTime(getEndTimeFromStart(time));
   };
-
-  useEffect(() => {
-    if (open && initialData) {
-      setTitle(initialData.title || "");
-      setNotes(initialData.notes || "");
-      setPriority(initialData.priority || "medium");
-      setLocation(initialData.location || "");
-      setIsFlexible(initialData.isFlexible || false);
-      if (initialData.startAt) {
-        const start = new Date(initialData.startAt);
-        setStartDate(format(start, "yyyy-MM-dd"));
-        setStartTime(format(start, "HH:mm"));
-      }
-      if (initialData.endAt) {
-        const end = new Date(initialData.endAt);
-        setEndDate(format(end, "yyyy-MM-dd"));
-        setEndTime(format(end, "HH:mm"));
-      }
-    } else if (open) {
-      const now = new Date();
-      setTitle("");
-      setNotes("");
-      setPriority("medium");
-      setLocation("");
-      setIsFlexible(false);
-      setStartDate(format(now, "yyyy-MM-dd"));
-      setEndDate(format(now, "yyyy-MM-dd"));
-      setStartTime("09:00");
-      setEndTime("09:30");
-    }
-  }, [open, initialData]);
 
   const handleSubmit = () => {
     if (!title.trim()) return;
@@ -175,7 +174,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+          <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default" onClick={onClose} aria-label="关闭" />
           
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -198,10 +197,11 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
 
             <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="schedule-title" className="block text-sm font-medium text-gray-700 mb-1.5">
                   标题 <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="schedule-title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -210,12 +210,13 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <fieldset>
+                <legend className="block text-sm font-medium text-gray-700 mb-1.5">
                   日期区间 <span className="text-red-500">*</span>
-                </label>
+                </legend>
                 <div className="flex items-center gap-3">
                   <input
+                    id="schedule-start-date"
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
@@ -223,33 +224,35 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                   />
                   <span className="text-gray-400">至</span>
                   <input
+                    id="schedule-end-date"
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="flex-1 px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
                   />
                 </div>
-              </div>
+              </fieldset>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <fieldset>
+                <legend className="block text-sm font-medium text-gray-700 mb-1.5">
                   时间区间 <span className="text-red-500">*</span>
-                </label>
+                </legend>
                 <div className="flex items-center gap-3">
                   <TimeSelect value={startTime} onChange={handleStartTimeChange} />
                   <span className="text-gray-400">至</span>
                   <TimeSelect value={endTime} onChange={setEndTime} />
                 </div>
-              </div>
+              </fieldset>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <span className="block text-sm font-medium text-gray-700 mb-1.5">
                   优先级
-                </label>
+                </span>
                 <div className="flex gap-2">
                   {(["low", "medium", "high"] as Priority[]).map((p) => (
                     <button
                       key={p}
+                      type="button"
                       onClick={() => setPriority(p)}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
                         priority === p
@@ -268,10 +271,11 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="schedule-location" className="block text-sm font-medium text-gray-700 mb-1.5">
                   位置
                 </label>
                 <input
+                  id="schedule-location"
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -281,10 +285,11 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="schedule-notes" className="block text-sm font-medium text-gray-700 mb-1.5">
                   备注
                 </label>
                 <textarea
+                  id="schedule-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="添加备注（可选）"

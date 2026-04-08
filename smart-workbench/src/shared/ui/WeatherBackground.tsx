@@ -378,7 +378,7 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
       lightningRef.current.life--;
       lightningRef.current.opacity = lightningRef.current.life / 15;
     }
-  }, [drawClouds]);
+  }, []);
 
   const drawHaze = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, _time: number) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);

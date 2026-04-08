@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Inbox, ChevronLeft, ChevronRight, ChevronDown, Plus } from "lucide-react";
+import { Inbox, ChevronLeft, ChevronRight, ChevronDown, Plus, Clock, MapPin, AlertCircle } from "lucide-react";
 import {
   format,
   startOfWeek,
@@ -13,6 +13,7 @@ import {
   isSameMonth,
   differenceInMinutes,
   startOfDay,
+  areIntervalsOverlapping,
 } from "date-fns";
 import type { ScheduleItem } from "../../domain/schedule/types";
 
@@ -25,17 +26,40 @@ interface CalendarViewProps {
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
-const SLOT_HEIGHT = 32; // 每半小时 32px
+const TIMELINE_LEFT_WIDTH = 56;
+const TIMELINE_RIGHT_WIDTH = 40;
+const CARD_PADDING = 16;
+const SLOT_HEIGHT = 48;
 const HOURS_IN_DAY = 24;
-const TOTAL_SLOTS = HOURS_IN_DAY * 2; // 48 个半小时槽位
-const TIMELINE_HEIGHT = TOTAL_SLOTS * SLOT_HEIGHT; // 1536px
+const TOTAL_SLOTS = HOURS_IN_DAY * 2;
+const TIMELINE_HEIGHT = TOTAL_SLOTS * SLOT_HEIGHT;
 
-// 生成时间选项：00:00, 00:30, 01:00, ...
-const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
-  const hours = Math.floor(i / 2);
-  const minutes = (i % 2) * 30;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-});
+const PRIORITY_COLORS = {
+  high: { bg: "rgba(239,68,68,0.12)", border: "#ef4444", text: "#dc2626", ring: "#fca5a5" },
+  medium: { bg: "rgba(99,102,241,0.12)", border: "#6366f1", text: "#4f46e5", ring: "#a5b4fc" },
+  low: { bg: "rgba(16,185,129,0.12)", border: "#10b981", text: "#059669", ring: "#6ee7b7" },
+};
+
+const GAP_MESSAGES = [
+  "暂停结束。继续前进！",
+  "间歇结束。接下来是什么？",
+  "休息片刻。继续加油！",
+  "空档时间。规划一下？",
+];
+
+function getGapMessage(index: number): string {
+  return GAP_MESSAGES[index % GAP_MESSAGES.length];
+}
+
+function formatDuration(startAt: string, endAt: string): string {
+  const start = parseISO(startAt);
+  const end = parseISO(endAt);
+  const minutes = differenceInMinutes(end, start);
+  if (minutes < 60) return `${minutes}分钟`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}小时${mins}分` : `${hours}小时`;
+}
 
 export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -44,20 +68,22 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
   const pickerRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
-  // 计算某时间点在当天中的"半小时槽位"索引
   const getSlotIndex = useCallback((date: Date): number => {
     const dayStart = startOfDay(selectedDate);
     const minutes = differenceInMinutes(date, dayStart);
     return Math.max(0, Math.min(Math.floor(minutes / 30), TOTAL_SLOTS - 1));
   }, [selectedDate]);
 
-  // 根据槽位索引计算 top 位置
   const slotToTop = useCallback((slot: number): number => {
-    return slot * SLOT_HEIGHT;
+    return slot * SLOT_HEIGHT + CARD_PADDING;
   }, []);
 
-  // 获取选中日期的所有日程（排序后）
+  const topToSlot = useCallback((top: number): number => {
+    return Math.max(0, Math.min(Math.floor((top - CARD_PADDING) / SLOT_HEIGHT), TOTAL_SLOTS - 1));
+  }, []);
+
   const daySchedules = useMemo(() => {
     return schedules
       .filter((s) => {
@@ -68,7 +94,27 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       .sort((a, b) => parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime());
   }, [schedules, selectedDate]);
 
-  // 计算当前时间线的位置
+  const scheduleOverlaps = useMemo(() => {
+    const overlaps: { [key: string]: string[] } = {};
+    for (let i = 0; i < daySchedules.length; i++) {
+      for (let j = i + 1; j < daySchedules.length; j++) {
+        const a = daySchedules[i];
+        const b = daySchedules[j];
+        const aStart = parseISO(a.startAt);
+        const aEnd = parseISO(a.endAt);
+        const bStart = parseISO(b.startAt);
+        const bEnd = parseISO(b.endAt);
+        if (areIntervalsOverlapping({ start: aStart, end: aEnd }, { start: bStart, end: bEnd })) {
+          if (!overlaps[a.id]) overlaps[a.id] = [];
+          if (!overlaps[b.id]) overlaps[b.id] = [];
+          overlaps[a.id].push(b.id);
+          overlaps[b.id].push(a.id);
+        }
+      }
+    }
+    return overlaps;
+  }, [daySchedules]);
+
   const currentTimeSlot = useMemo(() => {
     const now = new Date();
     if (isSameDay(now, selectedDate)) {
@@ -130,53 +176,60 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     setPickerMonth(selectedDate.getMonth());
   }, [selectedDate]);
 
-  // 点击时间轴空白区域添加日程
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.timeline-content')) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const slotIndex = Math.floor(y / SLOT_HEIGHT);
-      const clickedTime = TIME_SLOTS[Math.min(slotIndex, TIME_SLOTS.length - 1)];
-      const [hours, minutes] = clickedTime.split(':').map(Number);
-      const clickedDate = new Date(selectedDate);
-      clickedDate.setHours(hours, minutes, 0, 0);
-      onAddSchedule?.(clickedDate);
-    }
+    if ((e.target as HTMLElement).closest('.event-capsule')) return;
+    const rect = timelineRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const y = e.clientY - rect.top;
+    const slotIndex = topToSlot(y);
+    const hours = Math.floor(slotIndex / 2);
+    const minutes = (slotIndex % 2) * 30;
+    const clickedDate = new Date(selectedDate);
+    clickedDate.setHours(hours, minutes, 0, 0);
+    onAddSchedule?.(clickedDate);
   };
 
+  const timeSlots = useMemo(() => {
+    const slots = [];
+    for (let i = 0; i < 24; i++) {
+      slots.push({
+        hour: i,
+        label: `${i.toString().padStart(2, '0')}:00`,
+        keyTimes: i === 0 || i === 24 || daySchedules.some(s => {
+          const startHour = parseISO(s.startAt).getHours();
+          const endHour = parseISO(s.endAt).getHours();
+          return startHour === i || (endHour === i && parseISO(s.endAt).getMinutes() > 0);
+        }),
+      });
+    }
+    return slots;
+  }, [daySchedules]);
+
   return (
-    <div 
-      className="flex flex-row w-full"
-      style={{
-        minHeight: "calc(100vh - 48px)",
-      }}
-    >
-      {/* 左侧边栏 */}
-      <div 
-        className="flex flex-col justify-center items-center w-72 lg:w-84 p-4 lg:p-6"
-      >
+    <div className="flex flex-row w-full" style={{ minHeight: "calc(100vh - 48px)" }}>
+      <div className="flex flex-col justify-center items-center w-64 lg:w-72 p-4 lg:p-5 shrink-0">
         <div className="space-y-6">
-          <div className="flex flex-col items-center text-center gap-2">
-            <div 
+          <div className="flex flex-col items-center text-center gap-3">
+            <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: "rgba(63,86,214,0.12)" }}
+              style={{ backgroundColor: "rgba(99,102,241,0.1)" }}
             >
-              <Inbox className="w-6 h-6" style={{ color: "#3f56d6" }} />
+              <Inbox className="w-6 h-6" style={{ color: "#6366f1" }} />
             </div>
             <h3 className="text-sm font-semibold" style={{ color: "#1f2329" }}>
-              您的想法或任务
+              日程助手
             </h3>
-            <p className="text-xs leading-relaxed" style={{ color: "rgba(31,35,41,0.6)" }}>
-              随时记录您的想法或任务，按照时间轴进行移动
+            <p className="text-xs leading-relaxed" style={{ color: "rgba(31,35,41,0.5)" }}>
+              轻松掌控每一天的时间流向
             </p>
           </div>
         </div>
 
-        <div className="space-y-2 pt-4">
+        <div className="space-y-2 mt-12">
           <button
             onClick={() => onAddSchedule?.(selectedDate)}
             className="py-2.5 px-4 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-2 transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(180deg, #7d8cff, #6070f7)", boxShadow: "0 4px 12px rgba(96,112,247,0.3)" }}
+            style={{ background: "linear-gradient(135deg, #818cf8, #6366f1)", boxShadow: "0 4px 12px rgba(99,102,241,0.25)" }}
           >
             <Plus className="w-4 h-4" />
             添加日程
@@ -184,11 +237,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
         </div>
       </div>
 
-      {/* 右侧内容区 */}
-      <div className="flex flex-col flex-1">
-        {/* 顶部导航 */}
+      <div className="flex flex-col flex-1 min-w-0">
         <div className="px-4 py-3 lg:px-6 lg:py-4">
-          <header className="flex items-center justify-between gap-3 mb-2 px-4">
+          <header className="flex items-center justify-between gap-3 mb-2 px-2">
             <div className="flex items-center gap-2">
               <div className="relative" ref={pickerRef}>
                 <button
@@ -200,9 +251,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                   style={{ color: "#1f2329" }}
                 >
                   {format(selectedDate, "yyyy年M月d日")}
-                  <ChevronDown 
-                    className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} 
-                    style={{ color: "rgba(31,35,41,0.6)" }} 
+                  <ChevronDown
+                    className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform ${showDatePicker ? 'rotate-180' : ''}`}
+                    style={{ color: "rgba(31,35,41,0.5)" }}
                   />
                 </button>
 
@@ -213,7 +264,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -4, scale: 0.98 }}
                       transition={{ duration: 0.12 }}
-                      className="absolute top-full left-0 mt-2 p-3 bg-white/90 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 w-max"
+                      className="absolute top-full left-0 mt-2 p-3 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 w-max"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {pickerMode === 'day' ? (
@@ -222,7 +273,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                             <button
                               onClick={() => setPickerMode('month')}
                               className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
-                              style={{ color: "#1f2329", backgroundColor: "rgba(63,86,214,0.12)" }}
+                              style={{ color: "#6366f1", backgroundColor: "rgba(99,102,241,0.1)" }}
                             >
                               {pickerYear}年{MONTHS[pickerMonth]}
                               <ChevronDown className="w-3 h-3" />
@@ -231,7 +282,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
 
                           <div className="grid grid-cols-7 gap-0.5 mb-1">
                             {WEEKDAYS.map((d) => (
-                              <div key={d} className="text-center text-[10px] py-1" style={{ color: "rgba(31,35,41,0.6)" }}>
+                              <div key={d} className="text-center text-[10px] py-1" style={{ color: "rgba(31,35,41,0.5)" }}>
                                 {d}
                               </div>
                             ))}
@@ -249,8 +300,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                     onClick={() => handleDaySelect(day)}
                                     className="w-7 h-7 rounded-md text-xs font-medium transition-all"
                                     style={{
-                                      backgroundColor: isSelected ? "#3f56d6" : isDayToday ? "rgba(63,86,214,0.12)" : "transparent",
-                                      color: isSelected ? "white" : isDayToday ? "#3f56d6" : isCurrentMonth ? "#1f2329" : "rgba(31,35,41,0.35)",
+                                      backgroundColor: isSelected ? "#6366f1" : isDayToday ? "rgba(99,102,241,0.1)" : "transparent",
+                                      color: isSelected ? "white" : isDayToday ? "#6366f1" : isCurrentMonth ? "#1f2329" : "rgba(31,35,41,0.3)",
                                     }}
                                   >
                                     {format(day, "d")}
@@ -266,7 +317,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                             <button
                               onClick={() => handleYearChange(-1)}
                               className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
-                              style={{ color: "rgba(31,35,41,0.6)", backgroundColor: "rgba(63,86,214,0.06)" }}
+                              style={{ color: "rgba(31,35,41,0.5)", backgroundColor: "rgba(99,102,241,0.06)" }}
                             >
                               <ChevronLeft className="w-4 h-4" />
                             </button>
@@ -274,7 +325,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                             <button
                               onClick={() => handleYearChange(1)}
                               className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
-                              style={{ color: "rgba(31,35,41,0.6)", backgroundColor: "rgba(63,86,214,0.06)" }}
+                              style={{ color: "rgba(31,35,41,0.5)", backgroundColor: "rgba(99,102,241,0.06)" }}
                             >
                               <ChevronRight className="w-4 h-4" />
                             </button>
@@ -289,7 +340,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                   onClick={() => handleMonthSelect(idx)}
                                   className="px-2 py-1.5 text-xs font-medium rounded-md transition-all"
                                   style={{
-                                    backgroundColor: isSelected ? "#3f56d6" : "rgba(63,86,214,0.06)",
+                                    backgroundColor: isSelected ? "#6366f1" : "rgba(99,102,241,0.06)",
                                     color: isSelected ? "white" : "#1f2329",
                                   }}
                                 >
@@ -307,25 +358,25 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
             </div>
 
             <div className="flex items-center gap-1.5">
-              <div className="flex items-center rounded-lg p-0.5" style={{ backgroundColor: "rgba(255,255,255,0.54)" }}>
+              <div className="flex items-center rounded-lg p-0.5" style={{ backgroundColor: "rgba(255,255,255,0.6)", backdropFilter: "blur(8px)" }}>
                 <button
                   onClick={handlePrevWeek}
                   className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
-                  style={{ color: "rgba(31,35,41,0.6)" }}
+                  style={{ color: "rgba(31,35,41,0.5)" }}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setSelectedDate(new Date())}
                   className="px-2 h-7 rounded-md text-xs font-medium transition-colors"
-                  style={{ color: "#3f56d6" }}
+                  style={{ color: "#6366f1" }}
                 >
                   今天
                 </button>
                 <button
                   onClick={handleNextWeek}
                   className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
-                  style={{ color: "rgba(31,35,41,0.6)" }}
+                  style={{ color: "rgba(31,35,41,0.5)" }}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -333,8 +384,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
             </div>
           </header>
 
-          {/* 周视图 */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1 px-2">
             {Array.from({ length: 7 }, (_, i) => {
               const day = addDays(startOfWeek(selectedDate, { weekStartsOn: 0 }), i);
               const daySchedulesCount = schedules.filter((s) => {
@@ -351,17 +401,17 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                   onClick={() => handleDaySelect(day)}
                   className="flex flex-col items-center py-1.5 transition-all"
                 >
-                  <span 
+                  <span
                     className="text-[10px] font-medium mb-0.5"
-                    style={{ color: "rgba(31,35,41,0.6)" }}
+                    style={{ color: "rgba(31,35,41,0.5)" }}
                   >
                     周{WEEKDAYS[i]}
                   </span>
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all"
-                    style={{ 
-                      color: isActive || isDayToday ? "white" : "#1f2329", 
-                      backgroundColor: isActive || isDayToday ? "#3f56d6" : "transparent" 
+                    style={{
+                      color: isActive || isDayToday ? "white" : "#1f2329",
+                      backgroundColor: isActive || isDayToday ? "#6366f1" : "transparent"
                     }}
                   >
                     {format(day, "d")}
@@ -369,14 +419,14 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                   <div className="flex items-center gap-0.5 h-3 mt-0.5">
                     {daySchedulesCount > 0 && (
                       <>
-                        <span 
-                          className="w-1.5 h-1.5 rounded-full" 
-                          style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.9)" : "#3f56d6" }} 
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.9)" : "#6366f1" }}
                         />
                         {daySchedulesCount > 1 && (
-                          <span 
-                            className="w-1.5 h-1.5 rounded-full" 
-                            style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.5)" : "rgba(63,86,214,0.5)" }} 
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.5)" : "rgba(99,102,241,0.5)" }}
                           />
                         )}
                       </>
@@ -388,195 +438,280 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
           </div>
         </div>
 
-        {/* 时间轴区域 */}
-        <div 
-          className="flex-1 flex flex-col px-4 pb-4 lg:px-6 lg:pb-6"
-        >
-          <div 
-            className="flex-1 flex items-stretch rounded-2xl overflow-hidden"
-            style={{ 
-              backgroundColor: "rgba(255,255,255,0.85)",
-              boxShadow: "0 8px 32px rgba(74,83,97,0.12)",
-              maxHeight: "calc(100vh - 220px)",
+        <div className="flex-1 flex flex-col px-4 pb-4 lg:px-6 lg:pb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex-1 rounded-3xl overflow-hidden"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.95)",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+              maxHeight: "calc(100vh - 200px)",
               overflowY: "auto",
             }}
           >
-            {/* 左侧时间刻度 */}
-            <div 
-              className="flex flex-col py-3 px-2 text-[10px] font-medium shrink-0"
-              style={{ color: "rgba(31,35,41,0.6)" }}
-            >
-              {TIME_SLOTS.filter((_, i) => i % 2 === 0).map((time, i) => (
-                <div
-                  key={i}
-                  className="flex items-start"
-                  style={{ height: SLOT_HEIGHT * 2 }}
-                >
-                  <span className="mt-[-6px]">{time}</span>
-                </div>
-              ))}
+            <div className="h-6 flex items-center justify-center pt-1 cursor-grab active:cursor-grabbing">
+              <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.1)" }} />
             </div>
 
-
-            <div 
-              className="flex-1 relative overflow-y-auto"
-              style={{ height: TIMELINE_HEIGHT }}
-              onClick={handleTimelineClick}
-            >
-              {/* 时间轴背景网格线 */}
-              <div className="absolute inset-0">
-                {TIME_SLOTS.map((_, i) => (
+            <div className="flex" style={{ height: TIMELINE_HEIGHT + CARD_PADDING * 2 }}>
+              <div
+                className="shrink-0 flex flex-col py-4"
+                style={{ width: TIMELINE_LEFT_WIDTH }}
+              >
+                {timeSlots.map(({ hour, label, keyTimes }) => (
                   <div
-                    key={i}
-                    className="absolute left-0 right-0"
-                    style={{ 
-                      top: i * SLOT_HEIGHT,
-                      height: SLOT_HEIGHT,
-                      borderTop: i % 2 === 0 ? '1px solid rgba(63,86,214,0.1)' : '1px dashed rgba(63,86,214,0.05)',
-                    }}
-                  />
+                    key={hour}
+                    className="flex items-start justify-end pr-3 relative"
+                    style={{ height: SLOT_HEIGHT }}
+                  >
+                    {keyTimes && (
+                      <span
+                        className="text-[11px] font-medium shrink-0"
+                        style={{
+                          color: hour === 0 ? "rgba(99,102,241,0.6)" : "rgba(31,35,41,0.4)",
+                          fontWeight: hour === 0 ? "600" : "400",
+                        }}
+                      >
+                        {hour === 0 ? "开始" : label}
+                      </span>
+                    )}
+                  </div>
                 ))}
-              </div>
-
-              {/* 当前时间线 */}
-              {currentTimeSlot >= 0 && (
                 <div
-                  className="absolute left-0 right-0 h-0.5 z-20"
-                  style={{ 
-                    top: slotToTop(currentTimeSlot),
-                    backgroundColor: "#ef4444",
-                  }}
+                  className="flex items-start justify-end pr-3"
+                  style={{ height: SLOT_HEIGHT }}
                 >
-                  <div 
-                    className="absolute left-0 w-2 h-2 rounded-full -mt-0.5"
-                    style={{ backgroundColor: "#ef4444" }}
-                  />
-                  <span className="absolute left-3 text-[10px] font-medium text-red-500 -mt-2">
-                    现在
+                  <span className="text-[11px] font-medium shrink-0" style={{ color: "rgba(99,102,241,0.6)" }}>
+                    24:00
                   </span>
                 </div>
-              )}
+              </div>
 
-              {/* 日程内容区 */}
-              <div className="absolute inset-0 timeline-content">
+              <div
+                className="flex-1 relative cursor-pointer"
+                ref={timelineRef}
+                onClick={handleTimelineClick}
+              >
+                <div
+                  className="absolute left-1/2 w-0.5 h-full -translate-x-1/2"
+                  style={{
+                    background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.15) 5%, rgba(99,102,241,0.15) 95%, transparent 100%)",
+                  }}
+                />
+
+                {currentTimeSlot >= 0 && (
+                  <div
+                    className="absolute left-0 right-0 flex items-center z-20 pointer-events-none"
+                    style={{ top: slotToTop(currentTimeSlot) }}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full -ml-1.25"
+                      style={{ backgroundColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.2)" }}
+                    />
+                    <div className="flex-1 h-0.5" style={{ backgroundColor: "#ef4444" }} />
+                    <span className="text-[10px] font-medium text-red-500 mr-2 -mt-3">
+                      {format(new Date(), "HH:mm")}
+                    </span>
+                  </div>
+                )}
+
                 {daySchedules.length === 0 ? (
-                  /* 无日程时显示起始和结束标记 */
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
+                      style={{ backgroundColor: "rgba(99,102,241,0.08)" }}
+                    >
+                      <Clock className="w-8 h-8" style={{ color: "rgba(99,102,241,0.4)" }} />
+                    </div>
+                    <p className="text-sm font-medium" style={{ color: "rgba(31,35,41,0.4)" }}>
+                      今天没有日程安排
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: "rgba(31,35,41,0.3)" }}>
+                      点击时间轴添加第一个日程
+                    </p>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0">
+                    {daySchedules.map((schedule, index) => {
+                      const startDate = parseISO(schedule.startAt);
+                      const endDate = parseISO(schedule.endAt);
+                      const startSlot = getSlotIndex(startDate);
+                      const endSlot = getSlotIndex(endDate);
+                      const colors = PRIORITY_COLORS[schedule.priority];
+                      const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
+                      const overlappingIds = scheduleOverlaps[schedule.id] || [];
+                      const startTop = slotToTop(startSlot);
+                      const endTop = slotToTop(endSlot);
+
+                      return (
+                        <div key={schedule.id}>
+                          {index > 0 && (
+                            <>
+                              {(() => {
+                                const prevEndSlot = getSlotIndex(parseISO(daySchedules[index - 1].endAt));
+                                const gap = startSlot - prevEndSlot;
+                                if (gap > 1) {
+                                  return (
+                                    <div
+                                      className="absolute flex flex-col items-center left-1/2 -translate-x-1/2"
+                                      style={{
+                                        top: slotToTop(prevEndSlot) + SLOT_HEIGHT / 2,
+                                        height: startTop - slotToTop(prevEndSlot) - SLOT_HEIGHT / 2,
+                                      }}
+                                    >
+                                      <div
+                                        className="w-px h-full"
+                                        style={{
+                                          background: "repeating-linear-gradient(180deg, rgba(99,102,241,0.2) 0, rgba(99,102,241,0.2) 4px, transparent 4px, transparent 8px)",
+                                        }}
+                                      />
+                                      <motion.div
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: 0.1 }}
+                                        className="px-2 py-1 rounded-lg text-[10px] whitespace-nowrap"
+                                        style={{
+                                          backgroundColor: "rgba(99,102,241,0.08)",
+                                          color: "rgba(99,102,241,0.7)",
+                                        }}
+                                      >
+                                        {getGapMessage(index - 1)}
+                                      </motion.div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </>
+                          )}
+
+                          <motion.button
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.25, delay: index * 0.05 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditSchedule?.(schedule);
+                            }}
+                            className="event-capsule absolute flex items-center gap-3 py-2.5 px-3 rounded-xl cursor-pointer transition-all hover:brightness-98 active:scale-[0.99]"
+                            style={{
+                              top: startTop,
+                              height: Math.max(endTop - startTop, 36),
+                              minHeight: 36,
+                              backgroundColor: colors.bg,
+                              borderLeft: `3px solid ${colors.border}`,
+                              width: "calc(50% - 24px)",
+                              left: "calc(50% - 24px)",
+                            }}
+                          >
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{ backgroundColor: colors.border, boxShadow: `0 0 0 3px ${colors.ring}` }}
+                            />
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline gap-2">
+                                <h4
+                                  className="text-sm font-semibold truncate"
+                                  style={{ color: "#1f2329" }}
+                                >
+                                  {schedule.title}
+                                </h4>
+                                {hasOverlap && (
+                                  <span
+                                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
+                                    style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                                  >
+                                    <AlertCircle className="w-3 h-3" />
+                                    重叠
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[11px]" style={{ color: colors.text }}>
+                                  {format(startDate, "HH:mm")} - {format(endDate, "HH:mm")}
+                                </span>
+                                <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.35)" }}>
+                                  {formatDuration(schedule.startAt, schedule.endAt)}
+                                </span>
+                              </div>
+                              {schedule.location && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <MapPin className="w-3 h-3" style={{ color: "rgba(31,35,41,0.3)" }} />
+                                  <span className="text-[10px] truncate" style={{ color: "rgba(31,35,41,0.45)" }}>
+                                    {schedule.location}
+                                  </span>
+                                </div>
+                              )}
+                              {hasOverlap && (
+                                <div
+                                  className="mt-1.5 px-2 py-1 rounded text-[10px]"
+                                  style={{ backgroundColor: "rgba(239,68,68,0.08)", color: "rgba(239,68,68,0.7)" }}
+                                >
+                                  与 {overlappingIds.length} 个日程重叠
+                                </div>
+                              )}
+                            </div>
+                          </motion.button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="shrink-0 flex flex-col items-center py-4 gap-3"
+                style={{ width: TIMELINE_RIGHT_WIDTH }}
+              >
+                {daySchedules.length === 0 ? (
                   <>
-                    {/* 起始时间标记 */}
                     <div
-                      className="absolute left-4 flex items-center gap-2"
-                      style={{ top: 0 }}
-                    >
-                      <div 
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: "#3f56d6" }}
-                      />
-                      <span className="text-xs font-medium" style={{ color: "rgba(31,35,41,0.6)" }}>
-                        00:00 开始
-                      </span>
-                    </div>
-                    {/* 结束时间标记 */}
+                      className="w-6 h-6 rounded-full"
+                      style={{ border: "2px solid rgba(99,102,241,0.2)" }}
+                    />
                     <div
-                      className="absolute left-4 flex items-center gap-2"
-                      style={{ top: TIMELINE_HEIGHT - SLOT_HEIGHT }}
-                    >
-                      <div 
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: "#3f56d6" }}
-                      />
-                      <span className="text-xs font-medium" style={{ color: "rgba(31,35,41,0.6)" }}>
-                        24:00 结束
-                      </span>
-                    </div>
+                      className="w-6 h-6 rounded-full"
+                      style={{ border: "2px solid rgba(99,102,241,0.15)" }}
+                    />
+                    <div
+                      className="w-6 h-6 rounded-full"
+                      style={{ border: "2px solid rgba(99,102,241,0.1)" }}
+                    />
                   </>
                 ) : (
-                  /* 有日程时显示日程卡片和连接线 */
                   daySchedules.map((schedule, index) => {
-                    const startDate = parseISO(schedule.startAt);
-                    const endDate = parseISO(schedule.endAt);
-                    const startSlot = getSlotIndex(startDate);
-                    const endSlot = getSlotIndex(endDate);
-                    const durationSlots = Math.max(endSlot - startSlot, 1);
-                    
-                    // 计算与上一个日程的间隔
-                    let showDashedLine = false;
-                    let dashedLineTop = 0;
-                    let dashedLineHeight = 0;
-                    
-                    if (index > 0) {
-                      const prevEndSlot = getSlotIndex(parseISO(daySchedules[index - 1].endAt));
-                      const gap = startSlot - prevEndSlot;
-                      if (gap > 1) { // 间隔超过 30 分钟
-                        showDashedLine = true;
-                        dashedLineTop = slotToTop(prevEndSlot) + SLOT_HEIGHT;
-                        dashedLineHeight = slotToTop(startSlot) - dashedLineTop;
-                      }
-                    }
-
+                    const colors = PRIORITY_COLORS[schedule.priority];
+                    const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
                     return (
-                      <div key={schedule.id}>
-                        {/* 虚线连接 */}
-                        {showDashedLine && (
-                          <div
-                            className="absolute left-6 w-0.5"
-                            style={{
-                              top: dashedLineTop,
-                              height: dashedLineHeight,
-                              borderLeft: "1px dashed rgba(63,86,214,0.3)",
-                            }}
-                          />
-                        )}
-                        
-                        {/* 日程卡片 */}
-                        <motion.button
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.2 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditSchedule?.(schedule);
+                      <motion.div
+                        key={schedule.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2, delay: index * 0.05 + 0.1 }}
+                        className="relative"
+                        style={{ height: Math.max(slotToTop(getSlotIndex(parseISO(schedule.endAt))) - slotToTop(getSlotIndex(parseISO(schedule.startAt))), 36) }}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-full ${hasOverlap ? 'animate-pulse' : ''}`}
+                          style={{
+                            border: `2px solid ${hasOverlap ? '#ef4444' : colors.ring}`,
+                            backgroundColor: hasOverlap ? 'rgba(239,68,68,0.1)' : 'transparent',
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
                           }}
-                          className="absolute left-4 right-4 rounded-lg p-2 text-left overflow-hidden cursor-pointer hover:brightness-95 transition-all"
-                          style={{ 
-                            top: slotToTop(startSlot),
-                            height: Math.max(durationSlots * SLOT_HEIGHT - 4, SLOT_HEIGHT - 4),
-                            backgroundColor: schedule.priority === 'high' ? 'rgba(239,68,68,0.1)' : 
-                                           schedule.priority === 'medium' ? 'rgba(63,86,214,0.1)' : 
-                                           'rgba(16,185,129,0.1)',
-                            borderLeft: `3px solid ${
-                              schedule.priority === 'high' ? '#ef4444' : 
-                              schedule.priority === 'medium' ? '#3f56d6' : 
-                              '#10b981'
-                            }`,
-                          }}
-                        >
-                          <div className="flex flex-col gap-0.5 h-full">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] font-medium" style={{ color: "rgba(31,35,41,0.6)" }}>
-                                {format(startDate, "HH:mm")}
-                              </span>
-                              <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.4)" }}>-</span>
-                              <span className="text-[10px] font-medium" style={{ color: "rgba(31,35,41,0.6)" }}>
-                                {format(endDate, "HH:mm")}
-                              </span>
-                            </div>
-                            <p className="text-xs font-semibold truncate" style={{ color: "#1f2329" }}>
-                              {schedule.title}
-                            </p>
-                            {schedule.location && (
-                              <p className="text-[10px] truncate" style={{ color: "rgba(31,35,41,0.5)" }}>
-                                📍 {schedule.location}
-                              </p>
-                            )}
-                          </div>
-                        </motion.button>
-                      </div>
+                        />
+                      </motion.div>
                     );
                   })
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
