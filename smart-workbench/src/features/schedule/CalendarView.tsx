@@ -48,9 +48,9 @@ const TIMELINE_HEIGHT = TOTAL_SLOTS * SLOT_HEIGHT;
 const NODE_SIZE = 32;
 
 const PRIORITY_COLORS = {
-  high: { bg: "rgba(239,68,68,0.12)", border: "#ef4444", text: "#dc2626", ring: "#fca5a5" },
-  medium: { bg: "rgba(99,102,241,0.12)", border: "#6366f1", text: "#4f46e5", ring: "#a5b4fc" },
-  low: { bg: "rgba(16,185,129,0.12)", border: "#10b981", text: "#059669", ring: "#6ee7b7" },
+  high: { bg: "rgba(239,68,68,0.85)", border: "#ef4444", text: "#dc2626", ring: "#fca5a5" },
+  medium: { bg: "rgba(99,102,241,0.85)", border: "#6366f1", text: "#4f46e5", ring: "#a5b4fc" },
+  low: { bg: "rgba(16,185,129,0.85)", border: "#10b981", text: "#059669", ring: "#6ee7b7" },
 };
 
 const GAP_MESSAGES = [
@@ -62,13 +62,6 @@ const GAP_MESSAGES = [
 
 function getGapMessage(index: number): string {
   return GAP_MESSAGES[index % GAP_MESSAGES.length];
-}
-
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}分钟`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}小时${mins}分` : `${hours}小时`;
 }
 
 function getEndTime(startAt: string, durationMinutes: number): Date {
@@ -506,7 +499,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                   className="absolute w-0.5 h-full"
                   style={{
                     left: TIMELINE_LEFT_WIDTH,
-                    background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.2) 5%, rgba(99,102,241,0.2) 95%, transparent 100%)",
+                    background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,1) 5%, rgba(99,102,241,1) 95%, transparent 100%)",
                   }}
                 />
 
@@ -569,12 +562,12 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                               }}
                             >
                               <div
-                                className="w-px flex-1"
+                                className="w-0.5 flex-1"
                                 style={{
                                   background: isDashed
-                                    ? "repeating-linear-gradient(180deg, rgba(99,102,241,0.25) 0, rgba(99,102,241,0.25) 4px, transparent 4px, transparent 8px)"
-                                    : "linear-gradient(180deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.25) 100%)",
-                                  left: TIMELINE_LEFT_WIDTH + 8,
+                                    ? "repeating-linear-gradient(180deg, rgba(255,255,255,1) 0, rgba(255,255,255,1) 8px, transparent 8px, transparent 16px)"
+                                    : "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 100%)",
+                                  left: TIMELINE_LEFT_WIDTH,
                                 }}
                               />
                               {isDashed && (
@@ -584,9 +577,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                   transition={{ delay: 0.1 }}
                                   className="px-2 py-0.5 rounded text-[10px] whitespace-nowrap"
                                   style={{
-                                    backgroundColor: "rgba(99,102,241,0.08)",
-                                    color: "rgba(99,102,241,0.7)",
-                                    left: TIMELINE_LEFT_WIDTH + 8
+                                    backgroundColor: "rgba(0,0,0,0.06)",
+                                    color: "rgba(0,0,0,0.5)",
+                                    left: TIMELINE_LEFT_WIDTH + 100
                                   }}
                                 >
                                   {getGapMessage(index - 1)}
@@ -609,6 +602,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                               height: nodeHeight,
                               width: nodeWidth,
                               left: TIMELINE_LEFT_WIDTH + 8,
+                              backgroundColor: "#3730a3",
+                              borderRadius: "9999px",
                             }}
                           >
                             <div
@@ -616,10 +611,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                               style={{
                                 backgroundColor: colors.bg,
                                 border: `2px solid ${colors.border}`,
-                                boxShadow: `0 0 0 4px ${colors.ring}`,
                               }}
                             >
-                              <IconComponent className="w-4 h-4" style={{ color: colors.text }} />
+                              <IconComponent className="w-4 h-4 text-white" />
                             </div>
                             {hasOverlap && (
                               <div
@@ -632,7 +626,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                           </motion.button>
 
                           <div
-                            className="absolute left-20 right-4 flex flex-col justify-center"
+                            className="absolute left-32 right-4 flex flex-col justify-center"
                             style={{ top: nodeTop, height: nodeHeight }}
                           >
                             <div className="flex items-center gap-2">
@@ -653,8 +647,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                               )}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[11px]" style={{ color: colors.text }}>
-                                {formatDuration(schedule.durationMinutes)}
+                              <span className="text-[11px]" style={{ color: "rgba(31,35,41,0.6)" }}>
+                                {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
                               </span>
                               {schedule.location && (
                                 <div className="flex items-center gap-1">
