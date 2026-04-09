@@ -86,3 +86,8 @@ Mock data available in `storage/seeds/mockData.ts` for development.
 - Chinese comments OK in domain/types files for product context
 - ESLint/Prettier defaults (check package.json for scripts)
 - TypeScript strict mode
+- Always use css module to style component,do not use inline-style
+- Use Less as css language
+- A component should be structed as a folder
+ - index.tsx as component file
+ - index.module.less as style file

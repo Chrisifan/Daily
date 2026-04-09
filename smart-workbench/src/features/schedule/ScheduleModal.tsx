@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronDown, ChevronUp, Repeat, Clock, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
 import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
@@ -104,9 +104,10 @@ function TimeSelect({ value, onChange }: TimeSelectProps) {
 interface DurationSelectProps {
   value: number;
   onChange: (duration: number) => void;
+  maxDurationMinutes?: number;
 }
 
-function DurationSelect({ value, onChange }: DurationSelectProps) {
+function DurationSelect({ value, onChange, maxDurationMinutes }: DurationSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -147,22 +148,30 @@ function DurationSelect({ value, onChange }: DurationSelectProps) {
             className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50"
             onClick={(e) => e.stopPropagation()}
           >
-            {DURATION_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-4 py-2 text-left text-sm transition-colors ${
-                  opt.value === value 
-                    ? "bg-blue-50 text-blue-600 font-medium" 
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {DURATION_OPTIONS.map((opt) => {
+              const isDisabled = maxDurationMinutes !== undefined && opt.value > maxDurationMinutes;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }
+                  }}
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center justify-between ${
+                    opt.value === value 
+                      ? "bg-blue-50 text-blue-600 font-medium" 
+                      : isDisabled
+                      ? "text-gray-300 cursor-not-allowed"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {isDisabled && <span className="text-[10px] text-gray-400">超出当天</span>}
+                </button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -386,6 +395,13 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
     }
   }, [open, initialData]);
 
+  const maxDurationMinutes = useMemo(() => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endOfDayMinutes = 24 * 60;
+    return endOfDayMinutes - startMinutes;
+  }, [startTime]);
+
   const handleSubmit = () => {
     if (!title.trim()) return;
     if (!startDate) return;
@@ -487,7 +503,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     时长
                   </label>
-                  <DurationSelect value={durationMinutes} onChange={setDurationMinutes} />
+                  <DurationSelect value={durationMinutes} onChange={setDurationMinutes} maxDurationMinutes={maxDurationMinutes} />
                 </div>
               </div>
 

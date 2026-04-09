@@ -38,35 +38,31 @@ interface CalendarViewProps {
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
-const TIMELINE_LEFT_WIDTH = 36;
 const TIMELINE_RIGHT_WIDTH = 32;
 const CARD_PADDING = 16;
 const SLOT_HEIGHT = 32;
 const HOURS_IN_DAY = 24;
 const TOTAL_SLOTS = HOURS_IN_DAY * 2;
-const TIMELINE_HEIGHT = TOTAL_SLOTS * SLOT_HEIGHT;
 const NODE_SIZE = 32;
 
 const PRIORITY_COLORS = {
-  high: { bg: "rgba(239,68,68,0.85)", border: "#ef4444", text: "#dc2626", ring: "#fca5a5" },
-  medium: { bg: "rgba(99,102,241,0.85)", border: "#6366f1", text: "#4f46e5", ring: "#a5b4fc" },
-  low: { bg: "rgba(16,185,129,0.85)", border: "#10b981", text: "#059669", ring: "#6ee7b7" },
+  high: { bg: "rgba(239,68,68,0.85)", border: "#ef4444", text: "#dc2626", ring: "#fca5a5", zIndex: 50 },
+  medium: { bg: "rgba(251,191,36,0.85)", border: "#f59e0b", text: "#d97706", ring: "#fcd34d", zIndex: 40 },
+  low: { bg: "rgba(16,185,129,0.85)", border: "#10b981", text: "#059669", ring: "#6ee7b7", zIndex: 30 },
 };
-
-const GAP_MESSAGES = [
-  "暂停结束。继续前进！",
-  "间歇结束。接下来是什么？",
-  "休息片刻。继续加油！",
-  "空档时间。规划一下？",
-];
-
-function getGapMessage(index: number): string {
-  return GAP_MESSAGES[index % GAP_MESSAGES.length];
-}
 
 function getEndTime(startAt: string, durationMinutes: number): Date {
   const start = parseISO(startAt);
   return new Date(start.getTime() + durationMinutes * 60 * 1000);
+}
+
+function formatEndTime(date: Date): string {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  if (hours === 0 && minutes === 0) {
+    return '24:00';
+  }
+  return format(date, 'HH:mm');
 }
 
 export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: CalendarViewProps) {
@@ -75,8 +71,16 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
   const [pickerMode, setPickerMode] = useState<'day' | 'month'>('day');
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
+  const [currentTime, setCurrentTime] = useState(new Date());
   const pickerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getSlotIndex = useCallback((date: Date): number => {
     const dayStart = startOfDay(selectedDate);
@@ -92,6 +96,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     return Math.max(0, Math.min(Math.floor((top - CARD_PADDING) / SLOT_HEIGHT), TOTAL_SLOTS - 1));
   }, []);
 
+  const LONG_SCHEDULE_THRESHOLD_HOURS = 2;
+  const MAX_GAP_SLOTS = LONG_SCHEDULE_THRESHOLD_HOURS * 2;
+
   const daySchedules = useMemo(() => {
     return schedules
       .filter((s) => {
@@ -101,6 +108,50 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       })
       .sort((a, b) => parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime());
   }, [schedules, selectedDate]);
+
+  const compressedSlotMap = useMemo(() => {
+    const map: { [key: string]: number } = {};
+    let cumulativeCompressionSlots = 0;
+    const VIRTUAL_START_SLOT = 0;
+    const VIRTUAL_END_SLOT = TOTAL_SLOTS;
+    const MIN_GAP_PIXELS = 24;
+    let prevEndSlot = VIRTUAL_START_SLOT;
+
+    daySchedules.forEach((schedule) => {
+      const currStartSlot = getSlotIndex(parseISO(schedule.startAt));
+      const gapSlots = currStartSlot - prevEndSlot;
+      const gapPixels = gapSlots * SLOT_HEIGHT;
+
+      if (gapSlots > MAX_GAP_SLOTS) {
+        cumulativeCompressionSlots += gapSlots - MAX_GAP_SLOTS;
+      } else if (gapSlots >= 0 && gapPixels < MIN_GAP_PIXELS) {
+        const adjustment = MIN_GAP_PIXELS / SLOT_HEIGHT - gapSlots;
+        cumulativeCompressionSlots -= adjustment;
+      }
+      map[schedule.id] = currStartSlot - cumulativeCompressionSlots;
+      prevEndSlot = getSlotIndex(getEndTime(schedule.startAt, schedule.durationMinutes));
+    });
+
+    const lastEndSlot = daySchedules.length > 0
+      ? getSlotIndex(getEndTime(daySchedules[daySchedules.length - 1].startAt, daySchedules[daySchedules.length - 1].durationMinutes))
+      : VIRTUAL_START_SLOT;
+    const endGap = VIRTUAL_END_SLOT - lastEndSlot;
+    const endGapPixels = endGap * SLOT_HEIGHT;
+    if (endGap > MAX_GAP_SLOTS) {
+      cumulativeCompressionSlots += endGap - MAX_GAP_SLOTS;
+    } else if (endGap >= 0 && endGapPixels < MIN_GAP_PIXELS) {
+      const adjustment = MIN_GAP_PIXELS / SLOT_HEIGHT - endGap;
+      cumulativeCompressionSlots -= adjustment;
+    }
+    map['_end'] = VIRTUAL_END_SLOT - cumulativeCompressionSlots;
+
+    return map;
+  }, [daySchedules, getSlotIndex]);
+
+  const compressedTimelineHeight = useMemo(() => {
+    const endSlot = compressedSlotMap['_end'] ?? TOTAL_SLOTS;
+    return endSlot * SLOT_HEIGHT + CARD_PADDING * 2;
+  }, [compressedSlotMap]);
 
   const scheduleOverlaps = useMemo(() => {
     const overlaps: { [key: string]: string[] } = {};
@@ -124,12 +175,47 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
   }, [daySchedules]);
 
   const currentTimeSlot = useMemo(() => {
-    const now = new Date();
+    const now = currentTime;
     if (isSameDay(now, selectedDate)) {
       return getSlotIndex(now);
     }
     return -1;
   }, [selectedDate, getSlotIndex]);
+
+  const compressedCurrentTimeSlot = useMemo(() => {
+    if (currentTimeSlot < 0) return -1;
+    const endSlot = compressedSlotMap['_end'] ?? TOTAL_SLOTS;
+    if (currentTimeSlot > endSlot) return -1;
+
+    let cumulativeCompression = 0;
+    let prevEndSlot = 0;
+    for (const schedule of daySchedules) {
+      const currStartSlot = getSlotIndex(parseISO(schedule.startAt));
+      const gapSlots = currStartSlot - prevEndSlot;
+      if (currentTimeSlot <= currStartSlot) {
+        if (gapSlots > MAX_GAP_SLOTS) {
+          const compressionRatio = (currentTimeSlot - prevEndSlot) / gapSlots;
+          return prevEndSlot + compressionRatio * MAX_GAP_SLOTS;
+        }
+        return currentTimeSlot - cumulativeCompression;
+      }
+      if (gapSlots > MAX_GAP_SLOTS) {
+        cumulativeCompression += gapSlots - MAX_GAP_SLOTS;
+      }
+      prevEndSlot = getSlotIndex(getEndTime(schedule.startAt, schedule.durationMinutes));
+    }
+
+    const lastEndSlot = daySchedules.length > 0
+      ? getSlotIndex(getEndTime(daySchedules[daySchedules.length - 1].startAt, daySchedules[daySchedules.length - 1].durationMinutes))
+      : 0;
+    const endGap = TOTAL_SLOTS - lastEndSlot;
+    if (currentTimeSlot > lastEndSlot && endGap > MAX_GAP_SLOTS) {
+      const compressionRatio = (currentTimeSlot - lastEndSlot) / endGap;
+      return currentTimeSlot - cumulativeCompression - compressionRatio * (endGap - MAX_GAP_SLOTS);
+    }
+
+    return currentTimeSlot - cumulativeCompression;
+  }, [currentTimeSlot, compressedSlotMap, daySchedules, getSlotIndex]);
 
   const monthStart = startOfMonth(new Date(pickerYear, pickerMonth));
   const monthEnd = endOfMonth(monthStart);
@@ -197,26 +283,48 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     onAddSchedule?.(clickedDate);
   };
 
-  const timeSlots = useMemo(() => {
-    const slots = [];
-    for (let i = 0; i < 24; i++) {
-      slots.push({
-        hour: i,
-        label: `${i.toString().padStart(2, '0')}:00`,
-        keyTimes: i === 0 || daySchedules.some(s => {
-          const startHour = parseISO(s.startAt).getHours();
-          const endTime = getEndTime(s.startAt, s.durationMinutes);
-          const endHour = endTime.getHours();
-          return startHour === i || (endHour === i && endTime.getMinutes() > 0);
-        }),
-      });
+const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
+    const startDate = parseISO(schedule.startAt);
+    const endDate = getEndTime(schedule.startAt, schedule.durationMinutes);
+    const totalMinutes = schedule.durationMinutes;
+    const segments: { startAt: Date; endAt: Date; durationMinutes: number }[] = [];
+
+    if (totalMinutes <= LONG_SCHEDULE_THRESHOLD_HOURS * 60) {
+      segments.push({ startAt: startDate, endAt: endDate, durationMinutes: totalMinutes });
+    } else {
+      let currentStart = startDate;
+      let remainingMinutes = totalMinutes;
+
+      while (remainingMinutes > 0) {
+        const segmentDuration = Math.min(remainingMinutes, LONG_SCHEDULE_THRESHOLD_HOURS * 60);
+        const segmentEnd = new Date(currentStart.getTime() + segmentDuration * 60 * 1000);
+        segments.push({
+          startAt: currentStart,
+          endAt: segmentEnd,
+          durationMinutes: segmentDuration,
+        });
+        currentStart = segmentEnd;
+        remainingMinutes -= segmentDuration;
+      }
     }
-    return slots;
-  }, [daySchedules]);
+
+    return segments;
+  }, []);
+
+  const allScheduleSegments = useMemo(() => {
+    const segments: Array<{ schedule: ScheduleItem; segment: { startAt: Date; endAt: Date; durationMinutes: number }; segmentIndex: number; totalSegments: number }> = [];
+    daySchedules.forEach((schedule) => {
+      const segs = splitScheduleIntoSegments(schedule);
+      segs.forEach((seg, idx) => {
+        segments.push({ schedule, segment: seg, segmentIndex: idx, totalSegments: segs.length });
+      });
+    });
+    return segments;
+  }, [daySchedules, splitScheduleIntoSegments]);
 
   return (
     <div className="flex flex-row w-full" style={{ minHeight: "calc(100vh - 48px)" }}>
-      <div className="flex flex-col justify-center items-center w-64 lg:w-72 p-4 lg:p-5 shrink-0">
+      <div className="flex flex-col justify-center items-center w-84 lg:w-96 p-4 lg:p-5 shrink-0">
         <div className="space-y-6">
           <div className="flex flex-col items-center text-center gap-3">
             <div
@@ -452,7 +560,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 rounded-3xl overflow-hidden px-12"
+            className="flex-1 rounded-3xl overflow-hidden px-32 py-8"
             style={{
               backgroundColor: "rgba(255,255,255,0.95)",
               boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
@@ -460,36 +568,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
               overflowY: "auto",
             }}
           >
-            <div className="h-6 flex items-center justify-center pt-1 cursor-grab active:cursor-grabbing">
-              <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.1)" }} />
-            </div>
-
-            <div className="flex" style={{ height: TIMELINE_HEIGHT + CARD_PADDING * 2 }}>
-              <div
-                className="shrink-0 flex flex-col py-4"
-                style={{ width: TIMELINE_LEFT_WIDTH, height: TIMELINE_HEIGHT + CARD_PADDING * 2 }}
-              >
-                {timeSlots.map(({ hour, label, keyTimes }) => (
-                  <div
-                    key={hour}
-                    className="flex items-start justify-end pr-3 relative"
-                    style={{ height: SLOT_HEIGHT * 2 }}
-                  >
-                    {keyTimes && (
-                      <span
-                        className="text-[11px] font-medium shrink-0"
-                        style={{
-                          color: hour === 0 ? "rgba(99,102,241,0.6)" : "rgba(31,35,41,0.4)",
-                          fontWeight: hour === 0 ? "600" : "400",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
+            <div className="flex" style={{ height: compressedTimelineHeight }}>
               <div
                 className="flex-1 relative cursor-pointer"
                 ref={timelineRef}
@@ -498,15 +577,15 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                 <div
                   className="absolute w-0.5 h-full"
                   style={{
-                    left: TIMELINE_LEFT_WIDTH,
+                    left: 0,
                     background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,1) 5%, rgba(99,102,241,1) 95%, transparent 100%)",
                   }}
                 />
 
-                {currentTimeSlot >= 0 && (
+                {compressedCurrentTimeSlot >= 0 && (
                   <div
                     className="absolute right-0 flex items-center z-20 pointer-events-none"
-                    style={{ top: slotToTop(currentTimeSlot), left: TIMELINE_LEFT_WIDTH }}
+                    style={{ top: slotToTop(compressedCurrentTimeSlot), left: 0 }}
                   >
                     <div className="flex-1 h-0.5" style={{ backgroundColor: "#ef4444" }} />
                     <span className="text-[10px] font-medium text-red-500 mr-2 -mt-3">
@@ -532,9 +611,11 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                   </div>
                 ) : (
                   <div className="absolute inset-0 -left-[24px]">
-                    {daySchedules.map((schedule, index) => {
-                      const startDate = parseISO(schedule.startAt);
-                      const endDate = getEndTime(schedule.startAt, schedule.durationMinutes);
+                    {allScheduleSegments.map((seg, index) => {
+                      const { schedule, segment, segmentIndex, totalSegments } = seg;
+                      const startDate = segment.startAt;
+                      const endDate = segment.endAt;
+                      const compressedStartSlot = compressedSlotMap[schedule.id];
                       const startSlot = getSlotIndex(startDate);
                       const endSlot = getSlotIndex(endDate);
                       const durationSlots = Math.max(endSlot - startSlot, 1);
@@ -542,115 +623,193 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const IconComponent = ICON_MAP[schedule.icon] || Clock;
                       const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
                       const overlappingIds = scheduleOverlaps[schedule.id] || [];
-                      const startTop = slotToTop(startSlot);
+                      const startTop = slotToTop(compressedStartSlot);
                       const nodeHeight = durationSlots * SLOT_HEIGHT;
                       const nodeWidth = NODE_SIZE;
                       const nodeTop = startTop - nodeHeight / 2;
-                      const prevEndSlot = index > 0 ? getSlotIndex(getEndTime(daySchedules[index - 1].startAt, daySchedules[index - 1].durationMinutes)) : 0;
-                      const isDashed = index > 0 && (startSlot - prevEndSlot) > 1;
+                      const isFirstSegment = segmentIndex === 0;
+                      const isMultiSegment = totalSegments > 1;
+                      const globalIndex = daySchedules.indexOf(schedule);
+                      const prevSchedule = globalIndex > 0 ? daySchedules[globalIndex - 1] : null;
+                      const nextSchedule = globalIndex < daySchedules.length - 1 ? daySchedules[globalIndex + 1] : null;
+                      const prevCompressedSlot = prevSchedule ? compressedSlotMap[prevSchedule.id] : 0;
+                      const isDashed = globalIndex > 0 && (compressedStartSlot - prevCompressedSlot) > MAX_GAP_SLOTS;
+                      const gapMinutes = globalIndex > 0 && prevSchedule
+                        ? differenceInMinutes(parseISO(schedule.startAt), getEndTime(prevSchedule.startAt, prevSchedule.durationMinutes))
+                        : 0;
+                      const nextGapMinutes = nextSchedule
+                        ? differenceInMinutes(parseISO(nextSchedule.startAt), getEndTime(schedule.startAt, schedule.durationMinutes))
+                        : 1;
+                      const showGapHint = gapMinutes >= 60;
+                      const sharesTimeWithPrev = prevSchedule
+                        && gapMinutes < 0;
+                      const sharesTimeWithNext = nextSchedule
+                        && nextGapMinutes <= 0;
+                      const startTimeShiftUp = globalIndex > 0 && gapMinutes === 0;
+
+                      const now = currentTime;
+                      const tzOffset = now.getTimezoneOffset() * 60000;
+                      const nowLocal = new Date(now.getTime() - tzOffset);
+                      const startDateLocal = new Date(startDate.getTime() - tzOffset);
+                      const endDateLocal = new Date(endDate.getTime() - tzOffset);
+                      const isUpcoming = nowLocal < startDateLocal;
+                      const isEnded = nowLocal > endDateLocal;
+                      const elapsedRatio = !isUpcoming && !isEnded
+                        ? Math.min((nowLocal.getTime() - startDateLocal.getTime()) / (endDateLocal.getTime() - startDateLocal.getTime()) * 100, 100)
+                        : 100;
+                      const progressBackground = isUpcoming
+                        ? 'rgba(255,255,255,1)'
+                        : isEnded
+                        ? colors.bg
+                        : `linear-gradient(to bottom, ${colors.bg} 0%, ${colors.bg} ${elapsedRatio}%, rgba(255,255,255,1) ${elapsedRatio}%, rgba(255,255,255,1) 100%)`;
+                      const capsuleBorder = isUpcoming ? `2px solid ${colors.border}` : 'none';
+                      const iconColor = isUpcoming
+                        ? colors.text
+                        : isEnded || elapsedRatio < 50
+                        ? '#ffffff'
+                        : colors.text;
 
                       return (
-                        <div key={schedule.id}>
-                          {index > 0 && (
-                            <div
-                              className="absolute flex flex-col items-center"
-                              style={{
-                                top: slotToTop(prevEndSlot),
-                                height: startTop - slotToTop(prevEndSlot),
-                                width: 2,
-                                left: TIMELINE_LEFT_WIDTH + 24,
-                              }}
-                            >
-                              <div
-                                className="w-0.5 flex-1"
-                                style={{
-                                  background: isDashed
-                                    ? "repeating-linear-gradient(180deg, rgba(255,255,255,1) 0, rgba(255,255,255,1) 8px, transparent 8px, transparent 16px)"
-                                    : "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 100%)",
-                                  left: TIMELINE_LEFT_WIDTH,
-                                }}
-                              />
-                              {isDashed && (
-                                <motion.div
-                                  initial={{ opacity: 0, scale: 0.9 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ delay: 0.1 }}
-                                  className="px-2 py-0.5 rounded text-[10px] whitespace-nowrap"
+                        <div key={`${schedule.id}-seg-${segmentIndex}`}>
+                          {(index === 0 || (index > 0 && allScheduleSegments[index - 1].schedule.id !== schedule.id)) && (
+                            <>
+                              {globalIndex > 0 && (
+                                <div
+                                  className="absolute"
                                   style={{
-                                    backgroundColor: "rgba(0,0,0,0.06)",
-                                    color: "rgba(0,0,0,0.5)",
-                                    left: TIMELINE_LEFT_WIDTH + 100
+                                    top: slotToTop(prevCompressedSlot),
+                                    height: startTop - slotToTop(prevCompressedSlot),
+                                    left: 24,
                                   }}
                                 >
-                                  {getGapMessage(index - 1)}
-                                </motion.div>
+                                  <div
+                                    className="w-0.5 h-full"
+                                    style={{
+                                      background: isDashed
+                                        ? "repeating-linear-gradient(180deg, transparent 0, transparent 5px, rgba(255,255,255,1) 5px, rgba(255,255,255,1) 9px)"
+                                        : "linear-gradient(180deg, rgba(99, 102, 241,1) 0%, rgba(99, 102, 241,1) 100%)",
+                                    }}
+                                  />
+                                  {showGapHint && (
+                                    <div
+                                      className="absolute left-16 flex items-center gap-2"
+                                      style={{ top: '50%', transform: 'translateY(-50%)', whiteSpace: 'nowrap' }}
+                                    >
+                                      <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.4)" }}>
+                                        空闲 <span className="font-medium" style={{ color: "#6366f1" }}>{gapMinutes}</span> 分钟
+                                      </span>
+                                      <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.3)" }}>
+                                        安排一个日程?
+                                      </span>
+                                      <button
+                                        onClick={() => onAddSchedule?.(parseISO(schedule.startAt))}
+                                        className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+                                        style={{ backgroundColor: "rgba(99,102,241,0.1)", color: "#6366f1" }}
+                                      >
+                                        添加日程
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               )}
+                            </>
+                          )}
+
+                          {segmentIndex > 0 && (
+                            <div
+                              className="absolute w-full pointer-events-none"
+                              style={{
+                                top: startTop - SLOT_HEIGHT / 2,
+                                height: SLOT_HEIGHT,
+                                left: 24,
+                              }}
+                            >
+                              <div className="w-full h-0.5" style={{ backgroundColor: "rgba(99,102,241,0.3)" }} />
                             </div>
                           )}
 
-                          <motion.button
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.2, delay: index * 0.05 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditSchedule?.(schedule);
-                            }}
-                            className="event-capsule absolute cursor-pointer transition-all hover:brightness-95 active:scale-95"
-                            style={{
-                              top: nodeTop,
-                              height: nodeHeight,
-                              width: nodeWidth,
-                              left: TIMELINE_LEFT_WIDTH + 8,
-                              backgroundColor: "#3730a3",
-                              borderRadius: "9999px",
-                            }}
-                          >
-                            <div
-                              className="w-full h-full rounded-full flex items-center justify-center"
+                          {isFirstSegment && (
+                            <motion.button
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.2, delay: globalIndex * 0.05 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditSchedule?.(schedule);
+                              }}
+                              className="event-capsule absolute cursor-pointer transition-all hover:brightness-95 active:scale-95"
                               style={{
-                                backgroundColor: colors.bg,
-                                border: `2px solid ${colors.border}`,
+                                top: nodeTop,
+                                height: Math.max(nodeHeight, SLOT_HEIGHT),
+                                width: nodeWidth,
+                                left: 8,
+                                background: progressBackground,
+                                border: capsuleBorder,
+                                borderRadius: "9999px",
+                                zIndex: colors.zIndex,
                               }}
                             >
-                              <IconComponent className="w-4 h-4 text-white" />
-                            </div>
-                            {hasOverlap && (
+                              {!sharesTimeWithPrev && (
+                                <div
+                                  className="absolute -left-3 flex flex-col items-end"
+                                  style={{
+                                    transform: 'translateX(-100%)',
+                                    top: startTimeShiftUp ? '-12px' : '0',
+                                  }}
+                                >
+                                  <span className="text-[10px] font-medium" style={{ color: "#1f2329" }}>
+                                    {format(startDate, 'HH:mm')}
+                                  </span>
+                                </div>
+                              )}
+                              {isFirstSegment && !sharesTimeWithNext && (
+                                <div className="absolute -left-3 bottom-0 flex flex-col items-end" style={{ transform: 'translateX(-100%)' }}>
+                                  <span className="text-[10px] font-medium" style={{ color: "#1f2329" }}>
+                                    {formatEndTime(endDate)}
+                                  </span>
+                                </div>
+                              )}
                               <div
-                                className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
-                                style={{ backgroundColor: "#ef4444" }}
+                                className="w-full h-full rounded-full flex items-center justify-center"
+                                style={{
+                                  backgroundColor: isUpcoming ? 'transparent' : colors.bg,
+                                  border: `2px solid ${colors.border}`,
+                                }}
                               >
-                                <AlertCircle className="w-2 h-2 text-white" />
+                                <IconComponent className="w-4 h-4" style={{ color: iconColor }} />
                               </div>
-                            )}
-                          </motion.button>
+                            </motion.button>
+                          )}
 
                           <div
-                            className="absolute left-32 right-4 flex flex-col justify-center"
-                            style={{ top: nodeTop, height: nodeHeight }}
+                            className="absolute left-24 flex flex-col justify-center"
+                            style={{ top: nodeTop, height: Math.max(nodeHeight, SLOT_HEIGHT) }}
                           >
                             <div className="flex items-center gap-2">
                               <h4
                                 className="text-sm font-semibold truncate"
                                 style={{ color: "#1f2329" }}
                               >
-                                {schedule.title}
+                                {isMultiSegment ? `${schedule.title} (${segmentIndex * 2 + 1}-${Math.min((segmentIndex + 1) * 2, 24)}时)` : schedule.title}
                               </h4>
-                              {hasOverlap && (
+                              {hasOverlap && isFirstSegment && (
                                 <span
                                   className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
                                   style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
                                 >
                                   <AlertCircle className="w-3 h-3" />
-                                  重叠
+                                  重叠 {overlappingIds.length} 个
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[11px]" style={{ color: "rgba(31,35,41,0.6)" }}>
-                                {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+                                {format(startDate, 'HH:mm')} - {formatEndTime(endDate)}
                               </span>
-                              {schedule.location && (
+                              <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.4)" }}>
+                                ({schedule.durationMinutes}分钟)
+                              </span>
+                              {schedule.location && isFirstSegment && (
                                 <div className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3" style={{ color: "rgba(31,35,41,0.3)" }} />
                                   <span className="text-[10px] truncate" style={{ color: "rgba(31,35,41,0.45)" }}>
@@ -659,15 +818,33 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 </div>
                               )}
                             </div>
-                            {hasOverlap && (
-                              <div
-                                className="mt-1 px-2 py-0.5 rounded text-[10px]"
-                                style={{ backgroundColor: "rgba(239,68,68,0.08)", color: "rgba(239,68,68,0.7)" }}
-                              >
-                                与 {overlappingIds.length} 个日程重叠
-                              </div>
-                            )}
                           </div>
+                        </div>
+                      );
+                    })}
+
+                    {[0, 24].map((hour) => {
+                      const slot = hour === 0 ? 0 : (compressedSlotMap['_end'] ?? TOTAL_SLOTS);
+                      const top = slotToTop(slot);
+                      const nodeTop = top;
+                      const hasScheduleAt0 = hour === 0 && daySchedules.some(s => {
+                        const start = parseISO(s.startAt);
+                        return start.getHours() === 0 && start.getMinutes() === 0;
+                      });
+                      const hasScheduleAt24 = hour === 24 && daySchedules.some(s => {
+                        const end = getEndTime(s.startAt, s.durationMinutes);
+                        return end.getHours() === 0 && end.getMinutes() === 0;
+                      });
+                      if (hasScheduleAt0 || hasScheduleAt24) return null;
+                      return (
+                        <div
+                          key={`virtual-${hour}`}
+                          className="absolute -left-3 flex flex-col items-end"
+                          style={{ top: nodeTop, transform: 'translateX(-60%)' }}
+                        >
+                          <span className="text-[10px] font-medium" style={{ color: "#1f2329" }}>
+                            {hour === 0 ? '00:00' : '24:00'}
+                          </span>
                         </div>
                       );
                     })}
@@ -685,28 +862,31 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                     style={{ border: "2px solid rgba(99,102,241,0.2)" }}
                   />
                 ) : (
-                  daySchedules.map((schedule, index) => {
+                  allScheduleSegments.map((seg, index) => {
+                    const { schedule, segment, segmentIndex } = seg;
                     const colors = PRIORITY_COLORS[schedule.priority];
                     const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
-                    const startSlot = getSlotIndex(parseISO(schedule.startAt));
-                    const endSlot = getSlotIndex(getEndTime(schedule.startAt, schedule.durationMinutes));
+                    const compressedStartSlot = compressedSlotMap[schedule.id];
+                    const startSlot = getSlotIndex(segment.startAt);
+                    const endSlot = getSlotIndex(segment.endAt);
                     const durationSlots = Math.max(endSlot - startSlot, 1);
                     const nodeHeight = durationSlots * SLOT_HEIGHT;
-                    const nodeTop = slotToTop(startSlot) - nodeHeight / 2;
+                    const nodeTop = slotToTop(compressedStartSlot) - nodeHeight / 2;
+                    const globalIndex = daySchedules.indexOf(schedule);
                     return (
                       <motion.div
-                        key={schedule.id}
+                        key={`${schedule.id}-seg-${segmentIndex}`}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 + 0.1 }}
+                        transition={{ duration: 0.2, delay: globalIndex * 0.05 + 0.1 }}
                         className="flex items-center justify-center"
-                        style={{ height: nodeHeight, marginTop: index === 0 ? nodeTop : 0 }}
+                        style={{ height: Math.max(nodeHeight, SLOT_HEIGHT), marginTop: segmentIndex === 0 && index === 0 ? nodeTop : 0 }}
                       >
                         <div
-                          className={`w-6 h-6 rounded-full ${hasOverlap ? 'animate-pulse' : ''}`}
+                          className={`w-6 h-6 rounded-full ${hasOverlap && segmentIndex === 0 ? 'animate-pulse' : ''}`}
                           style={{
-                            border: `2px solid ${hasOverlap ? '#ef4444' : colors.ring}`,
-                            backgroundColor: hasOverlap ? 'rgba(239,68,68,0.1)' : 'transparent',
+                            border: `2px solid ${hasOverlap && segmentIndex === 0 ? '#ef4444' : colors.ring}`,
+                            backgroundColor: hasOverlap && segmentIndex === 0 ? 'rgba(239,68,68,0.1)' : 'transparent',
                           }}
                         />
                       </motion.div>
