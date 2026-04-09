@@ -38,6 +38,13 @@ const IconIntegrations = () => (
   </svg>
 );
 
+const IconSettings = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+);
+
 const NAV_LINKS = [
   { label: "首页",   to: "/",            Icon: IconHome },
   { label: "日程",   to: "/schedule",    Icon: IconSchedule },
@@ -85,7 +92,11 @@ function TrafficLights() {
   );
 }
 
-export function AppNav() {
+interface AppNavProps {
+  onSettingsClick?: () => void;
+}
+
+export function AppNav({ onSettingsClick }: AppNavProps) {
   const location = useLocation();
 
   const isActive = (to: string) =>
@@ -93,20 +104,16 @@ export function AppNav() {
 
   return (
     <div className="nav-root">
-      {/* 第一行：交通灯，可拖动 */}
       <div className="nav-traffic-row" data-tauri-drag-region>
         <TrafficLights />
       </div>
 
-      {/* 第二行： brand + nav */}
       <header className="nav-header" data-tauri-drag-region>
-        {/* brand */}
         <Link to="/" className="nav-brand">
           <span className="nav-brand__badge">D</span>
           <span className="nav-brand__name">Daily</span>
         </Link>
 
-        {/* 胶囊导航 */}
         <nav className="nav-capsule">
           {NAV_LINKS.map(({ label, to, Icon }) => {
             const active = isActive(to);
@@ -121,6 +128,13 @@ export function AppNav() {
               </Link>
             );
           })}
+          <button
+            onClick={onSettingsClick}
+            className="nav-link"
+            data-tooltip="设置"
+          >
+            <IconSettings />
+          </button>
         </nav>
       </header>
     </div>

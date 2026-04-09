@@ -86,8 +86,10 @@ Mock data available in `storage/seeds/mockData.ts` for development.
 - Chinese comments OK in domain/types files for product context
 - ESLint/Prettier defaults (check package.json for scripts)
 - TypeScript strict mode
-- Always use css module to style component,do not use inline-style
-- Use Less as css language
-- A component should be structed as a folder
- - index.tsx as component file
- - index.module.less as style file
+- **Styling**: Tailwind CSS v4 + CSS Variables
+  - Global styles: `smart-workbench/src/App.css` (CSS variables, reset, global classes)
+  - Component styles: Tailwind utility classes (`className`) + inline styles for dynamic values
+  - No `.less` files or CSS modules currently in use
+- Component structure: Single file per component (e.g., `CalendarView.tsx`)
+  - Feature folders: `features/[feature-name]/`
+  - Shared UI components: `shared/ui/`

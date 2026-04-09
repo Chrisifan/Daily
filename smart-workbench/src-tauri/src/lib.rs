@@ -51,6 +51,16 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
     )
     .ok();
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )
+    .ok();
+
     Mutex::new(conn)
 });
 
@@ -346,6 +356,54 @@ fn delete_all_schedules() -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn get_setting(key: String) -> Result<Option<String>, String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT value FROM settings WHERE key = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let result = stmt
+        .query_row(params![key], |row| row.get(0))
+        .map_err(|e| e.to_string())
+        .ok();
+
+    Ok(result)
+}
+
+#[tauri::command]
+fn set_setting(key: String, value: String) -> Result<(), String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+
+    let now = now_rfc3339();
+
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)",
+        params![key, value, now],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn get_all_settings() -> Result<Vec<(String, String)>, String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT key, value FROM settings")
+        .map_err(|e| e.to_string())?;
+
+    let items = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(items)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -358,7 +416,10 @@ pub fn run() {
             create_schedule,
             update_schedule,
             delete_schedule,
-            delete_all_schedules
+            delete_all_schedules,
+            get_setting,
+            set_setting,
+            get_all_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

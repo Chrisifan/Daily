@@ -38,7 +38,6 @@ interface CalendarViewProps {
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
-const TIMELINE_RIGHT_WIDTH = 32;
 const CARD_PADDING = 16;
 const SLOT_HEIGHT = 32;
 const HOURS_IN_DAY = 24;
@@ -72,6 +71,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [completedSchedules, setCompletedSchedules] = useState<Set<string>>(new Set());
   const pickerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -283,6 +283,18 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     onAddSchedule?.(clickedDate);
   };
 
+  const toggleScheduleComplete = useCallback((scheduleId: string) => {
+    setCompletedSchedules((prev) => {
+      const next = new Set(prev);
+      if (next.has(scheduleId)) {
+        next.delete(scheduleId);
+      } else {
+        next.add(scheduleId);
+      }
+      return next;
+    });
+  }, []);
+
 const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
     const startDate = parseISO(schedule.startAt);
     const endDate = getEndTime(schedule.startAt, schedule.durationMinutes);
@@ -329,14 +341,14 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
           <div className="flex flex-col items-center text-center gap-3">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: "rgba(99,102,241,0.1)" }}
+              style={{ backgroundColor: "var(--color-primary)", opacity: 0.1 }}
             >
-              <Inbox className="w-6 h-6" style={{ color: "#6366f1" }} />
+              <Inbox className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
             </div>
-            <h3 className="text-sm font-semibold" style={{ color: "#1f2329" }}>
+            <h3 className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>
               日程助手
             </h3>
-            <p className="text-xs leading-relaxed" style={{ color: "rgba(31,35,41,0.5)" }}>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
               轻松掌控每一天的时间流向
             </p>
           </div>
@@ -346,7 +358,7 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
           <button
             onClick={() => onAddSchedule?.(selectedDate)}
             className="py-2.5 px-4 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-2 transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg, #818cf8, #6366f1)", boxShadow: "0 4px 12px rgba(99,102,241,0.25)" }}
+            style={{ background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-hover, var(--color-primary)))", boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 25%, transparent)" }}
           >
             <Plus className="w-4 h-4" />
             添加日程
@@ -365,12 +377,12 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                     setShowDatePicker(!showDatePicker);
                   }}
                   className="flex items-center gap-1 text-base lg:text-xl font-bold tracking-tight transition-colors"
-                  style={{ color: "#1f2329" }}
+                  style={{ color: "var(--color-text)" }}
                 >
                   {format(selectedDate, "yyyy年M月d日")}
                   <ChevronDown
                     className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform ${showDatePicker ? 'rotate-180' : ''}`}
-                    style={{ color: "rgba(31,35,41,0.5)" }}
+                    style={{ color: "var(--color-text-secondary)" }}
                   />
                 </button>
 
@@ -381,7 +393,8 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -4, scale: 0.98 }}
                       transition={{ duration: 0.12 }}
-                      className="absolute top-full left-0 mt-2 p-3 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 w-max"
+                      className="absolute top-full left-0 mt-2 p-3 rounded-xl shadow-lg border z-50 w-max"
+                      style={{ backgroundColor: "var(--color-surface)", borderColor: "var(--color-border)", backdropFilter: "blur(16px)" }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {pickerMode === 'day' ? (
@@ -390,7 +403,7 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                             <button
                               onClick={() => setPickerMode('month')}
                               className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
-                              style={{ color: "#6366f1", backgroundColor: "rgba(99,102,241,0.1)" }}
+                              style={{ color: "var(--color-primary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)" }}
                             >
                               {pickerYear}年{MONTHS[pickerMonth]}
                               <ChevronDown className="w-3 h-3" />
@@ -399,7 +412,7 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
 
                           <div className="grid grid-cols-7 gap-0.5 mb-1">
                             {WEEKDAYS.map((d) => (
-                              <div key={d} className="text-center text-[10px] py-1" style={{ color: "rgba(31,35,41,0.5)" }}>
+                              <div key={d} className="text-center text-[10px] py-1" style={{ color: "var(--color-text-secondary)" }}>
                                 {d}
                               </div>
                             ))}
@@ -417,8 +430,8 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                                     onClick={() => handleDaySelect(day)}
                                     className="w-7 h-7 rounded-md text-xs font-medium transition-all"
                                     style={{
-                                      backgroundColor: isSelected ? "#6366f1" : isDayToday ? "rgba(99,102,241,0.1)" : "transparent",
-                                      color: isSelected ? "white" : isDayToday ? "#6366f1" : isCurrentMonth ? "#1f2329" : "rgba(31,35,41,0.3)",
+                                      backgroundColor: isSelected ? "var(--color-primary)" : isDayToday ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "transparent",
+                                      color: isSelected ? "white" : isDayToday ? "var(--color-primary)" : isCurrentMonth ? "var(--color-text)" : "var(--color-text-muted)",
                                     }}
                                   >
                                     {format(day, "d")}
@@ -434,15 +447,15 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                             <button
                               onClick={() => handleYearChange(-1)}
                               className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
-                              style={{ color: "rgba(31,35,41,0.5)", backgroundColor: "rgba(99,102,241,0.06)" }}
+                              style={{ color: "var(--color-text-secondary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 6%, transparent)" }}
                             >
                               <ChevronLeft className="w-4 h-4" />
                             </button>
-                            <span className="text-sm font-semibold" style={{ color: "#1f2329" }}>{pickerYear}年</span>
+                            <span className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>{pickerYear}年</span>
                             <button
                               onClick={() => handleYearChange(1)}
                               className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
-                              style={{ color: "rgba(31,35,41,0.5)", backgroundColor: "rgba(99,102,241,0.06)" }}
+                              style={{ color: "var(--color-text-secondary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 6%, transparent)" }}
                             >
                               <ChevronRight className="w-4 h-4" />
                             </button>
@@ -457,8 +470,8 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                                   onClick={() => handleMonthSelect(idx)}
                                   className="px-2 py-1.5 text-xs font-medium rounded-md transition-all"
                                   style={{
-                                    backgroundColor: isSelected ? "#6366f1" : "rgba(99,102,241,0.06)",
-                                    color: isSelected ? "white" : "#1f2329",
+                                    backgroundColor: isSelected ? "var(--color-primary)" : "color-mix(in srgb, var(--color-primary) 6%, transparent)",
+                                    color: isSelected ? "white" : "var(--color-text)",
                                   }}
                                 >
                                   {month}
@@ -475,25 +488,25 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <div className="flex items-center rounded-lg p-0.5" style={{ backgroundColor: "rgba(255,255,255,0.6)", backdropFilter: "blur(8px)" }}>
+              <div className="flex items-center rounded-lg p-0.5" style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                 <button
                   onClick={handlePrevWeek}
                   className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
-                  style={{ color: "rgba(31,35,41,0.5)" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setSelectedDate(new Date())}
                   className="px-2 h-7 rounded-md text-xs font-medium transition-colors"
-                  style={{ color: "#6366f1" }}
+                  style={{ color: "var(--color-primary)" }}
                 >
                   今天
                 </button>
                 <button
                   onClick={handleNextWeek}
                   className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
-                  style={{ color: "rgba(31,35,41,0.5)" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -520,15 +533,15 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                 >
                   <span
                     className="text-[10px] font-medium mb-0.5"
-                    style={{ color: "rgba(31,35,41,0.5)" }}
+                    style={{ color: "var(--color-text-secondary)" }}
                   >
                     周{WEEKDAYS[i]}
                   </span>
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all"
                     style={{
-                      color: isActive || isDayToday ? "white" : "#1f2329",
-                      backgroundColor: isActive || isDayToday ? "#6366f1" : "transparent"
+                      color: isActive || isDayToday ? "white" : "var(--color-text)",
+                      backgroundColor: isActive || isDayToday ? "var(--color-primary)" : "transparent"
                     }}
                   >
                     {format(day, "d")}
@@ -538,12 +551,12 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                       <>
                         <span
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.9)" : "#6366f1" }}
+                          style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.9)" : "var(--color-primary)" }}
                         />
                         {daySchedulesCount > 1 && (
                           <span
                             className="w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.5)" : "rgba(99,102,241,0.5)" }}
+                            style={{ backgroundColor: isActive || isDayToday ? "rgba(255,255,255,0.5)" : "color-mix(in srgb, var(--color-primary) 50%, transparent)" }}
                           />
                         )}
                       </>
@@ -562,8 +575,8 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
             transition={{ duration: 0.3 }}
             className="flex-1 rounded-3xl overflow-hidden px-32 py-8"
             style={{
-              backgroundColor: "rgba(255,255,255,0.95)",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+              backgroundColor: "var(--color-surface)",
+              boxShadow: "var(--shadow-md)",
               maxHeight: "calc(100vh - 200px)",
               overflowY: "auto",
             }}
@@ -574,21 +587,21 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                 ref={timelineRef}
                 onClick={handleTimelineClick}
               >
-                <div
-                  className="absolute w-0.5 h-full"
-                  style={{
-                    left: 0,
-                    background: "linear-gradient(180deg, transparent 0%, rgba(99,102,241,1) 5%, rgba(99,102,241,1) 95%, transparent 100%)",
-                  }}
-                />
+                  <div
+                    className="absolute w-0.5 h-full"
+                    style={{
+                      left: 0,
+                      background: "linear-gradient(180deg, transparent 0%, var(--color-primary) 5%, var(--color-primary) 95%, transparent 100%)",
+                    }}
+                  />
 
                 {compressedCurrentTimeSlot >= 0 && (
                   <div
                     className="absolute right-0 flex items-center z-20 pointer-events-none"
                     style={{ top: slotToTop(compressedCurrentTimeSlot), left: 0 }}
                   >
-                    <div className="flex-1 h-0.5" style={{ backgroundColor: "#ef4444" }} />
-                    <span className="text-[10px] font-medium text-red-500 mr-2 -mt-3">
+                    <div className="flex-1 h-0.5" style={{ backgroundColor: "var(--color-error, #ef4444)" }} />
+                    <span className="text-[10px] font-medium mr-2 -mt-3" style={{ color: "var(--color-error, #ef4444)" }}>
                       {format(new Date(), "HH:mm")}
                     </span>
                   </div>
@@ -598,14 +611,14 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <div
                       className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
-                      style={{ backgroundColor: "rgba(99,102,241,0.08)" }}
+                      style={{ backgroundColor: "color-mix(in srgb, var(--color-primary) 8%, transparent)" }}
                     >
-                      <Clock className="w-8 h-8" style={{ color: "rgba(99,102,241,0.4)" }} />
+                      <Clock className="w-8 h-8" style={{ color: "var(--color-primary)", opacity: 0.4 }} />
                     </div>
-                    <p className="text-sm font-medium" style={{ color: "rgba(31,35,41,0.4)" }}>
+                    <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>
                       今天没有日程安排
                     </p>
-                    <p className="text-xs mt-1" style={{ color: "rgba(31,35,41,0.3)" }}>
+                    <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)", opacity: 0.7 }}>
                       点击时间轴添加第一个日程
                     </p>
                   </div>
@@ -686,8 +699,8 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                                     className="w-0.5 h-full"
                                     style={{
                                       background: isDashed
-                                        ? "repeating-linear-gradient(180deg, transparent 0, transparent 5px, rgba(255,255,255,1) 5px, rgba(255,255,255,1) 9px)"
-                                        : "linear-gradient(180deg, rgba(99, 102, 241,1) 0%, rgba(99, 102, 241,1) 100%)",
+                                        ? "repeating-linear-gradient(180deg, transparent 0, transparent 5px, var(--color-border) 5px, var(--color-border) 9px)"
+                                        : "linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary) 100%)",
                                     }}
                                   />
                                   {showGapHint && (
@@ -695,16 +708,16 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                                       className="absolute left-16 flex items-center gap-2"
                                       style={{ top: '50%', transform: 'translateY(-50%)', whiteSpace: 'nowrap' }}
                                     >
-                                      <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.4)" }}>
-                                        空闲 <span className="font-medium" style={{ color: "#6366f1" }}>{gapMinutes}</span> 分钟
+                                      <span className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>
+                                        空闲 <span className="font-medium" style={{ color: "var(--color-primary)" }}>{gapMinutes}</span> 分钟
                                       </span>
-                                      <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.3)" }}>
+                                      <span className="text-[10px]" style={{ color: "var(--color-text-muted)", opacity: 0.7 }}>
                                         安排一个日程?
                                       </span>
                                       <button
                                         onClick={() => onAddSchedule?.(parseISO(schedule.startAt))}
                                         className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
-                                        style={{ backgroundColor: "rgba(99,102,241,0.1)", color: "#6366f1" }}
+                                        style={{ backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)", color: "var(--color-primary)" }}
                                       >
                                         添加日程
                                       </button>
@@ -724,7 +737,7 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                                 left: 24,
                               }}
                             >
-                              <div className="w-full h-0.5" style={{ backgroundColor: "rgba(99,102,241,0.3)" }} />
+                              <div className="w-full h-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-primary) 30%, transparent)" }} />
                             </div>
                           )}
 
@@ -757,14 +770,14 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                                     top: startTimeShiftUp ? '-12px' : '0',
                                   }}
                                 >
-                                  <span className="text-[10px] font-medium" style={{ color: "#1f2329" }}>
+                                  <span className="text-[10px] font-medium" style={{ color: "var(--color-text)" }}>
                                     {format(startDate, 'HH:mm')}
                                   </span>
                                 </div>
                               )}
                               {isFirstSegment && !sharesTimeWithNext && (
                                 <div className="absolute -left-3 bottom-0 flex flex-col items-end" style={{ transform: 'translateX(-100%)' }}>
-                                  <span className="text-[10px] font-medium" style={{ color: "#1f2329" }}>
+                                  <span className="text-[10px] font-medium" style={{ color: "var(--color-text)" }}>
                                     {formatEndTime(endDate)}
                                   </span>
                                 </div>
@@ -782,42 +795,66 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                           )}
 
                           <div
-                            className="absolute left-24 flex flex-col justify-center"
+                            className="absolute left-24 right-8 flex items-center justify-between"
                             style={{ top: nodeTop, height: Math.max(nodeHeight, SLOT_HEIGHT) }}
                           >
-                            <div className="flex items-center gap-2">
-                              <h4
-                                className="text-sm font-semibold truncate"
-                                style={{ color: "#1f2329" }}
-                              >
-                                {isMultiSegment ? `${schedule.title} (${segmentIndex * 2 + 1}-${Math.min((segmentIndex + 1) * 2, 24)}时)` : schedule.title}
-                              </h4>
-                              {hasOverlap && isFirstSegment && (
-                                <span
-                                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
-                                  style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                            <div className="flex flex-col justify-center flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4
+                                  className="text-sm font-semibold truncate"
+                                  style={{ color: completedSchedules.has(schedule.id) ? "var(--color-text-muted)" : "var(--color-text)" }}
                                 >
-                                  <AlertCircle className="w-3 h-3" />
-                                  重叠 {overlappingIds.length} 个
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[11px]" style={{ color: "rgba(31,35,41,0.6)" }}>
-                                {format(startDate, 'HH:mm')} - {formatEndTime(endDate)}
-                              </span>
-                              <span className="text-[10px]" style={{ color: "rgba(31,35,41,0.4)" }}>
-                                ({schedule.durationMinutes}分钟)
-                              </span>
-                              {schedule.location && isFirstSegment && (
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" style={{ color: "rgba(31,35,41,0.3)" }} />
-                                  <span className="text-[10px] truncate" style={{ color: "rgba(31,35,41,0.45)" }}>
-                                    {schedule.location}
+                                  {isMultiSegment ? `${schedule.title} (${segmentIndex * 2 + 1}-${Math.min((segmentIndex + 1) * 2, 24)}时)` : schedule.title}
+                                </h4>
+                                {hasOverlap && isFirstSegment && (
+                                  <span
+                                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0"
+                                    style={{ backgroundColor: "color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent)", color: "var(--color-error, #ef4444)" }}
+                                  >
+                                    <AlertCircle className="w-3 h-3" />
+                                    重叠 {overlappingIds.length} 个
                                   </span>
-                                </div>
-                              )}
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[11px]" style={{ color: "var(--color-text-secondary)" }}>
+                                  {format(startDate, 'HH:mm')} - {formatEndTime(endDate)}
+                                </span>
+                                <span className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>
+                                  ({schedule.durationMinutes}分钟)
+                                </span>
+                                {schedule.location && isFirstSegment && (
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" style={{ color: "var(--color-text-muted)" }} />
+                                    <span className="text-[10px] truncate" style={{ color: "var(--color-text-secondary)" }}>
+                                      {schedule.location}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                            {isFirstSegment && (
+                              <motion.button
+                                onClick={() => toggleScheduleComplete(schedule.id)}
+                                whileTap={{ scale: 0.85 }}
+                                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-3"
+                                style={{
+                                  backgroundColor: completedSchedules.has(schedule.id) ? colors.border : 'transparent',
+                                  border: `2px solid ${colors.border}`,
+                                }}
+                              >
+                                <motion.div
+                                  initial={false}
+                                  animate={{
+                                    scale: completedSchedules.has(schedule.id) ? 1 : 0,
+                                    opacity: completedSchedules.has(schedule.id) ? 1 : 0,
+                                  }}
+                                  transition={{ duration: 0.15 }}
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: colors.border }}
+                                />
+                              </motion.button>
+                            )}
                           </div>
                         </div>
                       );
@@ -842,56 +879,13 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                           className="absolute -left-3 flex flex-col items-end"
                           style={{ top: nodeTop, transform: 'translateX(-60%)' }}
                         >
-                          <span className="text-[10px] font-medium" style={{ color: "#1f2329" }}>
+                          <span className="text-[10px] font-medium" style={{ color: "var(--color-text)" }}>
                             {hour === 0 ? '00:00' : '24:00'}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
-
-              <div
-                className="shrink-0 flex flex-col items-center py-4"
-                style={{ width: TIMELINE_RIGHT_WIDTH }}
-              >
-                {daySchedules.length === 0 ? (
-                  <div
-                    className="w-6 h-6 rounded-full"
-                    style={{ border: "2px solid rgba(99,102,241,0.2)" }}
-                  />
-                ) : (
-                  allScheduleSegments.map((seg, index) => {
-                    const { schedule, segment, segmentIndex } = seg;
-                    const colors = PRIORITY_COLORS[schedule.priority];
-                    const hasOverlap = scheduleOverlaps[schedule.id]?.length > 0;
-                    const compressedStartSlot = compressedSlotMap[schedule.id];
-                    const startSlot = getSlotIndex(segment.startAt);
-                    const endSlot = getSlotIndex(segment.endAt);
-                    const durationSlots = Math.max(endSlot - startSlot, 1);
-                    const nodeHeight = durationSlots * SLOT_HEIGHT;
-                    const nodeTop = slotToTop(compressedStartSlot) - nodeHeight / 2;
-                    const globalIndex = daySchedules.indexOf(schedule);
-                    return (
-                      <motion.div
-                        key={`${schedule.id}-seg-${segmentIndex}`}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: globalIndex * 0.05 + 0.1 }}
-                        className="flex items-center justify-center"
-                        style={{ height: Math.max(nodeHeight, SLOT_HEIGHT), marginTop: segmentIndex === 0 && index === 0 ? nodeTop : 0 }}
-                      >
-                        <div
-                          className={`w-6 h-6 rounded-full ${hasOverlap && segmentIndex === 0 ? 'animate-pulse' : ''}`}
-                          style={{
-                            border: `2px solid ${hasOverlap && segmentIndex === 0 ? '#ef4444' : colors.ring}`,
-                            backgroundColor: hasOverlap && segmentIndex === 0 ? 'rgba(239,68,68,0.1)' : 'transparent',
-                          }}
-                        />
-                      </motion.div>
-                    );
-                  })
                 )}
               </div>
             </div>
