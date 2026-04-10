@@ -7,15 +7,12 @@ import {
   addDays,
   isSameDay,
   parseISO,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameMonth,
   differenceInMinutes,
   startOfDay,
   areIntervalsOverlapping,
 } from "date-fns";
 import type { ScheduleItem, ScheduleIcon } from "../../domain/schedule/types";
+import { DatePicker } from "../../shared/ui/DatePicker";
 
 const ICON_MAP: Record<ScheduleIcon, typeof Clock> = {
   clock: Clock,
@@ -36,7 +33,6 @@ interface CalendarViewProps {
 }
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
 const CARD_PADDING = 16;
 const SLOT_HEIGHT = 32;
@@ -67,10 +63,8 @@ function formatEndTime(date: Date): string {
 export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'day' | 'month'>('day');
-  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
-  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
   const [completedSchedules, setCompletedSchedules] = useState<Set<string>>(new Set());
+  const [now, setNow] = useState<Date>(new Date());
   const pickerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -166,46 +160,14 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     return overlaps;
   }, [daySchedules]);
 
-  const monthStart = startOfMonth(new Date(pickerYear, pickerMonth));
-  const monthEnd = endOfMonth(monthStart);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calendarEnd = startOfWeek(monthEnd, { weekStartsOn: 0 });
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: addDays(calendarEnd, 41) });
-
-  const weeks = useMemo(() => {
-    const result: Date[][] = [];
-    for (let i = 0; i < calendarDays.length; i += 7) {
-      result.push(calendarDays.slice(i, i + 7));
-    }
-    return result;
-  }, [calendarDays]);
-
   const handlePrevWeek = () => setSelectedDate(addDays(selectedDate, -7));
   const handleNextWeek = () => setSelectedDate(addDays(selectedDate, 7));
-
-  const handleDaySelect = (day: Date) => {
-    setSelectedDate(day);
-    setShowDatePicker(false);
-  };
-
-  const handleMonthSelect = (month: number) => {
-    setSelectedDate(new Date(pickerYear, month, selectedDate.getDate()));
-    setPickerMode('day');
-  };
-
-  const handleYearChange = (delta: number) => {
-    const newYear = pickerYear + delta;
-    setPickerYear(newYear);
-    if (selectedDate.getFullYear() === pickerYear) {
-      setSelectedDate(new Date(newYear, selectedDate.getMonth(), selectedDate.getDate()));
-    }
-  };
+  const handleDaySelect = (day: Date) => setSelectedDate(day);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowDatePicker(false);
-        setPickerMode('day');
       }
     };
     if (showDatePicker) {
@@ -215,9 +177,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
   }, [showDatePicker]);
 
   useEffect(() => {
-    setPickerYear(selectedDate.getFullYear());
-    setPickerMonth(selectedDate.getMonth());
-  }, [selectedDate]);
+    const tick = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(tick);
+  }, []);
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('.event-capsule')) return;
@@ -337,100 +299,14 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
 
                 <AnimatePresence>
                   {showDatePicker && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                      transition={{ duration: 0.12 }}
-                      className="absolute top-full left-0 mt-2 p-3 rounded-xl shadow-lg border z-50 w-max"
-                      style={{ backgroundColor: "var(--color-surface)", borderColor: "var(--color-border)", backdropFilter: "blur(16px)" }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {pickerMode === 'day' ? (
-                        <>
-                          <div className="flex items-center justify-between gap-4 mb-2">
-                            <button
-                              onClick={() => setPickerMode('month')}
-                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
-                              style={{ color: "var(--color-primary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)" }}
-                            >
-                              {pickerYear}年{MONTHS[pickerMonth]}
-                              <ChevronDown className="w-3 h-3" />
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-7 gap-0.5 mb-1">
-                            {WEEKDAYS.map((d) => (
-                              <div key={d} className="text-center text-[10px] py-1" style={{ color: "var(--color-text-secondary)" }}>
-                                {d}
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="grid grid-cols-7 gap-0.5">
-                            {weeks.slice(0, 6).map((week, wi) =>
-                              week.map((day, di) => {
-                                const isCurrentMonth = isSameMonth(day, monthStart);
-                                const isSelected = isSameDay(day, selectedDate);
-                                const isDayToday = isSameDay(day, new Date());
-                                return (
-                                  <button
-                                    key={`${wi}-${di}`}
-                                    onClick={() => handleDaySelect(day)}
-                                    className="w-7 h-7 rounded-md text-xs font-medium transition-all"
-                                    style={{
-                                      backgroundColor: isSelected ? "var(--color-primary)" : isDayToday ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "transparent",
-                                      color: isSelected ? "white" : isDayToday ? "var(--color-primary)" : isCurrentMonth ? "var(--color-text)" : "var(--color-text-muted)",
-                                    }}
-                                  >
-                                    {format(day, "d")}
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-center justify-between gap-4 mb-2">
-                            <button
-                              onClick={() => handleYearChange(-1)}
-                              className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
-                              style={{ color: "var(--color-text-secondary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 6%, transparent)" }}
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <span className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>{pickerYear}年</span>
-                            <button
-                              onClick={() => handleYearChange(1)}
-                              className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
-                              style={{ color: "var(--color-text-secondary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 6%, transparent)" }}
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-4 gap-1">
-                            {MONTHS.map((month, idx) => {
-                              const isSelected = selectedDate.getMonth() === idx && pickerYear === selectedDate.getFullYear();
-                              return (
-                                <button
-                                  key={month}
-                                  onClick={() => handleMonthSelect(idx)}
-                                  className="px-2 py-1.5 text-xs font-medium rounded-md transition-all"
-                                  style={{
-                                    backgroundColor: isSelected ? "var(--color-primary)" : "color-mix(in srgb, var(--color-primary) 6%, transparent)",
-                                    color: isSelected ? "white" : "var(--color-text)",
-                                  }}
-                                >
-                                  {month}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </motion.div>
+                    <DatePicker
+                      value={selectedDate}
+                      onChange={(date) => {
+                        setSelectedDate(date);
+                        setShowDatePicker(false);
+                      }}
+                      onClose={() => setShowDatePicker(false)}
+                    />
                   )}
                 </AnimatePresence>
               </div>
@@ -597,7 +473,6 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                         && nextGapMinutes <= 0;
                       const startTimeShiftUp = globalIndex > 0 && gapMinutes === 0;
 
-                      const now = new Date();
                       const tzOffset = now.getTimezoneOffset() * 60000;
                       const nowLocal = new Date(now.getTime() - tzOffset);
                       const startDateLocal = new Date(startDate.getTime() - tzOffset);

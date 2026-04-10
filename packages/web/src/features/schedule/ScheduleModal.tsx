@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronDown, ChevronUp, Repeat, Clock, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
 import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
 import { REPEAT_MODE_LABELS, SCHEDULE_ICON_LABELS } from "../../domain/schedule/types";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
+import { DatePicker } from "../../shared/ui/DatePicker";
 
 const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
   const hours = Math.floor(i / 2);
@@ -372,6 +373,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
   const [icon, setIcon] = useState<ScheduleIcon>(initialValues.icon);
   const [notes, setNotes] = useState(initialValues.notes);
   const [startDate, setStartDate] = useState(initialValues.startDate);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [startTime, setStartTime] = useState(initialValues.startTime);
   const [durationMinutes, setDurationMinutes] = useState(initialValues.durationMinutes);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>(initialValues.repeatMode);
@@ -394,6 +396,19 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
       setIsFlexible(values.isFlexible);
     }
   }, [open, initialData]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.date-picker-wrapper')) {
+        setShowDatePicker(false);
+      }
+    };
+    if (showDatePicker) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showDatePicker]);
 
   const maxDurationMinutes = useMemo(() => {
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -480,16 +495,31 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
               </div>
 
               <div>
-                <label htmlFor="schedule-date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   日期 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  id="schedule-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                />
+                <div className="relative date-picker-wrapper">
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(!showDatePicker)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
+                  >
+                    <span>{startDate}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </button>
+                  <AnimatePresence>
+                    {showDatePicker && (
+                      <DatePicker
+                        value={parse(startDate, 'yyyy-MM-dd', new Date())}
+                        onChange={(date) => {
+                          setStartDate(format(date, 'yyyy-MM-dd'));
+                          setShowDatePicker(false);
+                        }}
+                        onClose={() => setShowDatePicker(false)}
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
