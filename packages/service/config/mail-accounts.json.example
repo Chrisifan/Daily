@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "accounts": [
+    {
+      "id": "example-gmail",
+      "email": "your-email@gmail.com",
+      "imapHost": "imap.gmail.com",
+      "imapPort": 993,
+      "username": "your-email@gmail.com",
+      "passwordObfuscated": "BASE64_OBFUSCATED_PASSWORD_HERE",
+      "secure": true,
+      "displayName": "我的 Gmail",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "example-outlook",
+      "email": "your-email@outlook.com",
+      "imapHost": "outlook.office365.com",
+      "imapPort": 993,
+      "username": "your-email@outlook.com",
+      "passwordObfuscated": "BASE64_OBFUSCATED_PASSWORD_HERE",
+      "secure": true,
+      "displayName": "我的 Outlook",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "example-qq",
+      "email": "123456789@qq.com",
+      "imapHost": "imap.qq.com",
+      "imapPort": 993,
+      "username": "123456789@qq.com",
+      "passwordObfuscated": "BASE64_OBFUSCATED_PASSWORD_HERE",
+      "secure": true,
+      "displayName": "我的 QQ 邮箱",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "example-163",
+      "email": "your-email@163.com",
+      "imapHost": "imap.163.com",
+      "imapPort": 993,
+      "username": "your-email@163.com",
+      "passwordObfuscated": "BASE64_OBFUSCATED_PASSWORD_HERE",
+      "secure": true,
+      "displayName": "我的 163 邮箱",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

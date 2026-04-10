@@ -1,0 +1,17 @@
+{
+  "name": "daily",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter @daily/web dev",
+    "dev:desktop": "pnpm --filter @daily/desktop tauri dev",
+    "dev:service": "pnpm --filter @daily/service dev",
+    "build:web": "pnpm --filter @daily/web build",
+    "build:desktop": "pnpm --filter @daily/desktop tauri build",
+    "build:service": "pnpm --filter @daily/service build"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=8"
+  }
+}
