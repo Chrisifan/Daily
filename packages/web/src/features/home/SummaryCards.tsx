@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { ScheduleItem } from "../../domain/schedule/types";
 import type { InboxItem } from "../../domain/inbox/types";
 import type { Workspace } from "../../domain/workspace/types";
@@ -12,25 +13,33 @@ interface SummaryCardsProps {
 
 const CARD_DEFS = [
   {
-    value: "40%", title: "日程规划", text: "查看完整日历",
+    value: "40%",
+    titleKey: "home.summary.schedulePlanning",
+    textKey: "home.summary.viewFullCalendar",
     iconBg: "rgba(63, 86, 214, 0.15)",
     transform: "rotate(-0.9deg)",
     borderRadius: "30px 24px 24px 24px",
   },
   {
-    value: "4",   title: "项目跟踪", text: "活跃项目状态",
+    value: "4",
+    titleKey: "home.summary.projectTracking",
+    textKey: "home.summary.activeProjects",
     iconBg: "rgba(34, 197, 94, 0.15)",
     transform: "translateY(8px) rotate(1deg)",
     borderRadius: "24px 30px 24px 24px",
   },
   {
-    value: "2",   title: "邮件同步", text: "新邮件待整理",
+    value: "2",
+    titleKey: "home.summary.emailSync",
+    textKey: "home.summary.newEmails",
     iconBg: "rgba(245, 158, 11, 0.15)",
     transform: "translateY(-6px) rotate(-0.8deg)",
     borderRadius: "24px 24px 30px 24px",
   },
   {
-    value: "1",   title: "工作区",   text: "进入活跃工作区",
+    value: "1",
+    titleKey: "home.summary.workspace",
+    textKey: "home.summary.enterActiveWorkspace",
     iconBg: "rgba(139, 92, 246, 0.15)",
     transform: "translateX(-8px) rotate(0.6deg)",
     borderRadius: "24px 24px 24px 30px",
@@ -50,20 +59,23 @@ export function SummaryCards({ schedules, workspaces, inboxItems }: SummaryCards
   return (
     <div className="summary-grid">
       {CARD_DEFS.map((card, i) => (
-        <MiniCard key={card.title} showDeco={i === 0} card={card} val={dynamicValues[i]} delay={0.08 + i * 0.07} />
+        <MiniCard key={card.titleKey} showDeco={i === 0} card={card} val={dynamicValues[i]} delay={0.08 + i * 0.07} />
       ))}
     </div>
   );
 }
 
 interface MiniCardDef {
-  value: string; title: string; text: string;
+  value: string;
+  titleKey: string;
+  textKey: string;
   iconBg: string;
   transform: string;
   borderRadius: string;
 }
 
 function MiniCard({ card, val, delay, showDeco = false }: { card: MiniCardDef; val: string; delay: number; showDeco?: boolean }) {
+  const { t } = useTranslation();
   const isSmall = val.length > 2;
   const ref = useRef<HTMLDivElement>(null);
 
@@ -103,8 +115,8 @@ function MiniCard({ card, val, delay, showDeco = false }: { card: MiniCardDef; v
         </div>
 
         <div>
-          <p className="m-0 mini-title">{card.title}</p>
-          <p className="m-0 mt-1.5 mini-text">{card.text}</p>
+          <p className="m-0 mini-title">{t(card.titleKey)}</p>
+          <p className="m-0 mt-1.5 mini-text">{t(card.textKey)}</p>
         </div>
       </div>
     </motion.div>

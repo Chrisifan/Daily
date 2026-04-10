@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Inbox, ChevronLeft, ChevronRight, ChevronDown, Plus, Clock, MapPin, AlertCircle, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
 import {
   format,
@@ -32,7 +33,15 @@ interface CalendarViewProps {
   onAddSchedule?: (date?: Date) => void;
 }
 
-const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+const WEEKDAY_KEYS = [
+  "calendar.weekdays.0",
+  "calendar.weekdays.1",
+  "calendar.weekdays.2",
+  "calendar.weekdays.3",
+  "calendar.weekdays.4",
+  "calendar.weekdays.5",
+  "calendar.weekdays.6",
+] as const;
 
 const CARD_PADDING = 16;
 const SLOT_HEIGHT = 32;
@@ -61,6 +70,7 @@ function formatEndTime(date: Date): string {
 }
 
 export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: CalendarViewProps) {
+  const { t } = useTranslation();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [completedSchedules, setCompletedSchedules] = useState<Set<string>>(new Set());
@@ -360,7 +370,7 @@ const splitScheduleIntoSegments = useCallback((schedule: ScheduleItem) => {
                     className="text-[10px] font-medium mb-0.5"
                     style={{ color: "var(--color-text-secondary)" }}
                   >
-                    周{WEEKDAYS[i]}
+                    周{t(WEEKDAY_KEYS[i])}
                   </span>
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all"

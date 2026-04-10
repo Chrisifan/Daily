@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppNav } from "./AppNav";
 import { SettingsPopup } from "../../shared/ui/SettingsPopup";
-import { useSettingsStore } from "../../shared/hooks/useSettingsStore";
+import {
+  getThemeSetting,
+  setThemeSetting,
+  getResolvedTheme,
+  type ThemeMode,
+} from "../../shared/services/settingsService";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -12,12 +17,41 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
-  const { themeMode, resolvedTheme, setTheme } = useSettingsStore();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [settingsPopupOpen, setSettingsPopupOpen] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+
+  useEffect(() => {
+    getThemeSetting().then((theme) => {
+      setThemeMode(theme);
+      setResolvedTheme(getResolvedTheme(theme));
+    });
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => {
+      getThemeSetting().then((theme) => {
+        if (theme === "system") setResolvedTheme(e.matches ? "dark" : "light");
+      });
+    };
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+
+  const handleSettingsClick = useCallback(() => {
+    setSettingsPopupOpen(true);
+  }, []);
+
+  const handleThemeChange = useCallback(async (theme: ThemeMode) => {
+    await setThemeSetting(theme);
+    setThemeMode(theme);
+    setResolvedTheme(getResolvedTheme(theme));
+  }, []);
 
   return (
     <div className={`app-shell ${resolvedTheme === "dark" ? "dark" : ""}`}>
-      <AppNav onSettingsClick={() => setSettingsOpen(true)} />
+      <AppNav onSettingsClick={handleSettingsClick} />
       <main className="app-main">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -32,10 +66,10 @@ export function AppLayout({ children }: AppLayoutProps) {
         </AnimatePresence>
       </main>
       <SettingsPopup
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        open={settingsPopupOpen}
+        onClose={() => setSettingsPopupOpen(false)}
         themeMode={themeMode}
-        onThemeChange={setTheme}
+        onThemeChange={handleThemeChange}
       />
     </div>
   );

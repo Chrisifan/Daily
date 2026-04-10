@@ -4,6 +4,7 @@ import { SchedulePage } from "../../features/schedule/SchedulePage";
 import { WorkspaceListPage } from "../../features/workspace/WorkspaceListPage";
 import { WorkspaceDetailPage } from "../../features/workspace/WorkspaceDetailPage";
 import { IntegrationsPage } from "../../features/integrations/IntegrationsPage";
+import { SettingsPage } from "../../features/settings/SettingsPage";
 import { AppLayout } from "../layout/AppLayout";
 
 export const router = createBrowserRouter([
@@ -30,6 +31,10 @@ export const router = createBrowserRouter([
       {
         path: "integrations",
         element: <IntegrationsPage />
+      },
+      {
+        path: "settings",
+        element: <SettingsPage />
       }
     ]
   }

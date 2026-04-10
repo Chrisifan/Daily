@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { GlassCard } from "../../shared/ui/GlassCard";
 
 // ==================== 类型定义 ====================
@@ -122,6 +123,8 @@ const DEFAULT_FORM = {
 // ==================== 组件 ====================
 
 export function IntegrationsPage() {
+  const { t } = useTranslation();
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,11 +149,11 @@ export function IntegrationsPage() {
       const data = await fetchAccounts();
       setAccounts(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      setError(err instanceof Error ? err.message : t("integrations.loadFailed") || "加载失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadAccounts();
@@ -167,7 +170,7 @@ export function IntegrationsPage() {
 
   const handleTestConnection = async () => {
     if (!form.email || !form.imapHost || !form.imapPort || !form.password) {
-      setFormError("请填写邮箱、IMAP 服务器、端口和密码");
+      setFormError(t("integrations.fillRequired") || "请填写邮箱、IMAP 服务器、端口和密码");
       return;
     }
     setFormError(null);
@@ -187,7 +190,7 @@ export function IntegrationsPage() {
       setTestResult({
         success: false,
         connected: false,
-        error: err instanceof Error ? err.message : "测试连接失败",
+        error: err instanceof Error ? err.message : t("integrations.testFailed") || "测试连接失败",
       });
     } finally {
       setTesting(false);
@@ -196,7 +199,7 @@ export function IntegrationsPage() {
 
   const handleSave = async () => {
     if (!form.email || !form.imapHost || !form.imapPort || !form.password) {
-      setFormError("请填写所有必填字段");
+      setFormError(t("integrations.fillAllFields") || "请填写所有必填字段");
       return;
     }
     setFormError(null);
@@ -216,7 +219,7 @@ export function IntegrationsPage() {
       setForm({ ...DEFAULT_FORM });
       setTestResult(null);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "保存失败");
+      setFormError(err instanceof Error ? err.message : t("integrations.saveFailed") || "保存失败");
     } finally {
       setSaving(false);
     }
@@ -227,7 +230,7 @@ export function IntegrationsPage() {
       const updated = await deleteAccount(id);
       setAccounts(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "删除失败");
+      setError(err instanceof Error ? err.message : t("integrations.deleteFailed") || "删除失败");
     }
   };
 
@@ -241,7 +244,7 @@ export function IntegrationsPage() {
       // Reload accounts to get updated lastSyncedAt
       await loadAccounts();
     } catch (err) {
-      setSyncError(err instanceof Error ? err.message : "同步失败");
+      setSyncError(err instanceof Error ? err.message : t("integrations.syncFailed") || "同步失败");
     } finally {
       setSyncing(null);
     }
@@ -251,8 +254,8 @@ export function IntegrationsPage() {
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "8px 0 24px" }}>
       {/* Page Header */}
       <div style={{ marginBottom: 20 }}>
-        <p className="panel-eyebrow">应用设置</p>
-        <h1 className="panel-title" style={{ fontSize: 26 }}>集成设置</h1>
+        <p className="panel-eyebrow">{t("integrations.appSettings")}</p>
+        <h1 className="panel-title" style={{ fontSize: 26 }}>{t("integrations.title")}</h1>
       </div>
 
       {/* Error banner */}
@@ -271,7 +274,7 @@ export function IntegrationsPage() {
             onClick={loadAccounts}
             style={{ marginLeft: 12, textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 13 }}
           >
-            重试
+            {t("integrations.retry") || "重试"}
           </button>
         </div>
       )}
@@ -280,8 +283,8 @@ export function IntegrationsPage() {
       <GlassCard className="card" style={{ padding: 24 }}>
         <div className="panel-head" style={{ marginBottom: 16 }}>
           <div>
-            <p className="panel-eyebrow">邮箱账号</p>
-            <h2 className="panel-title">邮件集成</h2>
+            <p className="panel-eyebrow">{t("settings.email.title")}</p>
+            <h2 className="panel-title">{t("integrations.title")}</h2>
           </div>
           {!showForm && (
             <button
@@ -300,7 +303,7 @@ export function IntegrationsPage() {
                 cursor: "pointer",
               }}
             >
-              + 添加邮箱账号
+              + {t("settings.email.addAccount")}
             </button>
           )}
         </div>
@@ -308,7 +311,7 @@ export function IntegrationsPage() {
         {/* Account List */}
         {loading ? (
           <div style={{ textAlign: "center", padding: "24px 0", color: "var(--color-text-muted)", fontSize: 13 }}>
-            加载中...
+            {t("integrations.loading") || "加载中..."}
           </div>
         ) : accounts.length === 0 && !showForm ? (
           <div style={{
@@ -319,8 +322,8 @@ export function IntegrationsPage() {
             border: "1px dashed var(--color-border)",
             borderRadius: 16,
           }}>
-            暂无已配置的邮箱账号<br />
-            <span style={{ fontSize: 12 }}>点击上方「添加邮箱账号」开始配置</span>
+            {t("settings.email.noAccounts")}<br />
+            <span style={{ fontSize: 12 }}>{t("integrations.clickToAdd") || "点击上方「添加邮箱账号」开始配置"}</span>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -358,14 +361,14 @@ export function IntegrationsPage() {
                         border: `1px solid ${acc.connected ? "rgba(34,197,94,0.2)" : "rgba(245,158,11,0.2)"}`,
                       }}
                     >
-                      {acc.connected ? "已连接" : "未连接"}
+                      {acc.connected ? t("settings.email.connected") : t("settings.email.notConnected")}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
                     {acc.email} · {acc.imapHost}:{acc.imapPort}
                     {acc.lastSyncedAt && (
                       <span style={{ marginLeft: 8, color: "var(--color-text-muted)" }}>
-                        上次同步: {new Date(acc.lastSyncedAt).toLocaleString("zh-CN")}
+                        {t("integrations.lastSync") || "上次同步"}: {new Date(acc.lastSyncedAt).toLocaleString()}
                       </span>
                     )}
                   </div>
@@ -388,7 +391,7 @@ export function IntegrationsPage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {syncing === acc.id ? "同步中..." : "同步邮件"}
+                  {syncing === acc.id ? t("integrations.syncing") || "同步中..." : t("settings.email.sync")}
                 </button>
 
                 <button
@@ -407,7 +410,7 @@ export function IntegrationsPage() {
                     fontSize: 14,
                     transition: "all 180ms ease",
                   }}
-                  title="删除账号"
+                  title={t("settings.email.delete")}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "rgba(239,68,68,0.08)";
                     e.currentTarget.style.color = "var(--color-error)";
@@ -437,15 +440,15 @@ export function IntegrationsPage() {
             fontSize: 13,
             color: "var(--color-text-secondary)",
           }}>
-            ✅ 同步完成！拉取到 <strong>{syncResult.totalEmails}</strong> 封邮件
+            ✅ {t("settings.email.syncSuccess", { count: syncResult.totalEmails })}
             {syncResult.messages.slice(0, 3).map((msg) => (
               <div key={msg.uid} style={{ marginTop: 6, fontSize: 12, color: "var(--color-text-muted)" }}>
-                {msg.seen ? "○" : "●"} {msg.from?.name || msg.from?.address} — {msg.subject || "(无主题)"}
+                {msg.seen ? "○" : "●"} {msg.from?.name || msg.from?.address} — {msg.subject || `(${t("integrations.noSubject") || "无主题"})`}
               </div>
             ))}
             {syncResult.messages.length > 3 && (
               <div style={{ marginTop: 4, fontSize: 12, color: "var(--color-text-muted)" }}>
-                ...还有 {syncResult.messages.length - 3} 封
+                ...{t("integrations.moreEmails", { count: syncResult.messages.length - 3 }) || `还有 ${syncResult.messages.length - 3} 封`}
               </div>
             )}
           </div>
@@ -462,7 +465,7 @@ export function IntegrationsPage() {
             fontSize: 13,
             color: "var(--color-error)",
           }}>
-            同步失败: {syncError}
+            {t("integrations.syncFailed") || "同步失败"}: {syncError}
           </div>
         )}
 
@@ -476,15 +479,15 @@ export function IntegrationsPage() {
             border: "1px solid var(--color-border)",
           }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: "var(--color-text)" }}>
-              添加邮箱账号
+              {t("settings.email.addAccount")}
             </h3>
 
             {/* Form Fields */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <FormField
-                label="邮箱地址"
+                label={t("settings.email.emailAddress")}
                 required
-                hint="如: your-email@163.com"
+                hint={t("integrations.emailHint") || "如: your-email@163.com"}
               >
                 <input
                   type="email"
@@ -496,7 +499,7 @@ export function IntegrationsPage() {
               </FormField>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
-                <FormField label="IMAP 服务器" required hint="如: imap.163.com">
+                <FormField label={t("settings.email.imapServer")} required hint={t("integrations.imapHint") || "如: imap.163.com"}>
                   <input
                     type="text"
                     value={form.imapHost}
@@ -505,7 +508,7 @@ export function IntegrationsPage() {
                     style={inputStyle}
                   />
                 </FormField>
-                <FormField label="端口" required>
+                <FormField label={t("settings.email.port")} required>
                   <input
                     type="number"
                     value={form.imapPort}
@@ -516,7 +519,7 @@ export function IntegrationsPage() {
                 </FormField>
               </div>
 
-              <FormField label="用户名" hint="通常同邮箱地址，留空则同邮箱">
+              <FormField label={t("settings.email.username")} hint={t("integrations.usernameHint") || "通常同邮箱地址，留空则同邮箱"}>
                 <input
                   type="text"
                   value={form.username}
@@ -526,22 +529,22 @@ export function IntegrationsPage() {
                 />
               </FormField>
 
-              <FormField label="授权码 / 密码" required hint="邮箱的 IMAP 专用密码，非登录密码">
+              <FormField label={t("settings.email.password")} required hint={t("integrations.passwordHint") || "邮箱的 IMAP 专用密码，非登录密码"}>
                 <input
                   type="password"
                   value={form.password}
                   onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                  placeholder="请输入授权码"
+                  placeholder={t("integrations.enterAuthCode") || "请输入授权码"}
                   style={inputStyle}
                 />
               </FormField>
 
-              <FormField label="显示名称" hint="可选，如: 我的 163 邮箱">
+              <FormField label={t("settings.email.displayName")} hint={t("integrations.displayNameHint") || "可选，如: 我的 163 邮箱"}>
                 <input
                   type="text"
                   value={form.displayName}
                   onChange={(e) => setForm((p) => ({ ...p, displayName: e.target.value }))}
-                  placeholder="可选"
+                  placeholder={t("integrations.optional") || "可选"}
                   style={inputStyle}
                 />
               </FormField>
@@ -576,8 +579,8 @@ export function IntegrationsPage() {
                 fontSize: 12,
               }}>
                 {testResult.success
-                  ? `✅ 连接成功！发现 ${testResult.folders?.length ?? 0} 个文件夹`
-                  : `❌ 连接失败: ${testResult.error}`}
+                  ? `✅ ${t("settings.email.testSuccess")} ${t("integrations.foldersFound", { count: testResult.folders?.length ?? 0 }) || `发现 ${testResult.folders?.length ?? 0} 个文件夹`}`
+                  : `❌ ${t("settings.email.testFailed", { error: testResult.error || "" })}`}
               </div>
             )}
 
@@ -595,7 +598,7 @@ export function IntegrationsPage() {
                   opacity: testing ? 0.6 : 1,
                 }}
               >
-                {testing ? "测试中..." : "测试连接"}
+                {testing ? t("integrations.testing") || "测试中..." : t("settings.email.testConnection")}
               </button>
 
               <button
@@ -611,7 +614,7 @@ export function IntegrationsPage() {
                   border: "none",
                 }}
               >
-                {saving ? "保存中..." : "保存"}
+                {saving ? t("integrations.saving") || "保存中..." : t("settings.email.save")}
               </button>
 
               <button
@@ -631,7 +634,7 @@ export function IntegrationsPage() {
                   cursor: "pointer",
                 }}
               >
-                取消
+                {t("settings.email.cancel")}
               </button>
             </div>
           </div>

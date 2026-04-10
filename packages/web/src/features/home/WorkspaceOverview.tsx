@@ -1,15 +1,17 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
-const TAGS = [
-  { label: "活跃项目 3", bg: "rgba(34, 197, 94, 0.12)", color: "var(--color-success)" },
-  { label: "工作区 4",   bg: "rgba(59, 130, 246, 0.12)", color: "var(--color-info)" },
-  { label: "新邮件 2",   bg: "rgba(139, 92, 246, 0.12)", color: "#8B5CF6" },
+const TAG_KEYS = [
+  { key: "home.overview.tags.activeProjects", count: 3, bg: "rgba(34, 197, 94, 0.12)", color: "var(--color-success)" },
+  { key: "home.overview.tags.workspaces", count: 4, bg: "rgba(59, 130, 246, 0.12)", color: "var(--color-info)" },
+  { key: "home.overview.tags.newEmails", count: 2, bg: "rgba(139, 92, 246, 0.12)", color: "#8B5CF6" },
 ];
 
-const CHIPS = ["查看工作区", "新建工作区", "同步日历"];
+const CHIP_KEYS = ["home.overview.actions.viewWorkspaces", "home.overview.actions.newWorkspace", "home.overview.actions.syncCalendar"] as const;
 
 export function WorkspaceOverview() {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -47,19 +49,19 @@ export function WorkspaceOverview() {
         <div className="panel-head" style={{ marginBottom: 0 }}>
           <div>
             <p className="panel-eyebrow">Overview</p>
-            <h2 className="panel-title">今日总览与工作区</h2>
+            <h2 className="panel-title">{t("home.overview.todayOverview")}</h2>
           </div>
-          <button className="ws-link-btn">查看总览</button>
+          <button className="ws-link-btn">{t("home.overview.viewOverview")}</button>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          {TAGS.map(tag => (
+          {TAG_KEYS.map(tag => (
             <span
-              key={tag.label}
+              key={tag.key}
               className="tag-pill"
               style={{ background: tag.bg, color: tag.color }}
             >
-              {tag.label}
+              {t(tag.key, { count: tag.count })}
             </span>
           ))}
         </div>
@@ -69,11 +71,9 @@ export function WorkspaceOverview() {
           style={{ gridTemplateColumns: expanded ? "1fr" : "1.2fr 0.8fr" }}
         >
           <div className="grid gap-3 text-sm content-start ws-stack">
-            <p className="m-0">
-              基于今日日程、邮件和工作区状态，系统建议先完成评审准备，再处理回信，随后进入深度工作。
-            </p>
-            <p className="m-0">1. 先完成设计评审的主线确认与会前资料检查</p>
-            <p className="m-0">2. 将邮件中的 2 个行动项同步到客户项目 Atlas</p>
+            <p className="m-0">{t("home.overview.suggestion")}</p>
+            <p className="m-0">{t("home.overview.step1")}</p>
+            <p className="m-0">{t("home.overview.step2", { count: 2 })}</p>
           </div>
 
           {!expanded && (
@@ -83,11 +83,11 @@ export function WorkspaceOverview() {
                 <strong className="workspace-box__progress">46%</strong>
               </div>
               <p className="workspace-box__desc">
-                已接入邮件与日历同步，当前最适合先确认评审主线。
+                {t("home.overview.atlasSynced")}
               </p>
               <div className="flex flex-wrap gap-2" style={{ marginTop: "10px" }}>
-                {CHIPS.map(chip => (
-                  <span key={chip} className="chip">{chip}</span>
+                {CHIP_KEYS.map(chip => (
+                  <span key={chip} className="chip">{t(chip)}</span>
                 ))}
               </div>
             </div>
@@ -97,7 +97,7 @@ export function WorkspaceOverview() {
         <button
           onClick={() => setExpanded(prev => !prev)}
           className={`fab-toggle${expanded ? " fab-toggle--expanded" : ""}`}
-          aria-label="展开总览"
+          aria-label={expanded ? t("home.overview.collapseOverview") : t("home.overview.expandOverview")}
         >
           {expanded ? "−" : "+"}
         </button>

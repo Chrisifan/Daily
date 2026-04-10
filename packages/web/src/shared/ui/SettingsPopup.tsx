@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sun, Moon, Monitor, Palette } from "lucide-react";
+import { X, Sun, Moon, Monitor, Palette, Globe, Calendar, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ThemeMode } from "../services/settingsService";
+import { getStoredSettings, storeSettingsPartial } from "../../features/settings/SettingsPage";
 
 interface SettingsPopupProps {
   open: boolean;
@@ -29,9 +31,66 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[
   { value: "system", label: "跟随系统", icon: <Monitor className="w-4 h-4" /> },
 ];
 
+// RadioGroup component
+interface RadioOption {
+  value: string;
+  label: string;
+}
+
+interface RadioGroupProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: RadioOption[];
+}
+
+function RadioGroup({ value, onChange, options }: RadioGroupProps) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        gap: 6,
+        padding: "4px",
+        borderRadius: 12,
+        background: "var(--color-border-light)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      {options.map((opt) => {
+        const selected = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              transition: "all 180ms ease",
+              background: selected ? "var(--color-primary)" : "transparent",
+              color: selected ? "white" : "var(--color-text-secondary)",
+              boxShadow: selected ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: SettingsPopupProps) {
+  const { t, i18n } = useTranslation();
   const [selectedTheme, setSelectedTheme] = useState<ThemeMode>(themeMode);
   const popupRef = useRef<HTMLDivElement>(null);
+
+  const storedSettings = getStoredSettings();
+  const [language, setLanguage] = useState<"zh" | "en">(storedSettings.language);
+  const [dateFormat, setDateFormat] = useState<"YYYY-MM-DD" | "MM/DD/YYYY" | "DD/MM/YYYY">(storedSettings.dateFormat);
+  const [timeFormat, setTimeFormat] = useState<"HH:mm" | "hh:mm A">(storedSettings.timeFormat);
 
   useEffect(() => {
     setSelectedTheme(themeMode);
@@ -56,12 +115,12 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
 
   const sections: SettingSection[] = [
     {
-      title: "外观",
+      title: "appearance",
       items: [
         {
           id: "theme",
-          label: "主题",
-          description: "选择应用的主题模式",
+          label: t("settings.theme"),
+          description: t("settings.themeDesc"),
           icon: <Palette className="w-4 h-4" />,
           action: (
             <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: "var(--color-border-light)" }}>
@@ -80,6 +139,73 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
                 </button>
               ))}
             </div>
+          ),
+        },
+      ],
+    },
+    {
+      title: "internationalization",
+      items: [
+        {
+          id: "language",
+          label: t("settings.language"),
+          description: t("settings.languageDesc"),
+          icon: <Globe className="w-4 h-4" />,
+          action: (
+            <RadioGroup
+              value={language}
+              onChange={(val) => {
+                const newLang = val as "zh" | "en";
+                setLanguage(newLang);
+                storeSettingsPartial({ language: newLang });
+                i18n.changeLanguage(newLang);
+              }}
+              options={[
+                { value: "zh", label: t("settings.languages.zh") },
+                { value: "en", label: t("settings.languages.en") },
+              ]}
+            />
+          ),
+        },
+        {
+          id: "dateFormat",
+          label: t("settings.dateFormat"),
+          description: t("settings.dateFormatDesc"),
+          icon: <Calendar className="w-4 h-4" />,
+          action: (
+            <RadioGroup
+              value={dateFormat}
+              onChange={(val) => {
+                const newFormat = val as "YYYY-MM-DD" | "MM/DD/YYYY" | "DD/MM/YYYY";
+                setDateFormat(newFormat);
+                storeSettingsPartial({ dateFormat: newFormat });
+              }}
+              options={[
+                { value: "YYYY-MM-DD", label: t("settings.formats.YYYY-MM-DD") },
+                { value: "MM/DD/YYYY", label: t("settings.formats.MM/DD/YYYY") },
+                { value: "DD/MM/YYYY", label: t("settings.formats.DD/MM/YYYY") },
+              ]}
+            />
+          ),
+        },
+        {
+          id: "timeFormat",
+          label: t("settings.timeFormat"),
+          description: t("settings.timeFormatDesc"),
+          icon: <Clock className="w-4 h-4" />,
+          action: (
+            <RadioGroup
+              value={timeFormat}
+              onChange={(val) => {
+                const newFormat = val as "HH:mm" | "hh:mm A";
+                setTimeFormat(newFormat);
+                storeSettingsPartial({ timeFormat: newFormat });
+              }}
+              options={[
+                { value: "HH:mm", label: t("settings.formats.HH:mm") },
+                { value: "hh:mm A", label: t("settings.formats.hh:mm A") },
+              ]}
+            />
           ),
         },
       ],
@@ -137,7 +263,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
                     className="text-xs font-medium uppercase tracking-wider mb-3"
                     style={{ color: "var(--color-text-muted)" }}
                   >
-                    {section.title}
+                    {t(`settings.${section.title}`)}
                   </h3>
                   <div className="space-y-3">
                     {section.items.map((item) => (

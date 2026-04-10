@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { getGreeting, getCurrentTimeString, getCurrentDateString } from "../../shared/utils/date";
 import type { WeatherSnapshot } from "../../domain/weather/types";
 import type { WeatherStatus } from "../../shared/hooks/useWeather";
@@ -11,13 +12,8 @@ interface MainCardProps {
   onRefresh?: () => void;
 }
 
-const METRICS = [
-  { value: "3",  label: "笔记" },
-  { value: "1",  label: "今日日志" },
-  { value: "13", label: "项目" },
-  { value: "3",  label: "待办" },
-  { value: "1",  label: "工作时间" },
-];
+const METRIC_KEYS = ["home.metrics.notes", "home.metrics.todayLog", "home.metrics.projects", "home.metrics.todos", "home.metrics.workHours"] as const;
+const METRIC_VALUES = ["3", "1", "13", "3", "1"];
 
 const METRIC_STYLES = [
   { bg: "rgba(63, 86, 214, 0.08)", border: "rgba(63, 86, 214, 0.15)", text: "var(--color-primary)" },
@@ -28,6 +24,7 @@ const METRIC_STYLES = [
 ];
 
 export function MainCard({ weather, weatherStatus = "success", onRefresh }: MainCardProps) {
+  const { t } = useTranslation();
   const [currentTime, setCurrentTime] = useState(getCurrentTimeString());
   const greeting = getGreeting();
   const currentDate = getCurrentDateString();
@@ -79,20 +76,20 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
                 {weather.city} · {weather.description}
               </p>
               {weatherStatus === "locating" && (
-                <span className="weather-status-hint">定位中…</span>
+                <span className="weather-status-hint">{t("home.weather.locating")}</span>
               )}
               {weatherStatus === "fetching" && (
-                <span className="weather-status-hint">获取天气…</span>
+                <span className="weather-status-hint">{t("home.weather.fetching")}</span>
               )}
               {weatherStatus === "error" && onRefresh && (
-                <button onClick={onRefresh} title="重新获取天气" className="btn-retry">
-                  重试
+                <button onClick={onRefresh} title={t("home.weather.retry")} className="btn-retry">
+                  {t("home.weather.retry")}
                 </button>
               )}
               {weatherStatus === "success" && onRefresh && (
                 <button
                   onClick={onRefresh}
-                  title="刷新天气"
+                  title={t("home.weather.refresh")}
                   className="btn-refresh"
                 >
                   ↻
@@ -105,17 +102,17 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
           </div>
   
           <div className="metric-strip mt-6">
-            {METRICS.map((item, i) => (
+            {METRIC_KEYS.map((key, i) => (
               <div
-                key={item.label}
+                key={key}
                 className="metric-item"
                 style={{ 
                   background: METRIC_STYLES[i].bg,
                   borderColor: METRIC_STYLES[i].border
                 }}
               >
-                <span className="metric-value" style={{ color: METRIC_STYLES[i].text }}>{item.value}</span>
-                <span className="metric-label">{item.label}</span>
+                <span className="metric-value" style={{ color: METRIC_STYLES[i].text }}>{METRIC_VALUES[i]}</span>
+                <span className="metric-label">{t(key)}</span>
               </div>
             ))}
           </div>
@@ -127,10 +124,10 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
   
           <div className="flex items-center gap-2 mt-4">
             <button className="text-xs font-medium text-white px-3 py-1.5 btn-primary">
-              进入工作台
+              {t("home.actions.enterWorkspace")}
             </button>
             <button className="text-xs font-medium px-3 py-1.5 btn-secondary">
-              查看概览
+              {t("home.actions.viewOverview")}
             </button>
           </div>
         </div>

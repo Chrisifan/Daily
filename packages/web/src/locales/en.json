@@ -1,0 +1,276 @@
+{
+  "nav": {
+    "home": "Home",
+    "schedule": "Schedule",
+    "workspace": "Workspace",
+    "integrations": "Integrations",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "internationalization": "Internationalization",
+    "language": "Language",
+    "languageDesc": "Choose your display language",
+    "dateFormat": "Date Format",
+    "dateFormatDesc": "Choose date display format",
+    "timeFormat": "Time Format",
+    "timeFormatDesc": "Choose time display format",
+    "formats": {
+      "YYYY-MM-DD": "2026-01-01",
+      "MM/DD/YYYY": "01/01/2026",
+      "DD/MM/YYYY": "01/01/2026",
+      "HH:mm": "14:30",
+      "hh:mm A": "02:30 PM"
+    },
+    "languages": {
+      "zh": "简体中文",
+      "en": "English"
+    },
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeDesc": "Choose application theme",
+    "themeOptions": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "email": {
+      "title": "Email Accounts",
+      "addAccount": "Add Email Account",
+      "emailAddress": "Email Address",
+      "imapServer": "IMAP Server",
+      "port": "Port",
+      "username": "Username",
+      "password": "Authorization Code",
+      "displayName": "Display Name",
+      "testConnection": "Test Connection",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "sync": "Sync",
+      "syncSuccess": "Sync successful, got {count} emails",
+      "connected": "Connected",
+      "notConnected": "Not Connected",
+      "testSuccess": "Connection successful!",
+      "testFailed": "Connection failed: {error}",
+      "noAccounts": "No email accounts configured",
+      "secure": "Use SSL"
+    }
+  },
+  "home": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    }
+  },
+  "integrations": {
+    "title": "Integrations",
+    "appSettings": "App Settings",
+    "loadFailed": "Failed to load",
+    "fillRequired": "Please fill in email, IMAP server, port and password",
+    "testFailed": "Connection test failed",
+    "fillAllFields": "Please fill in all required fields",
+    "saveFailed": "Failed to save",
+    "deleteFailed": "Failed to delete",
+    "syncFailed": "Sync failed",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "clickToAdd": "Click \"Add Email Account\" above to get started",
+    "lastSync": "Last synced",
+    "syncing": "Syncing...",
+    "noSubject": "(No subject)",
+    "moreEmails": "...{count} more",
+    "emailHint": "e.g. your-email@163.com",
+    "imapHint": "e.g. imap.163.com",
+    "usernameHint": "Usually same as email, leave empty to use email",
+    "passwordHint": "IMAP-specific password, not your login password",
+    "enterAuthCode": "Enter authorization code",
+    "displayNameHint": "Optional, e.g. My 163 Mailbox",
+    "optional": "Optional",
+    "foldersFound": "Found {count} folders",
+    "testing": "Testing...",
+    "saving": "Saving..."
+  },
+  "common": {
+    "close": "Close",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "create": "Create",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "home": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "metrics": {
+      "notes": "Notes",
+      "todayLog": "Today's Log",
+      "projects": "Projects",
+      "todos": "To-dos",
+      "workHours": "Work Hours"
+    },
+    "weather": {
+      "locating": "Locating…",
+      "fetching": "Fetching weather…",
+      "refresh": "Refresh weather",
+      "retry": "Retry"
+    },
+    "actions": {
+      "enterWorkspace": "Enter Workspace",
+      "viewOverview": "View Overview"
+    },
+    "summary": {
+      "schedulePlanning": "Schedule Planning",
+      "viewFullCalendar": "View Full Calendar",
+      "projectTracking": "Project Tracking",
+      "activeProjects": "Active Projects Status",
+      "emailSync": "Email Sync",
+      "newEmails": "Unread Emails",
+      "workspace": "Workspace",
+      "enterActiveWorkspace": "Enter Active Workspace"
+    },
+    "tasks": {
+      "addNewTask": "Add New Task",
+      "todayTodo": "Today's To-dos",
+      "completed": "{completed} / {total} Completed",
+      "workspaceLink": "Linked Workspace: {name}",
+      "source": "Source: {source}",
+      "systemReserved": "System Reserved Focus Block",
+      "priority": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
+    },
+    "overview": {
+      "todayOverview": "Today's Overview & Workspaces",
+      "viewOverview": "View Overview",
+      "expandOverview": "Expand Overview",
+      "collapseOverview": "Collapse Overview",
+      "tags": {
+        "activeProjects": "{count} Active Projects",
+        "workspaces": "{count} Workspaces",
+        "newEmails": "{count} New Emails"
+      },
+      "actions": {
+        "viewWorkspaces": "View Workspaces",
+        "newWorkspace": "New Workspace",
+        "syncCalendar": "Sync Calendar"
+      },
+      "suggestion": "Based on today's schedule, emails, and workspace status, the system recommends completing the review preparation first, then handling replies, followed by deep work.",
+      "step1": "1. First confirm the main design review outline and check pre-meeting materials",
+      "step2": "2. Sync {count} action items from emails to Atlas Customer Project",
+      "atlasSynced": "Connected to email and calendar sync — best to confirm the review outline first."
+    }
+  },
+  "calendar": {
+    "title": "Schedule Assistant",
+    "subtitle": "Stay on top of every day's time flow",
+    "addSchedule": "Add Schedule",
+    "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    "week": "",
+    "today": "Today",
+    "noSchedules": "No schedules today",
+    "clickToAdd": "Click the timeline to add your first schedule",
+    "freeMinutes": "{minutes} min free",
+    "suggestSchedule": "Schedule something?",
+    "addIt": "Add",
+    "duration": "({minutes}min)",
+    "overlap": "{count} overlapping"
+  },
+  "schedule": {
+    "newSchedule": "New Schedule",
+    "editSchedule": "Edit Schedule",
+    "title": "Title",
+    "titlePlaceholder": "Enter schedule title",
+    "icon": "Icon",
+    "date": "Date",
+    "startTime": "Start Time",
+    "duration": "Duration",
+    "repeat": "Repeat",
+    "priority": "Priority",
+    "location": "Location",
+    "locationPlaceholder": "Enter location (optional)",
+    "notes": "Notes",
+    "notesPlaceholder": "Add notes (optional)",
+    "flexibleTime": "Flexible Time",
+    "deleteSchedule": "Delete Schedule",
+    "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save",
+    "durationOptions": {
+      "15min": "15 min",
+      "30min": "30 min",
+      "45min": "45 min",
+      "1hour": "1 hour",
+      "1.5hour": "1.5 hours",
+      "2hours": "2 hours",
+      "3hours": "3 hours",
+      "4hours": "4 hours"
+    },
+    "exceedDay": "Exceeds day",
+    "repeatModes": {
+      "none": "No repeat",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "biweekly": "Every two weeks",
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "semi_annually": "Every 6 months",
+      "annually": "Yearly"
+    },
+    "iconLabels": {
+      "clock": "Clock",
+      "meeting": "Meeting",
+      "call": "Call",
+      "focus": "Focus",
+      "break": "Break",
+      "travel": "Travel",
+      "meal": "Meal",
+      "exercise": "Exercise",
+      "sleep": "Sleep"
+    }
+  },
+  "workspace": {
+    "list": {
+      "title": "Workspaces",
+      "subtitle": "Manage all your projects and workspaces",
+      "newWorkspace": "New Workspace",
+      "createNew": "Create New Workspace",
+      "types": {
+        "code": "Code",
+        "image": "Design",
+        "writing": "Writing",
+        "general": "General"
+      },
+      "status": {
+        "active": "Active",
+        "pending": "Pending",
+        "archived": "Archived"
+      },
+      "focusCount": "{count} focus areas",
+      "goalCount": "{count} goals"
+    },
+    "detail": {
+      "backToList": "Back to Workspaces",
+      "currentGoals": "Current Goals",
+      "tasks": "Tasks",
+      "schedules": "Schedules",
+      "noTasks": "No tasks yet",
+      "noSchedules": "No schedules yet",
+      "taskStatus": {
+        "done": "Done",
+        "doing": "In Progress",
+        "todo": "To Do"
+      }
+    }
+  }
+}

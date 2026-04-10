@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 // SVG 图标
 const IconHome = () => (
@@ -44,13 +45,6 @@ const IconSettings = () => (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
   </svg>
 );
-
-const NAV_LINKS = [
-  { label: "首页",   to: "/",            Icon: IconHome },
-  { label: "日程",   to: "/schedule",    Icon: IconSchedule },
-  { label: "工作区", to: "/workspaces",  Icon: IconWorkspace },
-  { label: "集成",   to: "/integrations", Icon: IconIntegrations },
-];
 
 // 仿 macOS 交通灯按钮
 function TrafficLights() {
@@ -97,10 +91,18 @@ interface AppNavProps {
 }
 
 export function AppNav({ onSettingsClick }: AppNavProps) {
+  const { t } = useTranslation();
   const location = useLocation();
 
   const isActive = (to: string) =>
     to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
+
+  const NAV_LINKS = [
+    { label: t("nav.home"),         to: "/",            Icon: IconHome },
+    { label: t("nav.schedule"),      to: "/schedule",    Icon: IconSchedule },
+    { label: t("nav.workspace"),    to: "/workspaces",  Icon: IconWorkspace },
+    { label: t("nav.integrations"), to: "/integrations", Icon: IconIntegrations },
+  ];
 
   return (
     <div className="nav-root">
@@ -131,7 +133,7 @@ export function AppNav({ onSettingsClick }: AppNavProps) {
           <button
             onClick={onSettingsClick}
             className="nav-link"
-            data-tooltip="设置"
+            data-tooltip={t("nav.settings")}
           >
             <IconSettings />
           </button>

@@ -1,20 +1,22 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
 const TASKS = [
-  { title: "添加新任务",   meta: "",                              priority: "" as const,       isAdd: true  },
-  { title: "13:30 产品设计评审，整理主线与评审纪要模板",         meta: "关联工作区：客户项目 Atlas", priority: "high" as const,   isAdd: false },
-  { title: "11:00 处理客户邮件并同步到今日计划",                meta: "来源：邮件 / 系统日历",   priority: "medium" as const, isAdd: false },
-  { title: "16:00 深度工作时段，处理 audit 列表高优先事项",    meta: "系统保留的专注区间",      priority: "low" as const,    isAdd: false },
+  { title: "home.tasks.addNewTask", metaKey: "" as const, priority: "" as const, isAdd: true  },
+  { title: "13:30 产品设计评审，整理主线与评审纪要模板", metaKey: "home.tasks.workspaceLink" as const, priority: "high" as const,   isAdd: false },
+  { title: "11:00 处理客户邮件并同步到今日计划",       metaKey: "home.tasks.source" as const, priority: "medium" as const, isAdd: false },
+  { title: "16:00 深度工作时段，处理 audit 列表高优先事项", metaKey: "home.tasks.systemReserved" as const, priority: "low" as const,    isAdd: false },
 ];
 
 const PRIORITY_STYLE = {
-  high:   { bg: "rgba(239, 68, 68, 0.1)", color: "var(--color-error)", label: "高" },
-  medium: { bg: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)", label: "中" },
-  low:    { bg: "rgba(34, 197, 94, 0.1)", color: "var(--color-success)", label: "低" },
+  high:   { bg: "rgba(239, 68, 68, 0.1)", color: "var(--color-error)" },
+  medium: { bg: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)" },
+  low:    { bg: "rgba(34, 197, 94, 0.1)", color: "var(--color-success)" },
 } as const;
 
 export function TodayTasks() {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
@@ -51,9 +53,9 @@ export function TodayTasks() {
         <div className="panel-head">
           <div>
             <p className="panel-eyebrow">Today Schedule</p>
-            <h2 className="panel-title">今日待办</h2>
+            <h2 className="panel-title">{t("home.tasks.todayTodo")}</h2>
           </div>
-          <span className="meta-pill">4 / 7 已完成</span>
+          <span className="meta-pill">{t("home.tasks.completed", { completed: 4, total: 7 })}</span>
         </div>
 
         <div className="flex-1 task-list">
@@ -67,9 +69,9 @@ export function TodayTasks() {
             >
               <div className="task-main">
                 <p className={`m-0 task-text${task.isAdd ? " task-text--add" : ""}`}>
-                  {task.isAdd ? "＋ 添加新任务" : task.title}
+                  {task.isAdd ? `＋ ${t("home.tasks.addNewTask")}` : task.title}
                 </p>
-                {task.meta && <p className="m-0 task-meta">{task.meta}</p>}
+                {task.metaKey && <p className="m-0 task-meta">{t(task.metaKey)}</p>}
               </div>
               {task.priority && task.priority in PRIORITY_STYLE && (
                 <span
@@ -79,7 +81,7 @@ export function TodayTasks() {
                     color: PRIORITY_STYLE[task.priority].color,
                   }}
                 >
-                  {PRIORITY_STYLE[task.priority].label}
+                  {t(`home.tasks.priority.${task.priority}`)}
                 </span>
               )}
             </motion.article>
