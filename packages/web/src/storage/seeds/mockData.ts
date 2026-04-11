@@ -11,16 +11,16 @@ export const mockWeather: WeatherSnapshot = {
   humidity: 40,
   windSpeed: 2.8,
   city: "Shanghai",
-  description: "晴天",
+  description: "home.weather.sunny",
   sunrise: "06:15",
   sunset: "18:30",
   hourlyForecast: [
-    { time: "09:00", temperature: 22, condition: "sunny", description: "晴天" },
-    { time: "10:00", temperature: 24, condition: "sunny", description: "晴天" },
-    { time: "11:00", temperature: 26, condition: "cloudy", description: "多云" },
-    { time: "12:00", temperature: 27, condition: "overcast", description: "阴天" },
-    { time: "13:00", temperature: 28, condition: "haze", description: "雾霾" },
-    { time: "14:00", temperature: 27, condition: "sunny", description: "晴天" },
+    { time: "09:00", temperature: 22, condition: "sunny", description: "home.weather.sunny" },
+    { time: "10:00", temperature: 24, condition: "sunny", description: "home.weather.sunny" },
+    { time: "11:00", temperature: 26, condition: "cloudy", description: "home.weather.cloudy" },
+    { time: "12:00", temperature: 27, condition: "overcast", description: "home.weather.overcast" },
+    { time: "13:00", temperature: 28, condition: "haze", description: "home.weather.haze" },
+    { time: "14:00", temperature: 27, condition: "sunny", description: "home.weather.sunny" },
   ],
   updatedAt: new Date().toISOString()
 };

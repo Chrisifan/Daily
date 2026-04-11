@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronDown, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   format,
   startOfWeek,
@@ -12,9 +13,6 @@ import {
   isSameMonth,
 } from "date-fns";
 
-const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-
 interface DatePickerProps {
   value: Date;
   onChange: (date: Date) => void;
@@ -22,6 +20,14 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
+  const { i18n } = useTranslation();
+  const isZh = i18n.language.startsWith("zh");
+  const weekdays = isZh
+    ? ["日", "一", "二", "三", "四", "五", "六"]
+    : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = isZh
+    ? ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+    : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const [pickerMode, setPickerMode] = useState<'day' | 'month'>('day');
   const [pickerYear, setPickerYear] = useState(value.getFullYear());
   const [pickerMonth] = useState(value.getMonth());
@@ -76,13 +82,13 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
               style={{ color: "var(--color-primary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)" }}
             >
-              {pickerYear}年{MONTHS[pickerMonth]}
+              {pickerYear}年{months[pickerMonth]}
               <ChevronDown className="w-3 h-3" />
             </button>
           </div>
 
           <div className="grid grid-cols-7 gap-0.5 mb-1">
-            {WEEKDAYS.map((d) => (
+            {weekdays.map((d) => (
               <div key={d} className="text-center text-[10px] py-1" style={{ color: "var(--color-text-secondary)" }}>
                 {d}
               </div>
@@ -133,7 +139,7 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
           </div>
 
           <div className="grid grid-cols-4 gap-1">
-            {MONTHS.map((month, idx) => {
+            {months.map((month, idx) => {
               const isSelected = value.getMonth() === idx && pickerYear === value.getFullYear();
               return (
                 <button

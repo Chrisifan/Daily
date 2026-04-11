@@ -48,11 +48,11 @@
       "cancel": "Cancel",
       "delete": "Delete",
       "sync": "Sync",
-      "syncSuccess": "Sync successful, got {count} emails",
+      "syncSuccess": "Sync successful, got {{count}} emails",
       "connected": "Connected",
       "notConnected": "Not Connected",
       "testSuccess": "Connection successful!",
-      "testFailed": "Connection failed: {error}",
+      "testFailed": "Connection failed: {{error}}",
       "noAccounts": "No email accounts configured",
       "secure": "Use SSL"
     }
@@ -80,7 +80,7 @@
     "lastSync": "Last synced",
     "syncing": "Syncing...",
     "noSubject": "(No subject)",
-    "moreEmails": "...{count} more",
+    "moreEmails": "...{{count}} more",
     "emailHint": "e.g. your-email@163.com",
     "imapHint": "e.g. imap.163.com",
     "usernameHint": "Usually same as email, leave empty to use email",
@@ -88,7 +88,7 @@
     "enterAuthCode": "Enter authorization code",
     "displayNameHint": "Optional, e.g. My 163 Mailbox",
     "optional": "Optional",
-    "foldersFound": "Found {count} folders",
+    "foldersFound": "Found {{count}} folders",
     "testing": "Testing...",
     "saving": "Saving..."
   },
@@ -121,7 +121,16 @@
       "locating": "Locating…",
       "fetching": "Fetching weather…",
       "refresh": "Refresh weather",
-      "retry": "Retry"
+      "retry": "Retry",
+      "sunny": "Sunny",
+      "cloudy": "Cloudy",
+      "overcast": "Overcast",
+      "haze": "Haze",
+      "rainy": "Rainy",
+      "thunderstorm": "Thunderstorm",
+      "snow": "Snow",
+      "night": "Clear Night",
+      "unknown": "Unknown"
     },
     "actions": {
       "enterWorkspace": "Enter Workspace",
@@ -140,9 +149,9 @@
     "tasks": {
       "addNewTask": "Add New Task",
       "todayTodo": "Today's To-dos",
-      "completed": "{completed} / {total} Completed",
-      "workspaceLink": "Linked Workspace: {name}",
-      "source": "Source: {source}",
+      "completed": "{{completed}} / {{total}} Completed",
+      "workspaceLink": "Linked Workspace: {{name}}",
+      "source": "Source: {{source}}",
       "systemReserved": "System Reserved Focus Block",
       "priority": {
         "high": "High",
@@ -156,9 +165,9 @@
       "expandOverview": "Expand Overview",
       "collapseOverview": "Collapse Overview",
       "tags": {
-        "activeProjects": "{count} Active Projects",
-        "workspaces": "{count} Workspaces",
-        "newEmails": "{count} New Emails"
+        "activeProjects": "{{count}} Active Projects",
+        "workspaces": "{{count}} Workspaces",
+        "newEmails": "{{count}} New Emails"
       },
       "actions": {
         "viewWorkspaces": "View Workspaces",
@@ -167,7 +176,7 @@
       },
       "suggestion": "Based on today's schedule, emails, and workspace status, the system recommends completing the review preparation first, then handling replies, followed by deep work.",
       "step1": "1. First confirm the main design review outline and check pre-meeting materials",
-      "step2": "2. Sync {count} action items from emails to Atlas Customer Project",
+      "step2": "2. Sync {{count}} action items from emails to Atlas Customer Project",
       "atlasSynced": "Connected to email and calendar sync — best to confirm the review outline first."
     }
   },
@@ -180,11 +189,11 @@
     "today": "Today",
     "noSchedules": "No schedules today",
     "clickToAdd": "Click the timeline to add your first schedule",
-    "freeMinutes": "{minutes} min free",
+    "freeMinutes": "{{minutes}} min free",
     "suggestSchedule": "Schedule something?",
     "addIt": "Add",
-    "duration": "({minutes}min)",
-    "overlap": "{count} overlapping"
+    "duration": "({{minutes}}min)",
+    "overlap": "{{count}} overlapping"
   },
   "schedule": {
     "newSchedule": "New Schedule",
@@ -256,8 +265,8 @@
         "pending": "Pending",
         "archived": "Archived"
       },
-      "focusCount": "{count} focus areas",
-      "goalCount": "{count} goals"
+      "focusCount": "{{count}} focus areas",
+      "goalCount": "{{count}} goals"
     },
     "detail": {
       "backToList": "Back to Workspaces",

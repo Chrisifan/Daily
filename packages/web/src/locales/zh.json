@@ -48,11 +48,11 @@
       "cancel": "取消",
       "delete": "删除",
       "sync": "同步",
-      "syncSuccess": "同步成功，共获取 {count} 封邮件",
+      "syncSuccess": "同步成功，共获取 {{count}} 封邮件",
       "connected": "已连接",
       "notConnected": "未连接",
       "testSuccess": "连接成功！",
-      "testFailed": "连接失败：{error}",
+      "testFailed": "连接失败：{{error}}",
       "noAccounts": "暂无已配置的邮箱账号",
       "secure": "使用 SSL"
     }
@@ -80,7 +80,7 @@
     "lastSync": "上次同步",
     "syncing": "同步中...",
     "noSubject": "无主题",
-    "moreEmails": "还有 {count} 封",
+    "moreEmails": "还有 {{count}} 封",
     "emailHint": "如: your-email@163.com",
     "imapHint": "如: imap.163.com",
     "usernameHint": "通常同邮箱地址，留空则同邮箱",
@@ -88,7 +88,7 @@
     "enterAuthCode": "请输入授权码",
     "displayNameHint": "可选，如: 我的 163 邮箱",
     "optional": "可选",
-    "foldersFound": "发现 {count} 个文件夹",
+    "foldersFound": "发现 {{count}} 个文件夹",
     "testing": "测试中...",
     "saving": "保存中..."
   },
@@ -121,7 +121,16 @@
       "locating": "定位中…",
       "fetching": "获取天气…",
       "refresh": "刷新天气",
-      "retry": "重试"
+      "retry": "重试",
+      "sunny": "晴天",
+      "cloudy": "多云",
+      "overcast": "阴天",
+      "haze": "雾霾",
+      "rainy": "雨天",
+      "thunderstorm": "雷雨",
+      "snow": "下雪",
+      "night": "晴夜",
+      "unknown": "未知"
     },
     "actions": {
       "enterWorkspace": "进入工作台",
@@ -140,9 +149,9 @@
     "tasks": {
       "addNewTask": "添加新任务",
       "todayTodo": "今日待办",
-      "completed": "{completed} / {total} 已完成",
-      "workspaceLink": "关联工作区：{name}",
-      "source": "来源：{source}",
+      "completed": "{{completed}} / {{total}} 已完成",
+      "workspaceLink": "关联工作区：{{name}}",
+      "source": "来源：{{source}}",
       "systemReserved": "系统保留的专注区间",
       "priority": {
         "high": "高",
@@ -156,9 +165,9 @@
       "expandOverview": "展开总览",
       "collapseOverview": "收起总览",
       "tags": {
-        "activeProjects": "活跃项目 {count}",
-        "workspaces": "工作区 {count}",
-        "newEmails": "新邮件 {count}"
+        "activeProjects": "活跃项目 {{count}}",
+        "workspaces": "工作区 {{count}}",
+        "newEmails": "新邮件 {{count}}"
       },
       "actions": {
         "viewWorkspaces": "查看工作区",
@@ -167,7 +176,7 @@
       },
       "suggestion": "基于今日日程、邮件和工作区状态，系统建议先完成评审准备，再处理回信，随后进入深度工作。",
       "step1": "1. 先完成设计评审的主线确认与会前资料检查",
-      "step2": "2. 将邮件中的 {count} 个行动项同步到客户项目 Atlas",
+      "step2": "2. 将邮件中的 {{count}} 个行动项同步到客户项目 Atlas",
       "atlasSynced": "已接入邮件与日历同步，当前最适合先确认评审主线。"
     }
   },
@@ -180,11 +189,11 @@
     "today": "今天",
     "noSchedules": "今天没有日程安排",
     "clickToAdd": "点击时间轴添加第一个日程",
-    "freeMinutes": "空闲 {minutes} 分钟",
+    "freeMinutes": "空闲 {{minutes}} 分钟",
     "suggestSchedule": "安排一个日程?",
     "addIt": "添加日程",
-    "duration": "({minutes}分钟)",
-    "overlap": "重叠 {count} 个"
+    "duration": "({{minutes}}分钟)",
+    "overlap": "重叠 {{count}} 个"
   },
   "schedule": {
     "newSchedule": "新建日程",
@@ -256,8 +265,8 @@
         "pending": "待开始",
         "archived": "已归档"
       },
-      "focusCount": "{count} 个焦点",
-      "goalCount": "{count} 个目标"
+      "focusCount": "{{count}} 个焦点",
+      "goalCount": "{{count}} 个目标"
     },
     "detail": {
       "backToList": "返回工作区列表",

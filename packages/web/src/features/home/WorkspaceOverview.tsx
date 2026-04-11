@@ -48,7 +48,6 @@ export function WorkspaceOverview() {
       >
         <div className="panel-head" style={{ marginBottom: 0 }}>
           <div>
-            <p className="panel-eyebrow">Overview</p>
             <h2 className="panel-title">{t("home.overview.todayOverview")}</h2>
           </div>
           <button className="ws-link-btn">{t("home.overview.viewOverview")}</button>

@@ -1,6 +1,7 @@
 import { GlassCard } from "../../shared/ui/GlassCard";
 import { mockWorkspaces } from "../../storage/seeds/mockData";
 import { Code2, Image, FileText, Folder, Plus, MoreHorizontal } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceType } from "../../domain/workspace/types";
 
 const workspaceIcons: Record<WorkspaceType, typeof Code2> = {
@@ -10,32 +11,33 @@ const workspaceIcons: Record<WorkspaceType, typeof Code2> = {
   general: Folder
 };
 
-const workspaceLabels: Record<WorkspaceType, string> = {
-  code: "代码",
-  image: "设计",
-  writing: "写作",
-  general: "通用"
+const workspaceTypeKeys: Record<WorkspaceType, string> = {
+  code: "workspace.list.types.code",
+  image: "workspace.list.types.image",
+  writing: "workspace.list.types.writing",
+  general: "workspace.list.types.general"
 };
 
-const statusLabels = {
-  active: "进行中",
-  pending: "待开始",
-  archived: "已归档"
+const statusKeys = {
+  active: "workspace.list.status.active",
+  pending: "workspace.list.status.pending",
+  archived: "workspace.list.status.archived"
 };
 
 export function WorkspaceListPage() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen relative">
       
       <div className="relative z-10 p-6">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-medium text-white/90">工作区</h1>
-            <p className="text-white/50 mt-1">管理你的所有项目和工作区</p>
+            <h1 className="text-2xl font-medium text-white/90">{t("workspace.list.title")}</h1>
+            <p className="text-white/50 mt-1">{t("workspace.list.subtitle")}</p>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors">
             <Plus className="w-4 h-4" />
-            新建工作区
+            {t("workspace.list.newWorkspace")}
           </button>
         </header>
 
@@ -72,7 +74,7 @@ export function WorkspaceListPage() {
                       color: workspace.color 
                     }}
                   >
-                    {workspaceLabels[workspace.type]}
+                    {t(workspaceTypeKeys[workspace.type])}
                   </span>
                   <span className={`
                     px-2 py-1 rounded-full text-xs
@@ -80,7 +82,7 @@ export function WorkspaceListPage() {
                     ${workspace.status === "pending" ? "bg-yellow-500/20 text-yellow-300" : ""}
                     ${workspace.status === "archived" ? "bg-gray-500/20 text-gray-300" : ""}
                   `}>
-                    {statusLabels[workspace.status]}
+                    {t(statusKeys[workspace.status])}
                   </span>
                 </div>
 
@@ -91,14 +93,13 @@ export function WorkspaceListPage() {
                 )}
 
                 <div className="flex items-center gap-4 mt-4 text-xs text-white/30">
-                  <span>{workspace.focusLevel} 个焦点</span>
-                  <span>{workspace.goals.length} 个目标</span>
+                  <span>{t("workspace.list.focusCount", { count: workspace.focusLevel })}</span>
+                  <span>{t("workspace.list.goalCount", { count: workspace.goals.length })}</span>
                 </div>
               </GlassCard>
             );
           })}
 
-          {/* 新建工作区卡片 */}
           <GlassCard 
             className="p-5 flex flex-col items-center justify-center min-h-[200px] cursor-pointer border-dashed border-2"
             hover
@@ -106,7 +107,7 @@ export function WorkspaceListPage() {
             <div className="p-4 rounded-full bg-white/5">
               <Plus className="w-8 h-8 text-white/30" />
             </div>
-            <p className="text-white/40 mt-4">新建工作区</p>
+            <p className="text-white/40 mt-4">{t("workspace.list.createNew")}</p>
           </GlassCard>
         </div>
       </div>

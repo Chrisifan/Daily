@@ -52,7 +52,6 @@ export function TodayTasks() {
       >
         <div className="panel-head">
           <div>
-            <p className="panel-eyebrow">Today Schedule</p>
             <h2 className="panel-title">{t("home.tasks.todayTodo")}</h2>
           </div>
           <span className="meta-pill">{t("home.tasks.completed", { completed: 4, total: 7 })}</span>

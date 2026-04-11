@@ -17,16 +17,16 @@ function wmoCodeToCondition(code: number, isNight: boolean): WeatherCondition {
 }
 
 function wmoCodeToDescription(code: number): string {
-  if (code === 0) return "晴天";
-  if (code === 1 || code === 2) return "多云";
-  if (code === 3) return "阴天";
-  if (code <= 48) return "雾霾";
-  if (code <= 57) return "毛毛雨";
-  if (code <= 67) return "小雨";
-  if (code <= 77) return "下雪";
-  if (code <= 82) return "阵雨";
-  if (code <= 86) return "阵雪";
-  return "雷雨";
+  if (code === 0) return "home.weather.sunny";
+  if (code === 1 || code === 2) return "home.weather.cloudy";
+  if (code === 3) return "home.weather.overcast";
+  if (code <= 48) return "home.weather.haze";
+  if (code <= 57) return "home.weather.rainy";
+  if (code <= 67) return "home.weather.rainy";
+  if (code <= 77) return "home.weather.snow";
+  if (code <= 82) return "home.weather.rainy";
+  if (code <= 86) return "home.weather.snow";
+  return "home.weather.thunderstorm";
 }
 
 // ─── 1. Tauri Geolocation ───────────────────────────────────────────────────
@@ -36,19 +36,19 @@ export interface Coords {
 }
 
 async function ensureLocationPermission(): Promise<void> {
-  console.log(`[ensureLocationPermission] 检查定位权限状态`);
+  console.log(`[ensureLocationPermission] checking location permission`);
   const perm = await checkPermissions();
-  console.log(`[ensureLocationPermission] 当前权限:`, perm);
+  console.log(`[ensureLocationPermission] current permission:`, perm);
 
   if (perm.location === "prompt" || perm.location === "prompt-with-rationale") {
-    console.log(`[ensureLocationPermission] 请求定位权限中...`);
+    console.log(`[ensureLocationPermission] requesting location permission...`);
     const result = await requestPermissions(["location"]);
-    console.log(`[ensureLocationPermission] 请求结果:`, result);
+    console.log(`[ensureLocationPermission] request result:`, result);
     if (result.location !== "granted") {
-      throw new Error("定位权限被拒绝，请在系统设置中授予定位权限");
+      throw new Error("Location permission denied. Please enable in system settings.");
     }
   } else if (perm.location === "denied") {
-    throw new Error("定位权限被拒绝，请在系统设置中授予定位权限");
+    throw new Error("Location permission denied. Please enable in system settings.");
   }
 }
 
@@ -62,8 +62,8 @@ export async function fetchCurrentPosition(): Promise<Coords> {
     console.log(`[fetchCurrentPosition] 原始数据: lat=${lat}, lon=${lon}, accuracy=${position.coords.accuracy}`);
 
     if (lat === 0 && lon === 0) {
-      console.warn(`[fetchCurrentPosition] 警告: 返回坐标为 (0,0)，可能是定位服务未授权或不可用`);
-      throw new Error("定位服务返回无效坐标，请检查系统定位权限设置");
+      console.warn(`[fetchCurrentPosition] warning: got (0,0) coordinates, possibly location service not authorized`);
+      throw new Error("Invalid coordinates received. Please check system location settings.");
     }
 
     console.log(`[fetchCurrentPosition] 成功: lat=${lat}, lon=${lon}`);
@@ -144,7 +144,7 @@ export async function fetchWeatherByCoords(
   };
 }
 
-// ─── 3. Nominatim 反向地理编码 ───────────────────────────────────────────────
+// ─── 3. Nominatim Reverse Geocoding ────────────────────────────────────────
 interface NominatimResponse {
   address?: {
     city?: string;
@@ -156,37 +156,38 @@ interface NominatimResponse {
   display_name?: string;
 }
 
-export async function reverseGeocode(lat: number, lon: number): Promise<string> {
+export async function reverseGeocode(lat: number, lon: number, lang: string = "en"): Promise<string> {
+  const acceptLang = lang.startsWith("zh") ? "zh-CN,en" : "en,zh-CN";
   const params = new URLSearchParams({
     lat: String(lat),
     lon: String(lon),
     format: "json",
-    "accept-language": "zh-CN",
+    "accept-language": acceptLang,
   });
 
   const url = `https://nominatim.openstreetmap.org/reverse?${params}`;
-  console.log(`[reverseGeocode] 请求: ${url}`);
+  console.log(`[reverseGeocode] request: ${url}`);
 
   try {
     const res = await fetch(url, { headers: { "User-Agent": "DailyApp/1.0" } });
-    console.log(`[reverseGeocode] 响应状态: ${res.status}`);
+    console.log(`[reverseGeocode] response status: ${res.status}`);
 
     if (!res.ok) {
-      throw new Error(`Nominatim 请求失败: ${res.status}`);
+      throw new Error(`Nominatim request failed: ${res.status}`);
     }
 
     const data: NominatimResponse = await res.json();
-    console.log(`[reverseGeocode] 解析结果:`, JSON.stringify(data.address));
+    console.log(`[reverseGeocode] parsed result:`, JSON.stringify(data.address));
 
     const city = data.address?.city
       ?? data.address?.town
       ?? data.address?.county
       ?? data.address?.state;
 
-    console.log(`[reverseGeocode] 解析城市: ${city ?? "未知城市"}`);
-    return city ?? "未知城市";
+    console.log(`[reverseGeocode] parsed city: ${city ?? "Unknown"}`);
+    return city ?? "Unknown";
   } catch (err) {
-    console.error(`[reverseGeocode] 错误:`, err);
+    console.error(`[reverseGeocode] error:`, err);
     throw err;
   }
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { GlassCard } from "../../shared/ui/GlassCard";
+import { formatDateTime } from "../../shared/utils/date";
 
 // ==================== 类型定义 ====================
 
@@ -368,7 +369,7 @@ export function IntegrationsPage() {
                     {acc.email} · {acc.imapHost}:{acc.imapPort}
                     {acc.lastSyncedAt && (
                       <span style={{ marginLeft: 8, color: "var(--color-text-muted)" }}>
-                        {t("integrations.lastSync") || "上次同步"}: {new Date(acc.lastSyncedAt).toLocaleString()}
+                        {t("integrations.lastSync") || "上次同步"}: {formatDateTime(acc.lastSyncedAt)}
                       </span>
                     )}
                   </div>

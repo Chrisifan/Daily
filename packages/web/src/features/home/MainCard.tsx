@@ -73,7 +73,7 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <p className="m-0 eyebrow">
-                {weather.city} · {weather.description}
+                {weather.city} · {t(weather.description)}
               </p>
               {weatherStatus === "locating" && (
                 <span className="weather-status-hint">{t("home.weather.locating")}</span>
@@ -97,7 +97,7 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
               )}
             </div>
             <h1 className="m-0 font-bold leading-[0.98] hero-title">
-              {greeting}，Sifan.
+              {greeting}, Sifan
             </h1>
           </div>
   

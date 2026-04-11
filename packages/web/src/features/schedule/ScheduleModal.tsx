@@ -1,26 +1,21 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronDown, ChevronUp, Repeat, Clock, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
-import { REPEAT_MODE_LABELS, SCHEDULE_ICON_LABELS } from "../../domain/schedule/types";
 import { format, parse } from "date-fns";
 import { DatePicker } from "../../shared/ui/DatePicker";
+import { getStoredSettings } from "../settings/SettingsPage";
 
-const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
-  const hours = Math.floor(i / 2);
-  const minutes = (i % 2) * 30;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-});
-
-const DURATION_OPTIONS = [
-  { value: 15, label: "15分钟" },
-  { value: 30, label: "30分钟" },
-  { value: 45, label: "45分钟" },
-  { value: 60, label: "1小时" },
-  { value: 90, label: "1.5小时" },
-  { value: 120, label: "2小时" },
-  { value: 180, label: "3小时" },
-  { value: 240, label: "4小时" },
+const DURATION_OPTIONS: { value: number; labelKey: string }[] = [
+  { value: 15, labelKey: "schedule.durationOptions.15min" },
+  { value: 30, labelKey: "schedule.durationOptions.30min" },
+  { value: 45, labelKey: "schedule.durationOptions.45min" },
+  { value: 60, labelKey: "schedule.durationOptions.1hour" },
+  { value: 90, labelKey: "schedule.durationOptions.1.5hour" },
+  { value: 120, labelKey: "schedule.durationOptions.2hours" },
+  { value: 180, labelKey: "schedule.durationOptions.3hours" },
+  { value: 240, labelKey: "schedule.durationOptions.4hours" },
 ];
 
 const ICON_OPTIONS: { value: ScheduleIcon; icon: typeof Clock }[] = [
@@ -43,6 +38,27 @@ interface TimeSelectProps {
 function TimeSelect({ value, onChange }: TimeSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const is12Hour = getStoredSettings().timeFormat === "hh:mm A";
+
+  const timeSlots = useMemo(() => {
+    if (is12Hour) {
+      const slots: string[] = [];
+      for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          const ampm = h < 12 ? 'AM' : 'PM';
+          slots.push(`${hour12}:${m.toString().padStart(2, '0')} ${ampm}`);
+        }
+      }
+      return slots;
+    }
+    return Array.from({ length: 48 }, (_, i) => {
+      const hours = Math.floor(i / 2);
+      const minutes = (i % 2) * 30;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    });
+  }, [is12Hour]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -79,7 +95,7 @@ function TimeSelect({ value, onChange }: TimeSelectProps) {
             className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 max-h-48 overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {TIME_SLOTS.map((time) => (
+            {timeSlots.map((time) => (
               <button
                 key={time}
                 onClick={() => {
@@ -106,9 +122,10 @@ interface DurationSelectProps {
   value: number;
   onChange: (duration: number) => void;
   maxDurationMinutes?: number;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-function DurationSelect({ value, onChange, maxDurationMinutes }: DurationSelectProps) {
+function DurationSelect({ value, onChange, maxDurationMinutes, t }: DurationSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -124,7 +141,8 @@ function DurationSelect({ value, onChange, maxDurationMinutes }: DurationSelectP
     }
   }, [isOpen]);
 
-  const selectedLabel = DURATION_OPTIONS.find(d => d.value === value)?.label || `${value}分钟`;
+  const selectedOpt = DURATION_OPTIONS.find(d => d.value === value);
+  const selectedLabel = selectedOpt ? t(selectedOpt.labelKey) : t("calendar.duration", { minutes: value });
 
   return (
     <div ref={ref} className="relative flex-1">
@@ -168,8 +186,8 @@ function DurationSelect({ value, onChange, maxDurationMinutes }: DurationSelectP
                       : "text-gray-700 hover:bg-gray-50"
                   }`}
                 >
-                  <span>{opt.label}</span>
-                  {isDisabled && <span className="text-[10px] text-gray-400">超出当天</span>}
+                  <span>{t(opt.labelKey)}</span>
+                  {isDisabled && <span className="text-[10px] text-gray-400">{t("schedule.exceedDay")}</span>}
                 </button>
               );
             })}
@@ -183,9 +201,10 @@ function DurationSelect({ value, onChange, maxDurationMinutes }: DurationSelectP
 interface RepeatSelectProps {
   value: RepeatMode;
   onChange: (mode: RepeatMode) => void;
+  t: (key: string) => string;
 }
 
-function RepeatSelect({ value, onChange }: RepeatSelectProps) {
+function RepeatSelect({ value, onChange, t }: RepeatSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -215,7 +234,7 @@ function RepeatSelect({ value, onChange }: RepeatSelectProps) {
       >
         <div className="flex items-center gap-2">
           <Repeat className="w-4 h-4 text-gray-400" />
-          <span>{REPEAT_MODE_LABELS[value]}</span>
+          <span>{t(`schedule.repeatModes.${value}`)}</span>
         </div>
         {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
       </button>
@@ -242,7 +261,7 @@ function RepeatSelect({ value, onChange }: RepeatSelectProps) {
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <span>{REPEAT_MODE_LABELS[mode]}</span>
+                <span>{t(`schedule.repeatModes.${mode}`)}</span>
               </button>
             ))}
           </motion.div>
@@ -255,9 +274,10 @@ function RepeatSelect({ value, onChange }: RepeatSelectProps) {
 interface IconSelectProps {
   value: ScheduleIcon;
   onChange: (icon: ScheduleIcon) => void;
+  t: (key: string) => string;
 }
 
-function IconSelect({ value, onChange }: IconSelectProps) {
+function IconSelect({ value, onChange, t }: IconSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -287,7 +307,7 @@ function IconSelect({ value, onChange }: IconSelectProps) {
         className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center gap-2"
       >
         <SelectedIcon className="w-4 h-4" style={{ color: "#6366f1" }} />
-        <span>{SCHEDULE_ICON_LABELS[value]}</span>
+        <span>{t(`schedule.iconLabels.${value}`)}</span>
         {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 ml-auto" /> : <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />}
       </button>
       <AnimatePresence>
@@ -316,7 +336,7 @@ function IconSelect({ value, onChange }: IconSelectProps) {
                   }`}
                 >
                   <IconComponent className="w-4 h-4" />
-                  <span>{SCHEDULE_ICON_LABELS[opt.value]}</span>
+                  <span>{t(`schedule.iconLabels.${opt.value}`)}</span>
                 </button>
               );
             })}
@@ -368,6 +388,7 @@ function getInitialValues(initialData?: Partial<ScheduleItem>) {
 }
 
 export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, mode = "create" }: ScheduleModalProps) {
+  const { t } = useTranslation();
   const initialValues = getInitialValues(initialData);
   const [title, setTitle] = useState(initialValues.title);
   const [icon, setIcon] = useState<ScheduleIcon>(initialValues.icon);
@@ -451,7 +472,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default" onClick={onClose} aria-label="关闭" />
+          <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default" onClick={onClose} aria-label={t("common.close")} />
           
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -462,7 +483,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/50">
               <h2 className="text-lg font-semibold text-gray-800">
-                {mode === "create" ? "新建日程" : "编辑日程"}
+                {mode === "create" ? t("schedule.newSchedule") : t("schedule.editSchedule")}
               </h2>
               <button
                 onClick={onClose}
@@ -475,28 +496,28 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
             <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
               <div>
                 <label htmlFor="schedule-title" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  标题 <span className="text-red-500">*</span>
+                  {t("schedule.title")} <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="schedule-title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="输入日程标题"
+                  placeholder={t("schedule.titlePlaceholder")}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  图标
+                  {t("schedule.icon")}
                 </label>
-                <IconSelect value={icon} onChange={setIcon} />
+                <IconSelect value={icon} onChange={setIcon} t={t} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  日期 <span className="text-red-500">*</span>
+                  {t("schedule.date")} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative date-picker-wrapper">
                   <button
@@ -525,28 +546,28 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    开始时间 <span className="text-red-500">*</span>
+                    {t("schedule.startTime")} <span className="text-red-500">*</span>
                   </label>
                   <TimeSelect value={startTime} onChange={setStartTime} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    时长
+                    {t("schedule.duration")}
                   </label>
-                  <DurationSelect value={durationMinutes} onChange={setDurationMinutes} maxDurationMinutes={maxDurationMinutes} />
+                  <DurationSelect value={durationMinutes} onChange={setDurationMinutes} maxDurationMinutes={maxDurationMinutes} t={t} />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  重复
+                  {t("schedule.repeat")}
                 </label>
-                <RepeatSelect value={repeatMode} onChange={setRepeatMode} />
+                <RepeatSelect value={repeatMode} onChange={setRepeatMode} t={t} />
               </div>
 
               <div>
                 <span className="block text-sm font-medium text-gray-700 mb-1.5">
-                  优先级
+                  {t("schedule.priority")}
                 </span>
                 <div className="flex gap-2">
                   {(["low", "medium", "high"] as Priority[]).map((p) => (
@@ -564,7 +585,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                           : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-150"
                       }`}
                     >
-                      {p === "high" ? "高" : p === "medium" ? "中" : "低"}
+                      {t(`schedule.priority.${p}`)}
                     </button>
                   ))}
                 </div>
@@ -572,27 +593,27 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
 
               <div>
                 <label htmlFor="schedule-location" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  位置
+                  {t("schedule.location")}
                 </label>
                 <input
                   id="schedule-location"
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="输入地点（可选）"
+                  placeholder={t("schedule.locationPlaceholder")}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
                 />
               </div>
 
               <div>
                 <label htmlFor="schedule-notes" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  备注
+                  {t("schedule.notes")}
                 </label>
                 <textarea
                   id="schedule-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="添加备注（可选）"
+                  placeholder={t("schedule.notesPlaceholder")}
                   rows={3}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all resize-none"
                 />
@@ -611,27 +632,27 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                     }`}
                   />
                 </button>
-                <span className="text-sm text-gray-700">灵活时间</span>
+                <span className="text-sm text-gray-700">{t("schedule.flexibleTime")}</span>
               </div>
             </div>
 
             <div className="flex justify-between px-6 py-4 border-t border-gray-200/50 bg-gray-50/50">
               <div>
-                {mode === "edit" && onDelete && (
-                  <button
-                    onClick={onDelete}
-                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    删除日程
-                  </button>
-                )}
+                    {mode === "edit" && onDelete && (
+                      <button
+                        onClick={onDelete}
+                        className="px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        {t("schedule.deleteSchedule")}
+                      </button>
+                    )}
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-200/50 transition-colors"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleSubmit}
@@ -642,7 +663,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                       : "bg-gray-300 cursor-not-allowed"
                   }`}
                 >
-                  {mode === "create" ? "创建" : "保存"}
+                  {mode === "create" ? t("schedule.create") : t("schedule.save")}
                 </button>
               </div>
             </div>

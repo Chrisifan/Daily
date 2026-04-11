@@ -46,8 +46,8 @@ const IconSettings = () => (
   </svg>
 );
 
-// 仿 macOS 交通灯按钮
 function TrafficLights() {
+  const { t } = useTranslation();
   const handleClose = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     await getCurrentWindow().close();
@@ -64,9 +64,9 @@ function TrafficLights() {
   }, []);
 
   const buttons = [
-    { color: "#ff5f57", icon: "✕", action: handleClose,  title: "关闭" },
-    { color: "#ffbd2e", icon: "−", action: handleMinimize, title: "最小化" },
-    { color: "#28c840", icon: "⤢", action: handleMaximize, title: "全屏" },
+    { color: "#ff5f57", icon: "✕", action: handleClose,  title: t("common.close") },
+    { color: "#ffbd2e", icon: "−", action: handleMinimize, title: t("common.minimize") },
+    { color: "#28c840", icon: "⤢", action: handleMaximize, title: t("common.maximize") },
   ];
 
   return (
