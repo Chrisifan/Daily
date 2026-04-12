@@ -3,20 +3,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { WeatherSnapshot } from "../../domain/weather/types";
 import {
-  fetchCurrentPosition,
   fetchWeatherByCoords,
-  reverseGeocode,
 } from "../services/weatherService";
-import { mockWeather } from "../../storage/seeds/mockData";
+import { getStoredSettings } from "../services/settingsService";
 import i18n from "../../i18n";
 
-export type WeatherStatus = "idle" | "locating" | "fetching" | "success" | "error";
+export type WeatherStatus = "idle" | "locating" | "fetching" | "success" | "error" | "unconfigured";
 
 export interface UseWeatherResult {
   weather: WeatherSnapshot;
   status: WeatherStatus;
   error: string | null;
   refresh: () => void;
+  needsLocation: boolean;
 }
 
 async function fetchWeather(): Promise<WeatherSnapshot> {
@@ -25,25 +24,36 @@ async function fetchWeather(): Promise<WeatherSnapshot> {
   const lang = i18n.language || "en";
   const isZh = lang.startsWith("zh");
 
-  let coords;
-  try {
-    coords = await fetchCurrentPosition();
-  } catch (err) {
-    console.warn(`[fetchWeather] location failed, using default coordinates:`, err);
-    coords = { latitude: 31.2304, longitude: 121.4737 };
+  const settings = getStoredSettings();
+
+  const hasLocation =
+    settings.locationLatitude !== null &&
+    settings.locationLongitude !== null &&
+    settings.locationCity !== null;
+
+  console.log(`[fetchWeather] hasLocation=${hasLocation}, locationCity=${settings.locationCity}`);
+
+  let city: string;
+  let snapshot;
+  let lat: number;
+  let lon: number;
+
+  if (hasLocation) {
+    city = settings.locationCity!;
+    lat = settings.locationLatitude!;
+    lon = settings.locationLongitude!;
+    console.log(`[fetchWeather] using saved location: ${city}, lat=${lat}, lon=${lon}`);
+  } else {
+    lat = 31.2304;
+    lon = 121.4737;
+    city = isZh ? "上海" : "Shanghai";
+    console.log(`[fetchWeather] using default location: ${city}`);
   }
 
-  const { latitude: lat, longitude: lon } = coords;
   console.log(`[fetchWeather] coordinates: lat=${lat}, lon=${lon}`);
 
-  let city = isZh ? "上海" : "Shanghai";
-  let snapshot;
-
   try {
-    [city, snapshot] = await Promise.all([
-      reverseGeocode(lat, lon, lang),
-      fetchWeatherByCoords(lat, lon, city),
-    ]);
+    snapshot = await fetchWeatherByCoords(lat, lon, city);
   } catch (err) {
     console.warn(`[fetchWeather] weather/city fetch failed, using defaults:`, err);
     snapshot = {
@@ -69,6 +79,7 @@ export function useWeather(): UseWeatherResult {
   const queryClient = useQueryClient();
   const { i18n } = useTranslation();
   const lang = i18n.language || "en";
+  const isZh = lang.startsWith("zh");
 
   const { data, status, error, isPending, isFetching, isSuccess } = useQuery({
     queryKey: ["weather", lang],
@@ -83,7 +94,27 @@ export function useWeather(): UseWeatherResult {
     queryClient.invalidateQueries({ queryKey: ["weather", lang] });
   }, [queryClient, lang]);
 
-  const weather = data ?? mockWeather;
+  const settings = getStoredSettings();
+  const needsLocation =
+    settings.locationLatitude === null ||
+    settings.locationLongitude === null ||
+    settings.locationCity === null;
+
+  const defaultWeather: WeatherSnapshot = {
+    condition: "cloudy",
+    temperature: 20,
+    feelsLike: 19,
+    humidity: 65,
+    windSpeed: 3.5,
+    city: isZh ? "上海" : "Shanghai",
+    description: isZh ? "home.weather.cloudy" : "home.weather.cloudy",
+    sunrise: "06:00",
+    sunset: "18:00",
+    hourlyForecast: [],
+    updatedAt: new Date().toISOString(),
+  };
+
+  const weather = data ?? defaultWeather;
 
   let mappedStatus: WeatherStatus;
   if (isPending) {
@@ -94,6 +125,8 @@ export function useWeather(): UseWeatherResult {
     mappedStatus = "success";
   } else if (status === "error") {
     mappedStatus = "error";
+  } else if (needsLocation && !data) {
+    mappedStatus = "unconfigured";
   } else {
     mappedStatus = "idle";
   }
@@ -104,5 +137,6 @@ export function useWeather(): UseWeatherResult {
     status: mappedStatus,
     error: errorMessage,
     refresh,
+    needsLocation,
   };
 }

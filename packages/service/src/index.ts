@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import classifyRouter from "./routes/classify.js";
 import suggestionsRouter from "./routes/suggestions.js";
 import emailRouter from "./routes/email.js";
+import locationRouter from "./routes/location.js";
 
 // 加载环境变量
 dotenv.config();
@@ -29,6 +30,7 @@ app.use((req, _res, next) => {
 app.use("/api/classify", classifyRouter);
 app.use("/api/suggestions", suggestionsRouter);
 app.use("/api/email", emailRouter);
+app.use("/api/location", locationRouter);
 
 // 健康检查
 app.get("/health", (_req, res) => {

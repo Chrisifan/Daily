@@ -15,10 +15,14 @@
     "dateFormatDesc": "选择日期显示格式",
     "timeFormat": "时间格式",
     "timeFormatDesc": "选择时间显示格式",
+    "restartPrompt": "部分设置需要重启应用后生效",
+    "resetToDefaults": "恢复默认设置",
+    "saveHint": "保存后会刷新页面",
+    "saving": "保存中...",
     "formats": {
-      "YYYY-MM-DD": "2026-01-01",
-      "MM/DD/YYYY": "01/01/2026",
-      "DD/MM/YYYY": "01/01/2026",
+      "YYYY-MM-DD": "1949-10-01",
+      "MM/DD/YYYY": "10/01/1949",
+      "DD/MM/YYYY": "01/10/1949",
       "HH:mm": "14:30",
       "hh:mm A": "02:30 PM"
     },
@@ -34,6 +38,17 @@
       "dark": "深色",
       "system": "跟随系统"
     },
+    "city": "城市",
+    "cityDesc": "选择所在城市以获取天气信息",
+    "selectCity": "选择城市",
+    "searchCity": "搜索城市...",
+    "location": "位置",
+    "routine": "作息",
+    "routineWindow": "作息区间",
+    "routineWindowDesc": "用于确定日程时间轴的起点和结束点，空白日也会生成两个默认作息节点",
+    "routineStart": "开始时间",
+    "routineEnd": "结束时间",
+    "routineValidation": "结束时间需要晚于开始时间，且至少保留 30 分钟。",
     "email": {
       "title": "邮箱账号",
       "addAccount": "添加邮箱账号",
@@ -98,6 +113,7 @@
     "cancel": "取消",
     "confirm": "确认",
     "save": "保存",
+    "dismiss": "知道了",
     "create": "创建",
     "retry": "重试",
     "refresh": "刷新",
@@ -118,6 +134,7 @@
       "workHours": "工作时间"
     },
     "weather": {
+      "needsLocation": "需要设置位置信息",
       "locating": "定位中…",
       "fetching": "获取天气…",
       "refresh": "刷新天气",
@@ -193,7 +210,43 @@
     "suggestSchedule": "安排一个日程?",
     "addIt": "添加日程",
     "duration": "({{minutes}}分钟)",
-    "overlap": "重叠 {{count}} 个"
+    "overlap": "重叠 {{count}} 个",
+    "routineStartTitle": "开始作息",
+    "routineEndTitle": "结束作息",
+    "routinePreset": "默认作息",
+    "routineFallback": "今天还没有安排，时间轴已按你的作息区间展开。"
+  },
+  "onboarding": {
+    "badge": "初次设置",
+    "title": "先设定你的日常节奏，再开始使用 Daily",
+    "subtitle": "这两步会决定天气卡片怎么取城市、日程时间轴从哪里开始，以及空白日默认保留哪些作息节点。",
+    "preview": "即将应用",
+    "previewPending": "待设置",
+    "impact": "设置作用",
+    "stepLabel": "步骤 {{step}}",
+    "actions": {
+      "back": "上一步",
+      "next": "下一步",
+      "finish": "完成设置"
+    },
+    "city": {
+      "title": "确认你的城市",
+      "description": "城市信息会用于主卡片天气、环境描述和后续与位置相关的默认建议，所以第一次启动时先把它定下来会更顺手。",
+      "effect": "天气、城市卡片和后续位置相关能力都会基于这里。",
+      "tipPrimaryTitle": "为什么先设置",
+      "tipPrimary": "设置城市后，首页天气和主卡片的城市信息会直接使用这里，不会再依赖临时推断。",
+      "tipSecondaryTitle": "怎么选择更稳",
+      "tipSecondary": "直接搜索并选择城市级结果即可，保存后天气与设置弹窗都会共用这份城市信息。"
+    },
+    "routine": {
+      "title": "定义一天的作息边界",
+      "description": "这两个时间会成为日程页时间轴的起点和终点。即使当天还没有任何日程，系统也会在这两个时间点生成默认作息节点，保证时间轴始终有节奏感。",
+      "effect": "日程时间轴会围绕这段作息时间展开，默认新建日程也会从这里开始。",
+      "tipPrimaryTitle": "时间轴如何使用",
+      "tipPrimary": "开始时间会成为时间轴上方的第一段，结束时间会成为下方的收束点，让空白日也有明确的起止。",
+      "tipSecondaryTitle": "默认节点是什么",
+      "tipSecondary": "如果当天没有日程，系统会自动生成“开始作息”和“结束作息”两个默认节点，方便你继续往中间补充安排。"
+    }
   },
   "schedule": {
     "newSchedule": "新建日程",
@@ -215,6 +268,7 @@
     "cancel": "取消",
     "create": "创建",
     "save": "保存",
+    "submitFailed": "保存失败，请稍后重试。",
     "durationOptions": {
       "15min": "15分钟",
       "30min": "30分钟",
@@ -246,6 +300,11 @@
       "meal": "用餐",
       "exercise": "运动",
       "sleep": "睡眠"
+    },
+    "priorityLabels": {
+      "low": "低",
+      "medium": "中",
+      "high": "高"
     }
   },
   "workspace": {

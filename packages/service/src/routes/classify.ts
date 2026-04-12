@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { classifyEmail } from "../services/langchain.js";
 
-const router = Router();
+const router: Router = Router();
 
 // POST /api/classify/email
 router.post("/email", async (req, res) => {

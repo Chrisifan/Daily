@@ -15,10 +15,14 @@
     "dateFormatDesc": "Choose date display format",
     "timeFormat": "Time Format",
     "timeFormatDesc": "Choose time display format",
+    "restartPrompt": "Some settings require restarting the app to take effect",
+    "resetToDefaults": "Reset to defaults",
+    "saveHint": "Saving will refresh the page",
+    "saving": "Saving...",
     "formats": {
-      "YYYY-MM-DD": "2026-01-01",
-      "MM/DD/YYYY": "01/01/2026",
-      "DD/MM/YYYY": "01/01/2026",
+      "YYYY-MM-DD": "1949-10-01",
+      "MM/DD/YYYY": "10/01/1949",
+      "DD/MM/YYYY": "01/10/1949",
       "HH:mm": "14:30",
       "hh:mm A": "02:30 PM"
     },
@@ -34,6 +38,17 @@
       "dark": "Dark",
       "system": "System"
     },
+    "city": "City",
+    "cityDesc": "Select your city for weather",
+    "selectCity": "Select city",
+    "searchCity": "Search city...",
+    "location": "Location",
+    "routine": "Routine",
+    "routineWindow": "Routine Window",
+    "routineWindowDesc": "Defines the timeline start and end, and creates two default routine markers on empty days",
+    "routineStart": "Start Time",
+    "routineEnd": "End Time",
+    "routineValidation": "End time must be later than start time with at least a 30-minute gap.",
     "email": {
       "title": "Email Accounts",
       "addAccount": "Add Email Account",
@@ -98,6 +113,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "save": "Save",
+    "dismiss": "Got it",
     "create": "Create",
     "retry": "Retry",
     "refresh": "Refresh",
@@ -118,6 +134,7 @@
       "workHours": "Work Hours"
     },
     "weather": {
+      "needsLocation": "Set location",
       "locating": "Locating…",
       "fetching": "Fetching weather…",
       "refresh": "Refresh weather",
@@ -193,7 +210,43 @@
     "suggestSchedule": "Schedule something?",
     "addIt": "Add",
     "duration": "({{minutes}}min)",
-    "overlap": "{{count}} overlapping"
+    "overlap": "{{count}} overlapping",
+    "routineStartTitle": "Start Routine",
+    "routineEndTitle": "End Routine",
+    "routinePreset": "Default routine",
+    "routineFallback": "No schedules yet today, so the timeline is expanded using your routine window."
+  },
+  "onboarding": {
+    "badge": "First Setup",
+    "title": "Set your daily rhythm before you start using Daily",
+    "subtitle": "These two steps define your weather city, where the schedule timeline begins and ends, and which routine markers still appear on empty days.",
+    "preview": "Preview",
+    "previewPending": "Pending",
+    "impact": "What this changes",
+    "stepLabel": "Step {{step}}",
+    "actions": {
+      "back": "Back",
+      "next": "Next",
+      "finish": "Finish Setup"
+    },
+    "city": {
+      "title": "Pick your city",
+      "description": "Your city powers the weather card, environment context, and future location-aware defaults, so it is worth locking in during the first launch flow.",
+      "effect": "Weather, city details, and future location-aware features will use this setting.",
+      "tipPrimaryTitle": "Why this matters",
+      "tipPrimary": "Once your city is set, the home weather card and main location display can use it directly instead of relying on temporary guesses.",
+      "tipSecondaryTitle": "Best way to choose",
+      "tipSecondary": "Search and select a city-level result. The same city setting will later be reused inside the settings popup."
+    },
+    "routine": {
+      "title": "Define your day boundaries",
+      "description": "These times become the start and end of the schedule timeline. Even on days without any schedules, the app will still generate default routine markers at these two points so the timeline always feels anchored.",
+      "effect": "The schedule timeline expands around this routine window, and new schedules start from here by default.",
+      "tipPrimaryTitle": "How the timeline uses it",
+      "tipPrimary": "The start time becomes the opening edge of the timeline, and the end time becomes the closing edge, even when the day is still empty.",
+      "tipSecondaryTitle": "What default markers do",
+      "tipSecondary": "If a day has no schedules, Daily will still render “Start Routine” and “End Routine” so you can add plans in between more naturally."
+    }
   },
   "schedule": {
     "newSchedule": "New Schedule",
@@ -215,6 +268,7 @@
     "cancel": "Cancel",
     "create": "Create",
     "save": "Save",
+    "submitFailed": "Failed to save schedule. Please try again.",
     "durationOptions": {
       "15min": "15 min",
       "30min": "30 min",
@@ -246,6 +300,11 @@
       "meal": "Meal",
       "exercise": "Exercise",
       "sleep": "Sleep"
+    },
+    "priorityLabels": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
     }
   },
   "workspace": {

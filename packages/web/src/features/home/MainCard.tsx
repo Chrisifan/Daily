@@ -10,6 +10,7 @@ interface MainCardProps {
   weather: WeatherSnapshot;
   weatherStatus?: WeatherStatus;
   onRefresh?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const METRIC_KEYS = ["home.metrics.notes", "home.metrics.todayLog", "home.metrics.projects", "home.metrics.todos", "home.metrics.workHours"] as const;
@@ -23,12 +24,14 @@ const METRIC_STYLES = [
   { bg: "rgba(59, 130, 246, 0.08)", border: "rgba(59, 130, 246, 0.15)", text: "var(--color-info)" },
 ];
 
-export function MainCard({ weather, weatherStatus = "success", onRefresh }: MainCardProps) {
+export function MainCard({ weather, weatherStatus = "success", onRefresh, onOpenSettings }: MainCardProps) {
   const { t } = useTranslation();
   const [currentTime, setCurrentTime] = useState(getCurrentTimeString());
   const greeting = getGreeting();
   const currentDate = getCurrentDateString();
   const cardRef = useRef<HTMLDivElement>(null);
+
+  const isUnconfigured = weatherStatus === "unconfigured";
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCurrentTimeString()), 1000);
@@ -72,9 +75,27 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
         <div className="relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <p className="m-0 eyebrow">
-                {weather.city} · {t(weather.description)}
-              </p>
+              {isUnconfigured ? (
+                <button 
+                  onClick={onOpenSettings}
+                  className="m-0 eyebrow"
+                  style={{ 
+                    color: "var(--color-primary)", 
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    font: "inherit"
+                  }}
+                >
+                  {t("home.weather.needsLocation")}
+                </button>
+              ) : (
+                <p className="m-0 eyebrow">
+                  {weather.city} · {t(weather.description)}
+                </p>
+              )}
               {weatherStatus === "locating" && (
                 <span className="weather-status-hint">{t("home.weather.locating")}</span>
               )}
@@ -86,7 +107,7 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh }: Main
                   {t("home.weather.retry")}
                 </button>
               )}
-              {weatherStatus === "success" && onRefresh && (
+              {weatherStatus === "success" && onRefresh && !isUnconfigured && (
                 <button
                   onClick={onRefresh}
                   title={t("home.weather.refresh")}

@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "dev:app": "pnpm -r --parallel --filter @daily/web --filter @daily/service run dev",
     "dev:web": "pnpm --filter @daily/web dev",
     "dev:desktop": "pnpm --filter @daily/desktop tauri dev",
     "dev:service": "pnpm --filter @daily/service dev",
+    "build:app": "pnpm -r --filter @daily/web --filter @daily/service run build",
     "build:web": "pnpm --filter @daily/web build",
     "build:desktop": "pnpm --filter @daily/desktop tauri build",
     "build:service": "pnpm --filter @daily/service build"

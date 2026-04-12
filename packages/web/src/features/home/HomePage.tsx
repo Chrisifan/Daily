@@ -4,16 +4,18 @@ import { TodayTasks } from "./TodayTasks";
 import { WorkspaceOverview } from "./WorkspaceOverview";
 import { mockWorkspaces, mockSchedules, mockInboxItems } from "../../storage/seeds/mockData";
 import { useWeather } from "../../shared/hooks/useWeather";
+import { useAppContext } from "../../shared/hooks/useAppContext";
 
 export function HomePage() {
   const { weather, status, refresh } = useWeather();
+  const { openSettings } = useAppContext();
   return (
     <div className="page-home">
       <div className="page-home__inner">
         <main className="home-grid">
           {/* Hero 卡: col 1, row 1-2 */}
           <div className="home-grid__hero">
-            <MainCard weather={weather} weatherStatus={status} onRefresh={refresh} />
+            <MainCard weather={weather} weatherStatus={status} onRefresh={refresh} onOpenSettings={openSettings} />
           </div>
 
           {/* 4 张 mini-card: col 2-3, row 1-2 */}

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { generateWorkspaceSummary } from "../services/langchain.js";
 
-const router = Router();
+const router: Router = Router();
 
 // POST /api/suggestions/workspace-summary
 router.post("/workspace-summary", async (req, res) => {

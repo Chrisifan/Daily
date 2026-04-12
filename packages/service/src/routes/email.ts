@@ -10,7 +10,7 @@ import * as path from "path";
 import { ImapConnector } from "../services/email/imap-connector.js";
 import type { EmailAccount, ImapConnectorConfig, ImapFolder } from "../services/email/models/email.js";
 
-const router = Router();
+const router: Router = Router();
 
 // ==================== 类型定义 ====================
 
@@ -234,26 +234,7 @@ router.post("/accounts/test", async (req, res) => {
       await connector.authenticate();
 
       // 尝试列出文件夹
-      const boxes = await new Promise<ImapFolder[]>((resolve, reject) => {
-        connector.getBoxes((err: Error | null, boxes: Record<string, any>) => {
-          if (err) reject(err);
-          else {
-            const folders: ImapFolder[] = [];
-            const flatten = (obj: Record<string, any>, prefix = "") => {
-              for (const [name, val] of Object.entries(obj)) {
-                folders.push({
-                  name,
-                  path: prefix ? `${prefix}${val.attribs.delimiter || "/"}${name}` : name,
-                  delimiter: val.attribs.delimiter || "/",
-                });
-                if (val.children) flatten(val.children, folders[folders.length - 1].path);
-              }
-            };
-            flatten(boxes);
-            resolve(folders);
-          }
-        });
-      });
+      const boxes = await connector.listFolders();
 
       await connector.disconnect();
 

@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { forwardRef, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { CSSProperties } from "react";
 import {
   format,
   startOfWeek,
@@ -12,14 +13,21 @@ import {
   eachDayOfInterval,
   isSameMonth,
 } from "date-fns";
+import { zhCN, enUS } from "date-fns/locale";
+import { getStoredSettings } from "../../shared/services/settingsService";
 
 interface DatePickerProps {
   value: Date;
   onChange: (date: Date) => void;
   onClose?: () => void;
+  side?: "top" | "bottom";
+  panelStyle?: CSSProperties;
 }
 
-export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
+export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function DatePicker(
+  { value, onChange, onClose, side = "bottom", panelStyle },
+  ref,
+) {
   const { i18n } = useTranslation();
   const isZh = i18n.language.startsWith("zh");
   const weekdays = isZh
@@ -31,6 +39,15 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
   const [pickerMode, setPickerMode] = useState<'day' | 'month'>('day');
   const [pickerYear, setPickerYear] = useState(value.getFullYear());
   const [pickerMonth] = useState(value.getMonth());
+
+  const locale = isZh ? zhCN : enUS;
+  const settings = getStoredSettings();
+  const formatMap: Record<string, string> = {
+    "YYYY-MM-DD": "yyyy-MM",
+    "MM/DD/YYYY": "MM/yyyy",
+    "DD/MM/YYYY": "MM/yyyy",
+  };
+  const yearMonthLabel = format(new Date(pickerYear, pickerMonth), formatMap[settings.dateFormat] || "yyyy-MM", { locale });
 
   const monthStart = startOfMonth(new Date(pickerYear, pickerMonth));
   const monthEnd = endOfMonth(monthStart);
@@ -66,12 +83,19 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+      ref={ref}
+      initial={{ opacity: 0, y: side === "bottom" ? -4 : 4, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+      exit={{ opacity: 0, y: side === "bottom" ? -4 : 4, scale: 0.98 }}
       transition={{ duration: 0.12 }}
-      className="absolute top-full left-0 mt-2 p-3 rounded-xl shadow-lg border z-[60] w-max"
-      style={{ backgroundColor: "var(--color-surface)", borderColor: "var(--color-border)", backdropFilter: "blur(16px)" }}
+      className="absolute left-0 p-3 rounded-xl shadow-lg border z-[60] w-max overflow-y-auto"
+      style={{
+        backgroundColor: "var(--color-surface)",
+        borderColor: "var(--color-border)",
+        backdropFilter: "blur(16px)",
+        ...(side === "bottom" ? { top: "calc(100% + 8px)" } : { bottom: "calc(100% + 8px)" }),
+        ...panelStyle,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       {pickerMode === 'day' ? (
@@ -82,7 +106,7 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
               style={{ color: "var(--color-primary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)" }}
             >
-              {pickerYear}年{months[pickerMonth]}
+              {yearMonthLabel}
               <ChevronDown className="w-3 h-3" />
             </button>
           </div>
@@ -128,7 +152,7 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>{pickerYear}年</span>
+            <span className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>{isZh ? `${pickerYear}年` : String(pickerYear)}</span>
             <button
               onClick={() => handleYearChange(1)}
               className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
@@ -160,4 +184,4 @@ export function DatePicker({ value, onChange, onClose }: DatePickerProps) {
       )}
     </motion.div>
   );
-}
+});

@@ -1,7 +1,7 @@
 import { format, isToday, isTomorrow, isYesterday, differenceInHours } from "date-fns";
 import { zhCN, enUS } from "date-fns/locale";
 import i18n from "../../i18n";
-import { getStoredSettings } from "../../features/settings/SettingsPage";
+import { getStoredSettings } from "../services/settingsService";
 
 const DATE_FORMAT_MAP: Record<string, string> = {
   "YYYY-MM-DD": "yyyy-MM-dd",
@@ -70,15 +70,18 @@ export function getCurrentDateString(): string {
   const now = new Date();
   const isZh = i18n.language.startsWith("zh");
   const locale = getLocale();
+  const dateFormat = getDateFormat();
 
   if (isZh) {
     const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
     const weekDay = weekDays[now.getDay()];
-    return format(now, `yyyy年MM月dd日`, { locale }) + ` 星期${weekDay}`;
+    const formatted = format(now, dateFormat, { locale });
+    return `${formatted} 星期${weekDay}`;
   } else {
     const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const weekDay = weekDays[now.getDay()];
-    return format(now, `EEEE, MMMM d, yyyy`, { locale }) + ` ${weekDay}`;
+    const formatted = format(now, dateFormat, { locale });
+    return `${formatted} ${weekDay}`;
   }
 }
 

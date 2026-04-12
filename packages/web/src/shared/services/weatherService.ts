@@ -1,19 +1,16 @@
 import type { HourlyForecast, WeatherCondition, WeatherSnapshot } from "../../domain/weather/types";
-import { getCurrentPosition, checkPermissions, requestPermissions } from "@tauri-apps/plugin-geolocation";
 
-// ─── WMO Weather Code → WeatherCondition 映射 ───────────────────────────────────────
-// https://open-meteo.com/en/docs#weathervariables
 function wmoCodeToCondition(code: number, isNight: boolean): WeatherCondition {
   if (isNight) return "night";
   if (code === 0) return "sunny";
   if (code === 1 || code === 2) return "cloudy";
   if (code === 3) return "overcast";
-  if (code <= 48) return "haze"; // fog / depositing rime fog
-  if (code <= 67) return "rainy"; // drizzle + rain
-  if (code <= 77) return "snow";  // snow / snow grains / ice crystals
-  if (code <= 82) return "rainy"; // rain showers
-  if (code <= 86) return "snow";  // snow showers
-  return "thunderstorm";                  // 95-99 thunderstorm
+  if (code <= 48) return "haze";
+  if (code <= 67) return "rainy";
+  if (code <= 77) return "snow";
+  if (code <= 82) return "rainy";
+  if (code <= 86) return "snow";
+  return "thunderstorm";
 }
 
 function wmoCodeToDescription(code: number): string {
@@ -24,50 +21,68 @@ function wmoCodeToDescription(code: number): string {
   if (code <= 57) return "home.weather.rainy";
   if (code <= 67) return "home.weather.rainy";
   if (code <= 77) return "home.weather.snow";
-  if (code <= 82) return "home.weather.rainy";
+  if (code === 82) return "home.weather.rainy";
   if (code <= 86) return "home.weather.snow";
   return "home.weather.thunderstorm";
 }
 
-// ─── 1. Tauri Geolocation ───────────────────────────────────────────────────
 export interface Coords {
   latitude: number;
   longitude: number;
 }
 
-async function ensureLocationPermission(): Promise<void> {
-  console.log(`[ensureLocationPermission] checking location permission`);
-  const perm = await checkPermissions();
-  console.log(`[ensureLocationPermission] current permission:`, perm);
+function browserGeolocationSupported(): boolean {
+  return "geolocation" in navigator;
+}
 
-  if (perm.location === "prompt" || perm.location === "prompt-with-rationale") {
-    console.log(`[ensureLocationPermission] requesting location permission...`);
-    const result = await requestPermissions(["location"]);
-    console.log(`[ensureLocationPermission] request result:`, result);
-    if (result.location !== "granted") {
-      throw new Error("Location permission denied. Please enable in system settings.");
+function getBrowserPosition(): Promise<Coords> {
+  return new Promise((resolve, reject) => {
+    if (!browserGeolocationSupported()) {
+      reject(new Error("浏览器不支持定位功能"));
+      return;
     }
-  } else if (perm.location === "denied") {
-    throw new Error("Location permission denied. Please enable in system settings.");
-  }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        console.log(`[getBrowserPosition] 原始数据: lat=${lat}, lon=${lon}, accuracy=${position.coords.accuracy}`);
+        
+        if (lat === 0 && lon === 0) {
+          reject(new Error("Invalid coordinates received"));
+          return;
+        }
+        
+        resolve({ latitude: lat, longitude: lon });
+      },
+      (error) => {
+        console.error(`[getBrowserPosition] 错误: ${error.message}, code: ${error.code}`);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            reject(new Error("位置权限被拒绝。请在浏览器设置中启用定位权限。"));
+            break;
+          case error.POSITION_UNAVAILABLE:
+            reject(new Error("无法获取位置信息。请检查系统定位服务是否启用。"));
+            break;
+          case error.TIMEOUT:
+            reject(new Error("获取位置超时。请稍后重试。"));
+            break;
+          default:
+            reject(new Error(`定位失败: ${error.message}`));
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
 }
 
 export async function fetchCurrentPosition(): Promise<Coords> {
+  console.log(`[fetchCurrentPosition] 开始获取位置 (浏览器 API)`);
+  
   try {
-    console.log(`[fetchCurrentPosition] 开始获取位置`);
-    await ensureLocationPermission();
-    const position = await getCurrentPosition();
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-    console.log(`[fetchCurrentPosition] 原始数据: lat=${lat}, lon=${lon}, accuracy=${position.coords.accuracy}`);
-
-    if (lat === 0 && lon === 0) {
-      console.warn(`[fetchCurrentPosition] warning: got (0,0) coordinates, possibly location service not authorized`);
-      throw new Error("Invalid coordinates received. Please check system location settings.");
-    }
-
-    console.log(`[fetchCurrentPosition] 成功: lat=${lat}, lon=${lon}`);
-    return { latitude: lat, longitude: lon };
+    const coords = await getBrowserPosition();
+    console.log(`[fetchCurrentPosition] 成功: lat=${coords.latitude}, lon=${coords.longitude}`);
+    return coords;
   } catch (err) {
     console.error(`[fetchCurrentPosition] 错误:`, err);
     const msg = err instanceof Error ? err.message : "定位失败";
@@ -75,7 +90,6 @@ export async function fetchCurrentPosition(): Promise<Coords> {
   }
 }
 
-// ─── 2. Open-Meteo 天气数据 ──────────────────────────────────────────────────
 interface OpenMeteoResponse {
   current: {
     time: string;
@@ -144,11 +158,11 @@ export async function fetchWeatherByCoords(
   };
 }
 
-// ─── 3. Nominatim Reverse Geocoding ────────────────────────────────────────
 interface NominatimResponse {
   address?: {
     city?: string;
     town?: string;
+    municipality?: string;
     county?: string;
     state?: string;
     country?: string;
@@ -181,7 +195,7 @@ export async function reverseGeocode(lat: number, lon: number, lang: string = "e
 
     const city = data.address?.city
       ?? data.address?.town
-      ?? data.address?.county
+      ?? data.address?.municipality
       ?? data.address?.state;
 
     console.log(`[reverseGeocode] parsed city: ${city ?? "Unknown"}`);

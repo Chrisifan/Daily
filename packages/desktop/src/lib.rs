@@ -1,7 +1,117 @@
 use once_cell::sync::Lazy;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::Mutex;
+
+fn schedule_items_columns(conn: &Connection) -> rusqlite::Result<HashSet<String>> {
+    let mut stmt = conn.prepare("PRAGMA table_info(schedule_items)")?;
+    let existing_columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .collect();
+
+    Ok(existing_columns)
+}
+
+fn ensure_schedule_items_schema(conn: &Connection) -> rusqlite::Result<()> {
+    let existing_columns = schedule_items_columns(conn)?;
+
+    let migrations = [
+        (
+            "source",
+            "ALTER TABLE schedule_items ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
+        ),
+        (
+            "source_event_id",
+            "ALTER TABLE schedule_items ADD COLUMN source_event_id TEXT",
+        ),
+        (
+            "icon",
+            "ALTER TABLE schedule_items ADD COLUMN icon TEXT NOT NULL DEFAULT 'clock'",
+        ),
+        (
+            "timezone",
+            "ALTER TABLE schedule_items ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC'",
+        ),
+        (
+            "duration_minutes",
+            "ALTER TABLE schedule_items ADD COLUMN duration_minutes INTEGER NOT NULL DEFAULT 30",
+        ),
+        (
+            "repeat_mode",
+            "ALTER TABLE schedule_items ADD COLUMN repeat_mode TEXT NOT NULL DEFAULT 'none'",
+        ),
+        (
+            "repeat_group_id",
+            "ALTER TABLE schedule_items ADD COLUMN repeat_group_id TEXT",
+        ),
+        (
+            "location",
+            "ALTER TABLE schedule_items ADD COLUMN location TEXT",
+        ),
+        (
+            "notes",
+            "ALTER TABLE schedule_items ADD COLUMN notes TEXT",
+        ),
+        (
+            "workspace_id",
+            "ALTER TABLE schedule_items ADD COLUMN workspace_id TEXT",
+        ),
+        (
+            "priority",
+            "ALTER TABLE schedule_items ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
+        ),
+        (
+            "preparation_minutes",
+            "ALTER TABLE schedule_items ADD COLUMN preparation_minutes INTEGER",
+        ),
+        (
+            "travel_minutes",
+            "ALTER TABLE schedule_items ADD COLUMN travel_minutes INTEGER",
+        ),
+        (
+            "is_flexible",
+            "ALTER TABLE schedule_items ADD COLUMN is_flexible INTEGER DEFAULT 0",
+        ),
+        (
+            "created_at",
+            "ALTER TABLE schedule_items ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
+        ),
+        (
+            "updated_at",
+            "ALTER TABLE schedule_items ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''",
+        ),
+    ];
+
+    for (column, sql) in migrations {
+        if !existing_columns.contains(column) {
+            conn.execute(sql, [])?;
+        }
+    }
+
+    let refreshed_columns = schedule_items_columns(conn)?;
+    if refreshed_columns.contains("end_at") && refreshed_columns.contains("duration_minutes") {
+        conn.execute(
+            "UPDATE schedule_items
+             SET duration_minutes = CASE
+               WHEN end_at IS NOT NULL AND start_at IS NOT NULL
+                 THEN MAX(CAST((strftime('%s', end_at) - strftime('%s', start_at)) / 60 AS INTEGER), 0)
+               ELSE duration_minutes
+             END",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn compute_end_at(start_at: &str, duration_minutes: i32) -> Result<String, String> {
+    let start = chrono::DateTime::parse_from_rfc3339(start_at)
+        .map_err(|e| format!("invalid start_at: {e}"))?;
+    Ok((start + chrono::Duration::minutes(duration_minutes as i64)).to_rfc3339())
+}
 
 static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
     let app_dir = dirs::data_local_dir()
@@ -38,6 +148,8 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
         [],
     )
     .ok();
+
+    ensure_schedule_items_schema(&conn).ok();
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_schedule_items_start_at ON schedule_items(start_at)",
@@ -183,26 +295,55 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
 
     let now = now_rfc3339();
     let id = gen_id();
+    let columns = schedule_items_columns(&conn).map_err(|e| e.to_string())?;
+    let end_at = if columns.contains("end_at") {
+        Some(compute_end_at(&input.start_at, input.duration_minutes)?)
+    } else {
+        None
+    };
 
-    conn.execute(
-        "INSERT INTO schedule_items (id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-        params![
-            id,
-            input.title,
-            input.icon,
-            input.start_at,
-            input.timezone,
-            input.duration_minutes,
-            input.repeat_mode,
-            input.repeat_group_id,
-            input.location,
-            input.notes,
-            input.priority,
-            input.is_flexible as i32,
-            now,
-            now,
-        ],
-    ).map_err(|e| e.to_string())?;
+    if let Some(ref end_at) = end_at {
+        conn.execute(
+            "INSERT INTO schedule_items (id, source, title, icon, start_at, end_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                id,
+                input.title,
+                input.icon,
+                input.start_at,
+                end_at,
+                input.timezone,
+                input.duration_minutes,
+                input.repeat_mode,
+                input.repeat_group_id,
+                input.location,
+                input.notes,
+                input.priority,
+                input.is_flexible as i32,
+                now,
+                now,
+            ],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "INSERT INTO schedule_items (id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            params![
+                id,
+                input.title,
+                input.icon,
+                input.start_at,
+                input.timezone,
+                input.duration_minutes,
+                input.repeat_mode,
+                input.repeat_group_id,
+                input.location,
+                input.notes,
+                input.priority,
+                input.is_flexible as i32,
+                now,
+                now,
+            ],
+        ).map_err(|e| e.to_string())?;
+    }
 
     Ok(ScheduleItem {
         id,
@@ -228,6 +369,8 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
     let conn = DB.lock().map_err(|e| e.to_string())?;
 
     let now = now_rfc3339();
+    let columns = schedule_items_columns(&conn).map_err(|e| e.to_string())?;
+    let has_end_at = columns.contains("end_at");
 
     if let Some(ref title) = input.title {
         conn.execute(
@@ -249,6 +392,21 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
             params![start_at, now, id],
         )
         .map_err(|e| e.to_string())?;
+
+        if has_end_at {
+            let mut stmt = conn
+                .prepare("SELECT duration_minutes FROM schedule_items WHERE id = ?1")
+                .map_err(|e| e.to_string())?;
+            let current_duration: i32 = stmt
+                .query_row(params![id.clone()], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            let end_at = compute_end_at(start_at, current_duration)?;
+            conn.execute(
+                "UPDATE schedule_items SET end_at = ?1, updated_at = ?2 WHERE id = ?3",
+                params![end_at, now, id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
     if let Some(ref timezone) = input.timezone {
         conn.execute(
@@ -263,6 +421,21 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
             params![duration_minutes, now, id],
         )
         .map_err(|e| e.to_string())?;
+
+        if has_end_at {
+            let mut stmt = conn
+                .prepare("SELECT start_at FROM schedule_items WHERE id = ?1")
+                .map_err(|e| e.to_string())?;
+            let current_start_at: String = stmt
+                .query_row(params![id.clone()], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            let end_at = compute_end_at(&current_start_at, duration_minutes)?;
+            conn.execute(
+                "UPDATE schedule_items SET end_at = ?1, updated_at = ?2 WHERE id = ?3",
+                params![end_at, now, id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
     if let Some(ref repeat_mode) = input.repeat_mode {
         conn.execute(

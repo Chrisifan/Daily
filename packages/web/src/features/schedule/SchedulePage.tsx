@@ -5,9 +5,11 @@ import { useScheduleStore } from "../../shared/hooks/useScheduleStore";
 import { mockSchedules } from "../../storage/seeds/mockData";
 import type { ScheduleItem } from "../../domain/schedule/types";
 import { format } from "date-fns";
+import { getStoredSettings } from "../../shared/services/settingsService";
+import { getNextRoutineSelectableDateTime } from "../../shared/utils/routineTime";
 
 export function SchedulePage() {
-  const { schedules, addSchedule, updateSchedule, deleteSchedule } = useScheduleStore(mockSchedules);
+  const { schedules, addSchedule, updateSchedule, deleteSchedule, refreshSchedules } = useScheduleStore(mockSchedules);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleItem | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -30,16 +32,19 @@ export function SchedulePage() {
     setSelectedDate(null);
   };
 
-  const handleSubmit = (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => {
+  const handleSubmit = async (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => {
     if (editingSchedule) {
-      updateSchedule(editingSchedule.id, data);
+      await updateSchedule(editingSchedule.id, data);
     } else {
-      addSchedule(data);
+      await addSchedule(data);
     }
+    await refreshSchedules();
     handleModalClose();
   };
 
   const getDefaultTimes = () => {
+    const settings = getStoredSettings();
+
     if (selectedDate) {
       const clickedTime = format(selectedDate, "HH:mm");
       return {
@@ -49,9 +54,15 @@ export function SchedulePage() {
         icon: "clock" as const,
       };
     }
-    const today = format(new Date(), "yyyy-MM-dd");
+
+    const nextDate = getNextRoutineSelectableDateTime(
+      new Date(),
+      settings.routineStartTime,
+      settings.routineEndTime,
+    );
+
     return {
-      startAt: `${today}T09:00:00`,
+      startAt: format(nextDate, "yyyy-MM-dd'T'HH:mm:ss"),
       durationMinutes: 30,
       repeatMode: "none" as const,
       icon: "clock" as const,
@@ -84,9 +95,7 @@ export function SchedulePage() {
         initialData={
           editingSchedule
             ? editingSchedule
-            : selectedDate
-            ? getDefaultTimes()
-            : undefined
+            : getDefaultTimes()
         }
         mode={editingSchedule ? "edit" : "create"}
       />
