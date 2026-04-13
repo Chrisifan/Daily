@@ -77,6 +77,17 @@ interface TimelineSchedule extends ScheduleItem {
   virtualKind?: 'routineStart' | 'routineEnd';
 }
 
+interface OverlapGroupMeta {
+  groupId: string;
+  indexInGroup: number;
+  size: number;
+  isFirst: boolean;
+  isLast: boolean;
+  groupStartAt: Date;
+  groupEndAt: Date;
+  stacked: boolean;
+}
+
 const WEEKDAY_KEYS = [
   'calendar.weekdays.0',
   'calendar.weekdays.1',
@@ -88,8 +99,11 @@ const WEEKDAY_KEYS = [
 ] as const;
 
 const CARD_PADDING = 16;
+const TIME_UNIT_MINUTES = 15;
+const TIME_UNITS_PER_HOUR = 60 / TIME_UNIT_MINUTES;
 const SLOT_HEIGHT = 32;
 const NODE_SIZE = 32;
+const MIN_EVENT_HEIGHT_SLOTS = 1;
 
 function getEndTime(startAt: string, durationMinutes: number): Date {
   const start = parseISO(startAt);
@@ -152,7 +166,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
   );
 
   const LONG_SCHEDULE_THRESHOLD_HOURS = 2;
-  const MAX_GAP_SLOTS = LONG_SCHEDULE_THRESHOLD_HOURS * 2;
+  const MAX_GAP_SLOTS = LONG_SCHEDULE_THRESHOLD_HOURS * TIME_UNITS_PER_HOUR;
 
   const daySchedules = useMemo(() => {
     return schedules
@@ -213,6 +227,73 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     );
   }, [daySchedules, routineBoundarySchedules]);
 
+  const overlapGroupMap = useMemo(() => {
+    const metaMap: Record<string, OverlapGroupMeta> = {};
+    const actionableSchedules = timelineSchedules.filter((schedule) => !schedule.isVirtual);
+
+    let currentGroup: TimelineSchedule[] = [];
+    let currentGroupStartAt: Date | null = null;
+    let currentGroupEndAt: Date | null = null;
+    let groupIndex = 0;
+
+    const flushGroup = () => {
+      if (currentGroup.length === 0 || !currentGroupStartAt || !currentGroupEndAt) {
+        return;
+      }
+
+      const size = currentGroup.length;
+      const groupStartAt = currentGroupStartAt;
+      const groupEndAt = currentGroupEndAt;
+
+      currentGroup.forEach((schedule, indexInGroup) => {
+        metaMap[schedule.id] = {
+          groupId: `overlap-group-${groupIndex}`,
+          indexInGroup,
+          size,
+          isFirst: indexInGroup === 0,
+          isLast: indexInGroup === size - 1,
+          groupStartAt,
+          groupEndAt,
+          stacked: size > 1,
+        };
+      });
+
+      groupIndex += 1;
+      currentGroup = [];
+      currentGroupStartAt = null;
+      currentGroupEndAt = null;
+    };
+
+    actionableSchedules.forEach((schedule) => {
+      const scheduleStartAt = parseISO(schedule.startAt);
+      const scheduleEndAt = getEndTime(schedule.startAt, schedule.durationMinutes);
+
+      if (!currentGroupStartAt || !currentGroupEndAt) {
+        currentGroup = [schedule];
+        currentGroupStartAt = scheduleStartAt;
+        currentGroupEndAt = scheduleEndAt;
+        return;
+      }
+
+      if (scheduleStartAt < currentGroupEndAt) {
+        currentGroup.push(schedule);
+        if (scheduleEndAt > currentGroupEndAt) {
+          currentGroupEndAt = scheduleEndAt;
+        }
+        return;
+      }
+
+      flushGroup();
+      currentGroup = [schedule];
+      currentGroupStartAt = scheduleStartAt;
+      currentGroupEndAt = scheduleEndAt;
+    });
+
+    flushGroup();
+
+    return metaMap;
+  }, [timelineSchedules]);
+
   const { visibleStartMinutes, visibleEndMinutes, visibleTotalSlots } = useMemo(() => {
     const dayStart = startOfDay(selectedDate);
     let minMinutes = routineStartMinutes;
@@ -227,13 +308,16 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       maxMinutes = Math.max(maxMinutes, Math.max(startMinutes, endMinutes));
     });
 
-    const alignedStart = Math.floor(minMinutes / 30) * 30;
-    const alignedEnd = Math.max(alignedStart + 30, Math.ceil(maxMinutes / 30) * 30);
+    const alignedStart = Math.floor(minMinutes / TIME_UNIT_MINUTES) * TIME_UNIT_MINUTES;
+    const alignedEnd = Math.max(
+      alignedStart + TIME_UNIT_MINUTES,
+      Math.ceil(maxMinutes / TIME_UNIT_MINUTES) * TIME_UNIT_MINUTES
+    );
 
     return {
       visibleStartMinutes: alignedStart,
       visibleEndMinutes: alignedEnd,
-      visibleTotalSlots: Math.max(1, (alignedEnd - alignedStart) / 30),
+      visibleTotalSlots: Math.max(1, (alignedEnd - alignedStart) / TIME_UNIT_MINUTES),
     };
   }, [routineEndMinutes, routineStartMinutes, selectedDate, timelineSchedules]);
 
@@ -243,7 +327,10 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       const minutes = differenceInMinutes(date, dayStart);
       return Math.max(
         0,
-        Math.min(Math.floor((minutes - visibleStartMinutes) / 30), visibleTotalSlots)
+        Math.min(
+          Math.floor((minutes - visibleStartMinutes) / TIME_UNIT_MINUTES),
+          visibleTotalSlots
+        )
       );
     },
     [selectedDate, visibleStartMinutes, visibleTotalSlots]
@@ -255,7 +342,10 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       const minutes = differenceInMinutes(date, dayStart);
       return Math.max(
         0,
-        Math.min(Math.ceil((minutes - visibleStartMinutes) / 30), visibleTotalSlots)
+        Math.min(
+          Math.ceil((minutes - visibleStartMinutes) / TIME_UNIT_MINUTES),
+          visibleTotalSlots
+        )
       );
     },
     [selectedDate, visibleStartMinutes, visibleTotalSlots]
@@ -289,7 +379,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     let cumulativeCompressionSlots = 0;
     const VIRTUAL_START_SLOT = 0;
     const VIRTUAL_END_SLOT = visibleTotalSlots;
-    const MIN_GAP_PIXELS = 24;
+    const MIN_GAP_PIXELS = SLOT_HEIGHT;
     let prevEndSlot = VIRTUAL_START_SLOT;
 
     timelineSchedules.forEach((schedule) => {
@@ -355,16 +445,14 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
         schedule.durationMinutes === 0
           ? startSlot + 1
           : getSlotEndIndex(getEndTime(schedule.startAt, schedule.durationMinutes));
-      const durationSlots = Math.max(endSlot - startSlot, 1);
-      const previousSchedule = index > 0 ? timelineSchedules[index - 1] : null;
-      const overlapsPrevious =
-        !!previousSchedule &&
-        !schedule.isVirtual &&
-        !previousSchedule.isVirtual &&
-        differenceInMinutes(
-          parseISO(schedule.startAt),
-          getEndTime(previousSchedule.startAt, previousSchedule.durationMinutes)
-        ) < 0;
+      const durationSlots = Math.max(
+        schedule.durationMinutes > 0
+          ? schedule.durationMinutes / TIME_UNIT_MINUTES
+          : endSlot - startSlot,
+        MIN_EVENT_HEIGHT_SLOTS
+      );
+      const overlapMeta = schedule.isVirtual ? undefined : overlapGroupMap[schedule.id];
+      const overlapsPrevious = overlapMeta?.stacked ? !overlapMeta.isFirst : false;
       const displayStartSlot =
         index === 0
           ? compressedStartSlot
@@ -378,12 +466,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
         displayEndSlot,
         slotOffset: displayStartSlot - compressedStartSlot,
         overlapsPrevious,
-        overlapsNext: false,
+        overlapsNext: overlapMeta?.stacked ? !overlapMeta.isLast : false,
       };
-
-      if (previousSchedule && overlapsPrevious && layoutMap[previousSchedule.id]) {
-        layoutMap[previousSchedule.id].overlapsNext = true;
-      }
 
       previousDisplayEndSlot = displayEndSlot;
     });
@@ -392,7 +476,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       layoutMap,
       endSlot: Math.max(compressedSlotMap['_end'] ?? visibleTotalSlots, previousDisplayEndSlot),
     };
-  }, [compressedSlotMap, getSlotEndIndex, getSlotIndex, timelineSchedules, visibleTotalSlots]);
+  }, [compressedSlotMap, getSlotEndIndex, getSlotIndex, overlapGroupMap, timelineSchedules, visibleTotalSlots]);
 
   const compressedTimelineHeight = useMemo(() => {
     const endSlot = scheduleDisplayLayout.endSlot;
@@ -489,10 +573,11 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
           const ratio = rect.height > 0 ? y / rect.height : 0;
           const rawMinutes =
             visibleStartMinutes + ratio * (visibleEndMinutes - visibleStartMinutes);
-          const snappedMinutes = Math.round(rawMinutes / 30) * 30;
+          const snappedMinutes =
+            Math.round(rawMinutes / TIME_UNIT_MINUTES) * TIME_UNIT_MINUTES;
           return Math.max(visibleStartMinutes, Math.min(visibleEndMinutes, snappedMinutes));
         })()
-      : visibleStartMinutes + topToSlot(y) * 30;
+      : visibleStartMinutes + topToSlot(y) * TIME_UNIT_MINUTES;
     const clickedDate = buildDateFromRoutineMinutes(selectedDate, clickedMinutes);
     onAddSchedule?.(clickedDate);
   };
@@ -894,9 +979,17 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const startSlot = getSlotIndex(startDate);
                       const endSlot =
                         schedule.durationMinutes === 0 ? startSlot + 1 : getSlotEndIndex(endDate);
-                      const durationSlots = Math.max(endSlot - startSlot, 1);
+                      const durationSlots = Math.max(
+                        schedule.durationMinutes > 0
+                          ? schedule.durationMinutes / TIME_UNIT_MINUTES
+                          : endSlot - startSlot,
+                        MIN_EVENT_HEIGHT_SLOTS
+                      );
                       const colors = PRIORITY_STYLES[schedule.priority];
                       const IconComponent = ICON_MAP[schedule.icon] || Clock;
+                      const overlapMeta = overlapGroupMap[schedule.id];
+                      const isOverlapStack = overlapMeta?.stacked ?? false;
+                      const isLastInOverlapStack = overlapMeta?.isLast ?? true;
                       const isVirtualSchedule = schedule.isVirtual === true;
                       const hasOverlap =
                         !isVirtualSchedule &&
@@ -906,45 +999,57 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const startTop = slotToTop(compressedStartSlot);
                       const nodeHeight = durationSlots * SLOT_HEIGHT;
                       const nodeWidth = NODE_SIZE;
-                      const nodeTop = startTop - nodeHeight / 2;
+                      const nodeTop =
+                        isOverlapStack ? startTop : startTop - nodeHeight / 2;
                       const isFirstSegment = segmentIndex === 0;
                       const isMultiSegment = totalSegments > 1;
                       const globalIndex = timelineSchedules.indexOf(schedule);
                       const prevSchedule =
                         globalIndex > 0 ? timelineSchedules[globalIndex - 1] : null;
-                      const nextSchedule =
-                        globalIndex < timelineSchedules.length - 1
-                          ? timelineSchedules[globalIndex + 1]
-                          : null;
-                      const prevCompressedSlot = prevSchedule
-                        ? (scheduleDisplayLayout.layoutMap[prevSchedule.id]?.displayStartSlot ??
-                          compressedSlotMap[prevSchedule.id])
+                      const prevScheduleLayout = prevSchedule
+                        ? scheduleDisplayLayout.layoutMap[prevSchedule.id]
+                        : undefined;
+                      const prevDisplayEndSlot = prevSchedule
+                        ? (prevScheduleLayout?.displayEndSlot ??
+                          ((compressedSlotMap[prevSchedule.id] ?? 0) +
+                            Math.max(
+                              prevSchedule.durationMinutes > 0
+                                ? prevSchedule.durationMinutes / TIME_UNIT_MINUTES
+                                : 1,
+                              MIN_EVENT_HEIGHT_SLOTS
+                            )))
                         : 0;
+                      const prevEffectiveEndDate = prevSchedule
+                        ? overlapGroupMap[prevSchedule.id]?.groupEndAt ??
+                          getEndTime(prevSchedule.startAt, prevSchedule.durationMinutes)
+                        : null;
                       const isDashed =
                         globalIndex > 0 &&
                         !isVirtualSchedule &&
-                        !prevSchedule?.isVirtual &&
-                        compressedStartSlot - prevCompressedSlot > MAX_GAP_SLOTS;
+                        !(scheduleLayout?.overlapsPrevious ?? false) &&
+                        compressedStartSlot - prevDisplayEndSlot > MAX_GAP_SLOTS;
                       const gapMinutes =
-                        globalIndex > 0 && prevSchedule
+                        globalIndex > 0 && prevEffectiveEndDate
                           ? differenceInMinutes(
                               parseISO(schedule.startAt),
-                              getEndTime(prevSchedule.startAt, prevSchedule.durationMinutes)
+                              prevEffectiveEndDate
                             )
                           : 0;
-                      const nextGapMinutes = nextSchedule
-                        ? differenceInMinutes(
-                            parseISO(nextSchedule.startAt),
-                            getEndTime(schedule.startAt, schedule.durationMinutes)
-                          )
-                        : 1;
                       const showGapHint =
-                        !isVirtualSchedule && !prevSchedule?.isVirtual && gapMinutes >= 60;
+                        !(scheduleLayout?.overlapsPrevious ?? false) &&
+                        gapMinutes >= TIME_UNIT_MINUTES;
                       const sharesTimeWithPrev =
-                        (scheduleLayout?.overlapsPrevious ?? false) || (!!prevSchedule && gapMinutes < 0);
+                        scheduleLayout?.overlapsPrevious ?? false;
                       const sharesTimeWithNext =
-                        (scheduleLayout?.overlapsNext ?? false) || (!!nextSchedule && nextGapMinutes <= 0);
-                      const startTimeShiftUp = globalIndex > 0 && gapMinutes === 0;
+                        scheduleLayout?.overlapsNext ?? false;
+                      const startTimeShiftUp =
+                        globalIndex > 0 &&
+                        !(scheduleLayout?.overlapsPrevious ?? false) &&
+                        gapMinutes === 0;
+                      const labelStartDate =
+                        isOverlapStack && overlapMeta ? overlapMeta.groupStartAt : startDate;
+                      const labelEndDate =
+                        isOverlapStack && overlapMeta ? overlapMeta.groupEndAt : endDate;
 
                       const tzOffset = now.getTimezoneOffset() * 60000;
                       const nowLocal = new Date(now.getTime() - tzOffset);
@@ -953,6 +1058,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const isUpcoming = nowLocal < startDateLocal;
                       const isEnded = nowLocal > endDateLocal;
                       const isCompleted = completedSchedules.has(schedule.id);
+                      const isBoundarySchedule =
+                        isVirtualSchedule && schedule.durationMinutes === 0;
                       const elapsedRatio =
                         !isUpcoming && !isEnded
                           ? Math.min(
@@ -969,6 +1076,10 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                           ? colors.solidBackground
                           : `linear-gradient(to bottom, ${colors.solidBackground} 0%, ${colors.solidBackground} ${elapsedRatio}%, ${surfaceColor} ${elapsedRatio}%, ${surfaceColor} 100%)`;
                       const capsuleBorder = isUpcoming ? `2px solid ${colors.border}` : 'none';
+                      const overlapBridgeBackground =
+                        'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, white 4%), color-mix(in srgb, var(--color-surface) 90%, var(--color-border-light) 10%))';
+                      const overlapBridgeBorder =
+                        'color-mix(in srgb, var(--color-border) 74%, white 26%)';
                       const iconBadgeBackground = isUpcoming
                         ? `color-mix(in srgb, ${colors.border} 14%, white 86%)`
                         : isEnded || isCompleted || elapsedRatio < 50
@@ -985,7 +1096,6 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                         isUpcoming || (!isEnded && elapsedRatio >= 50)
                           ? colors.border
                           : colors.selectedColor;
-
                       return (
                         <div key={`${schedule.id}-seg-${segmentIndex}`}>
                           {(index === 0 ||
@@ -996,8 +1106,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 <div
                                   className="absolute"
                                   style={{
-                                    top: slotToTop(prevCompressedSlot),
-                                    height: startTop - slotToTop(prevCompressedSlot),
+                                    top: slotToTop(prevDisplayEndSlot),
+                                    height: startTop - slotToTop(prevDisplayEndSlot),
                                     left: 24,
                                   }}
                                 >
@@ -1018,11 +1128,35 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                         whiteSpace: 'nowrap',
                                       }}
                                     >
-                                      <span
-                                        className="text-[10px]"
-                                        style={{ color: 'var(--color-text-muted)' }}
-                                      >
-                                        {t('calendar.freeMinutes', { minutes: gapMinutes })}
+                                      <span className="text-[10px]">
+                                        {i18n.language.startsWith('zh') ? (
+                                          <>
+                                            <span style={{ color: 'var(--color-text-muted)' }}>
+                                              空闲
+                                            </span>
+                                            <span
+                                              className="tabular-nums font-medium"
+                                              style={{ color: 'var(--color-primary)' }}
+                                            >
+                                              {` ${gapMinutes} `}
+                                            </span>
+                                            <span style={{ color: 'var(--color-text-muted)' }}>
+                                              分钟
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span
+                                              className="tabular-nums font-medium"
+                                              style={{ color: 'var(--color-primary)' }}
+                                            >
+                                              {gapMinutes}
+                                            </span>
+                                            <span style={{ color: 'var(--color-text-muted)' }}>
+                                              {' min free'}
+                                            </span>
+                                          </>
+                                        )}
                                       </span>
                                       <span
                                         className="text-[10px]"
@@ -1067,6 +1201,22 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                             </div>
                           )}
 
+                          {isFirstSegment && isOverlapStack && !isLastInOverlapStack && (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                top: nodeTop + Math.max(nodeHeight, SLOT_HEIGHT) - 10,
+                                left: 15,
+                                width: 18,
+                                height: 20,
+                                borderRadius: '9999px',
+                                background: overlapBridgeBackground,
+                                border: `1px solid ${overlapBridgeBorder}`,
+                                zIndex: 10,
+                              }}
+                            />
+                          )}
+
                           {isFirstSegment && (
                             <motion.button
                               initial={{ opacity: 0, scale: 0.8 }}
@@ -1095,7 +1245,12 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                   className="absolute -left-3 flex flex-col items-end"
                                   style={{
                                     transform: 'translateX(-100%)',
-                                    top: startTimeShiftUp ? '-12px' : '0',
+                                    top: isBoundarySchedule
+                                      ? '50%'
+                                      : startTimeShiftUp
+                                        ? '-12px'
+                                        : '0',
+                                    marginTop: isBoundarySchedule ? '-8px' : undefined,
                                     width: '56px',
                                   }}
                                 >
@@ -1104,7 +1259,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                     style={{ color: 'var(--color-text)' }}
                                   >
                                     {formatBoundaryTime(
-                                      startDate,
+                                      labelStartDate,
                                       uses24HourTime,
                                       schedule.durationMinutes === 0 &&
                                         schedule.virtualKind === 'routineEnd'
@@ -1124,7 +1279,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                     style={{ color: 'var(--color-text)' }}
                                   >
                                     {formatBoundaryTime(
-                                      endDate,
+                                      labelEndDate,
                                       uses24HourTime,
                                       schedule.virtualKind === 'routineEnd'
                                     )}
@@ -1132,7 +1287,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 </div>
                               )}
                               <div
-                                className="w-full h-full rounded-full flex items-center justify-center"
+                                className="relative w-full h-full rounded-full flex items-center justify-center"
                                 style={{
                                   border: `2px solid ${colors.border}`,
                                 }}

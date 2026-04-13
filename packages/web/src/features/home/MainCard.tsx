@@ -70,7 +70,15 @@ export function MainCard({ weather, weatherStatus = "success", onRefresh, onOpen
         onMouseLeave={handleMouseLeave}
         className="relative overflow-hidden h-full grid p-5 gap-5 hero-card"
       >
-        <WeatherBackground condition={weather.condition} />
+        <div
+          className="hero-card__atmosphere"
+          data-weather-condition={weather.condition}
+          aria-hidden="true"
+        >
+          <div className="hero-card__weather">
+            <WeatherBackground condition={weather.condition} />
+          </div>
+        </div>
   
         <div className="relative z-10">
           <div>

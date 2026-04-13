@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CalendarView } from "./CalendarView";
 import { ScheduleModal } from "./ScheduleModal";
 import { useScheduleStore } from "../../shared/hooks/useScheduleStore";
@@ -9,10 +10,11 @@ import { getStoredSettings } from "../../shared/services/settingsService";
 import { getNextRoutineSelectableDateTime } from "../../shared/utils/routineTime";
 
 export function SchedulePage() {
-  const { schedules, addSchedule, updateSchedule, deleteSchedule, refreshSchedules } = useScheduleStore(mockSchedules);
+  const { schedules, addSchedule, updateSchedule, deleteSchedule, refreshSchedules, loading } = useScheduleStore(mockSchedules);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleItem | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const handleAddSchedule = (date?: Date) => {
     setSelectedDate(date ?? null);
@@ -76,6 +78,31 @@ export function SchedulePage() {
     }
   };
 
+  useEffect(() => {
+    const shouldCreate = searchParams.get("create") === "1";
+    const scheduleId = searchParams.get("scheduleId");
+
+    if (!shouldCreate && !scheduleId) {
+      return;
+    }
+
+    if (shouldCreate) {
+      handleAddSchedule();
+      setSearchParams({}, { replace: true });
+      return;
+    }
+
+    if (loading) {
+      return;
+    }
+
+    const matchedSchedule = schedules.find((schedule) => schedule.id === scheduleId);
+    if (matchedSchedule) {
+      handleEditSchedule(matchedSchedule);
+    }
+    setSearchParams({}, { replace: true });
+  }, [loading, schedules, searchParams, setSearchParams]);
+
   return (
     <div className="relative z-10 -mr-12">
 
@@ -92,6 +119,7 @@ export function SchedulePage() {
         onClose={handleModalClose}
         onSubmit={handleSubmit}
         onDelete={editingSchedule ? handleDelete : undefined}
+        schedules={schedules}
         initialData={
           editingSchedule
             ? editingSchedule

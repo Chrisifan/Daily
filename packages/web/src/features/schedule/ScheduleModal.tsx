@@ -74,6 +74,7 @@ interface TimeSelectProps {
   value: string;
   onChange: (time: string) => void;
   options: string[];
+  disabledOptions?: ReadonlySet<string>;
   durationMinutes: number;
   is12Hour: boolean;
 }
@@ -103,7 +104,14 @@ function buildTimeRangeLabel(
   )}`;
 }
 
-function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: TimeSelectProps) {
+function TimeSelect({
+  value,
+  onChange,
+  options,
+  disabledOptions,
+  durationMinutes,
+  is12Hour,
+}: TimeSelectProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wheelDeltaAccumulatorRef = useRef(0);
   const lastWheelStepTimestampRef = useRef(0);
@@ -115,11 +123,19 @@ function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: Tim
   });
   const wheelStepThreshold = 32;
   const wheelStepCooldownMs = 120;
+  const isOptionDisabled = (time: string) => disabledOptions?.has(time) ?? false;
 
   const stepSelection = (direction: 1 | -1) => {
-    const nextIndex = selectedIndex + direction;
-    if (nextIndex >= 0 && nextIndex < options.length) {
-      onChange(options[nextIndex]);
+    for (
+      let nextIndex = selectedIndex + direction;
+      nextIndex >= 0 && nextIndex < options.length;
+      nextIndex += direction
+    ) {
+      const nextValue = options[nextIndex];
+      if (!isOptionDisabled(nextValue)) {
+        onChange(nextValue);
+        return;
+      }
     }
   };
 
@@ -231,7 +247,12 @@ function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: Tim
         {visibleSlots.map((time, index) => {
           const isSelected = time === value;
           const distance = Math.abs(index - visibleRange);
-          const opacity = isSelected ? 1 : Math.max(0.18, 1 - distance * 0.28);
+          const isDisabled = time ? isOptionDisabled(time) : false;
+          const opacity = isSelected
+            ? 1
+            : isDisabled
+              ? Math.max(0.12, 0.48 - distance * 0.16)
+              : Math.max(0.18, 1 - distance * 0.28);
           const scale = isSelected ? 1 : 1 - distance * 0.07;
 
           return (
@@ -239,14 +260,24 @@ function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: Tim
               {time ? (
                 <button
                   type="button"
-                  onClick={() => onChange(time)}
+                  disabled={isDisabled}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      onChange(time);
+                    }
+                  }}
                   className={`relative flex items-center justify-center rounded-full px-6 text-center transition-all ${
                     isSelected ? 'h-10 min-w-[min(100%,18rem)]' : 'h-9 min-w-[6rem]'
                   }`}
                   style={{
                     opacity,
                     transform: `scale(${scale})`,
-                    color: isSelected ? 'var(--color-surface)' : 'var(--color-text-secondary)',
+                    color: isSelected
+                      ? 'var(--color-surface)'
+                      : isDisabled
+                        ? 'var(--color-text-muted)'
+                        : 'var(--color-text-secondary)',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
                   }}
                 >
                   <span
@@ -516,6 +547,7 @@ interface ScheduleModalProps {
   ) => Promise<void> | void;
   onDelete?: () => void;
   initialData?: Partial<ScheduleItem>;
+  schedules?: ScheduleItem[];
   mode?: 'create' | 'edit';
 }
 
@@ -556,6 +588,7 @@ export function ScheduleModal({
   onSubmit,
   onDelete,
   initialData,
+  schedules = [],
   mode = 'create',
 }: ScheduleModalProps) {
   const { t } = useTranslation();
@@ -707,17 +740,46 @@ export function ScheduleModal({
     });
   }, [availableTimeSlots, durationMinutes, routineEndBoundaryMinutes, startTime]);
 
+  const disabledStartTimeOptions = useMemo(() => {
+    const disabledTimes = new Set<string>();
+
+    schedules.forEach((schedule) => {
+      if (schedule.id === initialData?.id) {
+        return;
+      }
+
+      const scheduleDate = format(new Date(schedule.startAt), 'yyyy-MM-dd');
+      if (scheduleDate !== startDate) {
+        return;
+      }
+
+      disabledTimes.add(format(new Date(schedule.startAt), 'HH:mm'));
+    });
+
+    return disabledTimes;
+  }, [initialData?.id, schedules, startDate]);
+
+  const enabledSelectableTimeSlots = useMemo(() => {
+    return selectableTimeSlots.filter((time) => !disabledStartTimeOptions.has(time));
+  }, [disabledStartTimeOptions, selectableTimeSlots]);
+
   useEffect(() => {
-    if (selectableTimeSlots.length === 0 || selectableTimeSlots.includes(startTime)) {
+    if (
+      selectableTimeSlots.length === 0 ||
+      (selectableTimeSlots.includes(startTime) && !disabledStartTimeOptions.has(startTime))
+    ) {
       return;
     }
 
     const fallbackTime =
-      selectableTimeSlots.find((time) => parseRoutineTime(time) >= parseRoutineTime(startTime)) ??
-      selectableTimeSlots[selectableTimeSlots.length - 1];
+      enabledSelectableTimeSlots.find(
+        (time) => parseRoutineTime(time) >= parseRoutineTime(startTime)
+      ) ?? enabledSelectableTimeSlots[enabledSelectableTimeSlots.length - 1];
 
-    setStartTime(fallbackTime);
-  }, [selectableTimeSlots, startTime]);
+    if (fallbackTime) {
+      setStartTime(fallbackTime);
+    }
+  }, [disabledStartTimeOptions, enabledSelectableTimeSlots, selectableTimeSlots, startTime]);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
@@ -764,7 +826,11 @@ export function ScheduleModal({
   };
 
   const isValid = Boolean(
-    title.trim() && startDate && startTime && selectableTimeSlots.includes(startTime)
+    title.trim() &&
+      startDate &&
+      startTime &&
+      selectableTimeSlots.includes(startTime) &&
+      !disabledStartTimeOptions.has(startTime)
   );
   const canProceedToScheduling = Boolean(title.trim());
   const primaryButtonDisabled =
@@ -959,6 +1025,7 @@ export function ScheduleModal({
                           value={startTime}
                           onChange={setStartTime}
                           options={selectableTimeSlots}
+                          disabledOptions={disabledStartTimeOptions}
                           durationMinutes={durationMinutes}
                           is12Hour={is12Hour}
                         />
