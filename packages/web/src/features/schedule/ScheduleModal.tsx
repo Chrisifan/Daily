@@ -14,6 +14,12 @@ import {
   Dumbbell,
   Moon,
   Calendar,
+  BookOpen,
+  BriefcaseBusiness,
+  ShoppingBag,
+  House,
+  Music4,
+  HeartPulse,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Ref } from 'react';
@@ -22,7 +28,9 @@ import { format, parse } from 'date-fns';
 import { DatePicker } from '../../shared/ui/DatePicker';
 import { getStoredSettings } from '../../shared/services/settingsService';
 import { DropdownContent } from '../../shared/ui/DropdownContent';
+import { SegmentedControl } from '../../shared/ui/SegmentedControl';
 import { useAnchoredOverlay } from '../../shared/ui/useAnchoredOverlay';
+import { PRIORITY_STYLES } from '../../shared/constants/priority';
 import {
   createRoutineSelectableTimeOptions,
   formatRoutineTimeLabel,
@@ -48,6 +56,18 @@ const ICON_OPTIONS: { value: ScheduleIcon; icon: typeof Clock }[] = [
   { value: 'meal', icon: Utensils },
   { value: 'exercise', icon: Dumbbell },
   { value: 'sleep', icon: Moon },
+  { value: 'study', icon: BookOpen },
+  { value: 'work', icon: BriefcaseBusiness },
+  { value: 'shopping', icon: ShoppingBag },
+  { value: 'home', icon: House },
+  { value: 'music', icon: Music4 },
+  { value: 'health', icon: HeartPulse },
+];
+
+const PRIORITY_OPTIONS: { value: Priority; labelKey: string }[] = [
+  { value: 'low', labelKey: 'schedule.priorityLabels.low' },
+  { value: 'medium', labelKey: 'schedule.priorityLabels.medium' },
+  { value: 'high', labelKey: 'schedule.priorityLabels.high' },
 ];
 
 interface TimeSelectProps {
@@ -85,12 +105,16 @@ function buildTimeRangeLabel(
 
 function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: TimeSelectProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const wheelDeltaAccumulatorRef = useRef(0);
+  const lastWheelStepTimestampRef = useRef(0);
   const selectedIndex = Math.max(options.indexOf(value), 0);
   const visibleRange = 2;
   const visibleSlots = Array.from({ length: visibleRange * 2 + 1 }, (_, offset) => {
     const optionIndex = selectedIndex - visibleRange + offset;
     return optionIndex >= 0 && optionIndex < options.length ? options[optionIndex] : null;
   });
+  const wheelStepThreshold = 32;
+  const wheelStepCooldownMs = 120;
 
   const stepSelection = (direction: 1 | -1) => {
     const nextIndex = selectedIndex + direction;
@@ -99,15 +123,40 @@ function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: Tim
     }
   };
 
-  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+  const resetWheelState = () => {
+    wheelDeltaAccumulatorRef.current = 0;
+    lastWheelStepTimestampRef.current = 0;
+  };
+
+  const handleWheelDelta = (deltaY: number, deltaMode: number, timeStamp: number) => {
+    if (options.length <= 1 || deltaY === 0) return;
+
+    const normalizedDelta =
+      deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? deltaY * 16
+        : deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? deltaY * window.innerHeight
+          : deltaY;
+
+    wheelDeltaAccumulatorRef.current += normalizedDelta;
+
+    if (Math.abs(wheelDeltaAccumulatorRef.current) < wheelStepThreshold) {
+      return;
+    }
+
+    if (timeStamp - lastWheelStepTimestampRef.current < wheelStepCooldownMs) {
+      return;
+    }
+
+    stepSelection(wheelDeltaAccumulatorRef.current > 0 ? 1 : -1);
+    wheelDeltaAccumulatorRef.current = 0;
+    lastWheelStepTimestampRef.current = timeStamp;
+  };
+
+  const handleWheelCapture = (event: React.WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (options.length <= 1) return;
-    if (event.deltaY > 0) {
-      stepSelection(1);
-    } else if (event.deltaY < 0) {
-      stepSelection(-1);
-    }
+    handleWheelDelta(event.deltaY, event.deltaMode, event.timeStamp);
   };
 
   useEffect(() => {
@@ -117,26 +166,24 @@ function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: Tim
     const handleNativeWheel = (event: WheelEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      if (options.length <= 1) return;
-      if (event.deltaY > 0) {
-        stepSelection(1);
-      } else if (event.deltaY < 0) {
-        stepSelection(-1);
-      }
+      handleWheelDelta(event.deltaY, event.deltaMode, event.timeStamp);
     };
 
-    element.addEventListener('wheel', handleNativeWheel, { passive: false });
+    element.addEventListener('wheel', handleNativeWheel, { passive: false, capture: true });
     return () => {
-      element.removeEventListener('wheel', handleNativeWheel);
+      element.removeEventListener('wheel', handleNativeWheel, true);
     };
   }, [options, selectedIndex]);
 
   return (
     <div
       ref={containerRef}
+      data-time-select-root="true"
       className="relative overflow-hidden rounded-[24px] px-4 py-3 shadow-[var(--shadow-md)]"
-      onWheel={handleWheel}
-      onWheelCapture={(event) => event.stopPropagation()}
+      onWheelCapture={handleWheelCapture}
+      onPointerEnter={() => containerRef.current?.focus()}
+      onPointerLeave={resetWheelState}
+      onBlur={resetWheelState}
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === 'ArrowUp') {
@@ -229,50 +276,50 @@ interface DurationSelectProps {
 }
 
 function DurationSelect({ value, onChange, maxDurationMinutes, t }: DurationSelectProps) {
+  const selectedOption = DURATION_OPTIONS.find((opt) => opt.value === value);
+
   return (
-    <div
-      className="rounded-[24px] p-2"
-      style={{
-        border: '1px solid var(--color-border)',
-        background:
-          'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent), color-mix(in srgb, var(--color-surface-elevated, var(--color-surface)) 92%, var(--color-bg) 8%))',
-        boxShadow: 'var(--shadow-sm)',
-      }}
-    >
-      <div className="grid grid-cols-5 gap-2">
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className="flex h-8 w-full items-center justify-between rounded-xl border border-gray-200/80 bg-white/60 px-4 text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
+        >
+          <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">
+            {selectedOption ? t(selectedOption.labelKey) : value}
+          </span>
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownContent className="z-50 overflow-y-auto rounded-xl border border-black/5 bg-white/95 shadow-lg backdrop-blur-xl">
         {DURATION_OPTIONS.map((opt) => {
           const isDisabled = maxDurationMinutes !== undefined && opt.value > maxDurationMinutes;
           const isSelected = opt.value === value;
 
           return (
-            <button
-              type="button"
+            <DropdownMenu.Item
               key={opt.value}
               disabled={isDisabled}
-              onClick={() => !isDisabled && onChange(opt.value)}
-              className="relative flex h-11 items-center justify-center rounded-full px-2 text-sm font-medium transition-all"
+              onSelect={() => !isDisabled && onChange(opt.value)}
+              className="flex h-8 items-center px-3 text-sm outline-none transition-colors data-[disabled]:pointer-events-none"
               style={{
-                background: isSelected
-                  ? 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary-hover, var(--color-primary)) 88%, white 12%))'
-                  : 'transparent',
                 color: isSelected
-                  ? 'var(--color-surface)'
+                  ? 'var(--color-primary)'
                   : isDisabled
                     ? 'var(--color-text-muted)'
-                    : 'var(--color-text-secondary)',
-                boxShadow: isSelected
-                  ? '0 10px 24px color-mix(in srgb, var(--color-primary) 22%, transparent)'
-                  : 'none',
+                    : 'var(--color-text)',
+                background: isSelected
+                  ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
+                  : 'transparent',
                 opacity: isDisabled ? 0.45 : 1,
-                cursor: isDisabled ? 'not-allowed' : 'pointer',
               }}
             >
-              <span>{t(opt.labelKey)}</span>
-            </button>
+              {t(opt.labelKey)}
+            </DropdownMenu.Item>
           );
         })}
-      </div>
-    </div>
+      </DropdownContent>
+    </DropdownMenu.Root>
   );
 }
 
@@ -299,11 +346,11 @@ function RepeatSelect({ value, onChange, t }: RepeatSelectProps) {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
+          className="flex h-8 w-full items-center justify-between rounded-xl border border-gray-200/80 bg-white/60 px-4 text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
         >
           <div className="flex items-center gap-2">
             <Repeat className="w-4 h-4 text-gray-400" />
-            <span>{t(`schedule.repeatModes.${value}`)}</span>
+            <span className="text-[13px]">{t(`schedule.repeatModes.${value}`)}</span>
           </div>
           <ChevronDown className="w-4 h-4 text-gray-400" />
         </button>
@@ -313,7 +360,7 @@ function RepeatSelect({ value, onChange, t }: RepeatSelectProps) {
           <DropdownMenu.Item
             key={mode}
             onSelect={() => onChange(mode)}
-            className={`px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center justify-between ${
+            className={`flex h-8 items-center justify-between px-4 text-left text-sm cursor-pointer transition-colors ${
               mode === value
                 ? 'bg-blue-50 text-blue-600 font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -334,41 +381,130 @@ interface IconSelectProps {
 }
 
 function IconSelect({ value, onChange, t }: IconSelectProps) {
+  const [open, setOpen] = useState(false);
   const selectedOption = ICON_OPTIONS.find((opt) => opt.value === value);
   const SelectedIcon = selectedOption?.icon || Clock;
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center gap-2"
+          className="flex h-8 w-full items-center gap-3 rounded-xl border border-gray-200/80 bg-white/60 px-3 text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
         >
-          <SelectedIcon className="w-4 h-4" style={{ color: '#6366f1' }} />
-          <span>{t(`schedule.iconLabels.${value}`)}</span>
-          <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
+          <span
+            className="flex h-6 w-6 items-center justify-center rounded-full"
+            style={{
+              border: '1px solid color-mix(in srgb, var(--color-border) 82%, white 18%)',
+              background:
+                'linear-gradient(180deg, color-mix(in srgb, white 92%, var(--color-surface) 8%), color-mix(in srgb, var(--color-surface) 94%, var(--color-bg) 6%))',
+              boxShadow: '0 8px 18px color-mix(in srgb, black 10%, transparent)',
+            }}
+          >
+            <SelectedIcon className="h-3.5 w-3.5" style={{ color: 'var(--color-primary)' }} />
+          </span>
+          <div className="min-w-0 flex-1 text-left">
+            <p className="truncate text-[13px] font-medium text-gray-800">{t(`schedule.iconLabels.${value}`)}</p>
+          </div>
+          <ChevronDown className="ml-auto h-4 w-4 text-gray-400" />
         </button>
       </DropdownMenu.Trigger>
-      <DropdownContent className="bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 overflow-y-auto">
-        {ICON_OPTIONS.map((opt) => {
-          const IconComponent = opt.icon;
-          return (
-            <DropdownMenu.Item
-              key={opt.value}
-              onSelect={() => onChange(opt.value)}
-              className={`px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center gap-2 ${
-                opt.value === value
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <IconComponent className="w-4 h-4" />
-              <span>{t(`schedule.iconLabels.${opt.value}`)}</span>
-            </DropdownMenu.Item>
-          );
-        })}
+      <DropdownContent
+        className="z-50 overflow-hidden rounded-[28px] border border-black/5 bg-white/95 shadow-lg backdrop-blur-xl"
+        style={{
+          width: 'var(--radix-popper-anchor-width)',
+          minWidth: 'var(--radix-popper-anchor-width)',
+          maxWidth: 'min(var(--radix-popper-available-width), calc(100vw - 2rem))',
+          maxHeight: 'min(var(--radix-popper-available-height), 24rem)',
+        }}
+      >
+        <div
+          className="overflow-y-auto overflow-x-hidden p-4"
+          style={{
+            maxHeight: 'min(var(--radix-popper-available-height), 24rem)',
+          }}
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-5 gap-1.5">
+              {ICON_OPTIONS.map((opt) => {
+                const IconComponent = opt.icon;
+                const isSelected = opt.value === value;
+
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                    className="group flex flex-col items-center gap-1 rounded-[18px] px-1 py-1.5 text-center transition-all"
+                    style={{
+                      background: isSelected
+                        ? 'linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 14%, white 86%), color-mix(in srgb, var(--color-surface) 90%, var(--color-primary) 10%))'
+                        : 'transparent',
+                    }}
+                  >
+                    <span
+                      className="flex items-center justify-center rounded-full transition-all"
+                      style={{
+                        width: '3rem',
+                        height: '3rem',
+                        border: isSelected
+                          ? '1px solid color-mix(in srgb, var(--color-primary) 34%, white 66%)'
+                          : '1px solid color-mix(in srgb, var(--color-border) 82%, white 18%)',
+                        background:
+                          'linear-gradient(180deg, color-mix(in srgb, white 94%, var(--color-surface) 6%), color-mix(in srgb, var(--color-surface) 92%, var(--color-bg) 8%))',
+                        boxShadow: isSelected
+                          ? '0 12px 28px color-mix(in srgb, var(--color-primary) 18%, transparent)'
+                          : '0 10px 22px color-mix(in srgb, black 10%, transparent)',
+                      }}
+                    >
+                      <IconComponent
+                        className="h-4.5 w-4.5"
+                        style={{
+                          color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                        }}
+                      />
+                    </span>
+                    <span
+                      className="text-[10px] font-medium leading-tight"
+                      style={{
+                        color: isSelected ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {t(`schedule.iconLabels.${opt.value}`)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </DropdownContent>
     </DropdownMenu.Root>
+  );
+}
+
+interface PrioritySelectProps {
+  value: Priority;
+  onChange: (priority: Priority) => void;
+  t: (key: string) => string;
+}
+
+function PrioritySelect({ value, onChange, t }: PrioritySelectProps) {
+  return (
+    <SegmentedControl
+      value={value}
+      onChange={(nextValue) => onChange(nextValue as Priority)}
+      options={PRIORITY_OPTIONS.map((opt) => ({
+        value: opt.value,
+        label: t(opt.labelKey),
+        selectedBackground: PRIORITY_STYLES[opt.value].selectedBackground,
+        selectedColor: PRIORITY_STYLES[opt.value].selectedColor,
+        selectedBoxShadow: PRIORITY_STYLES[opt.value].selectedBoxShadow,
+      }))}
+    />
   );
 }
 
@@ -382,6 +518,8 @@ interface ScheduleModalProps {
   initialData?: Partial<ScheduleItem>;
   mode?: 'create' | 'edit';
 }
+
+type ModalStep = 1 | 2;
 
 function getInitialValues(initialData?: Partial<ScheduleItem>) {
   if (initialData?.startAt) {
@@ -424,6 +562,8 @@ export function ScheduleModal({
   const settings = getStoredSettings();
   const is12Hour = settings.timeFormat === 'hh:mm A';
   const initialValues = getInitialValues(initialData);
+  const [currentStep, setCurrentStep] = useState<ModalStep>(1);
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [title, setTitle] = useState(initialValues.title);
   const [icon, setIcon] = useState<ScheduleIcon>(initialValues.icon);
   const [notes, setNotes] = useState(initialValues.notes);
@@ -459,6 +599,9 @@ export function ScheduleModal({
       setRepeatMode(values.repeatMode);
       setPriority(values.priority);
       setLocation(values.location);
+      setCurrentStep(1);
+      setStepDirection(1);
+      setShowDatePicker(false);
       setIsSubmitting(false);
       setSubmitError(null);
     }
@@ -476,6 +619,24 @@ export function ScheduleModal({
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showDatePicker]);
+
+  const handleModalWheelCapture = (event: React.WheelEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('[data-time-select-root="true"]')) {
+      event.preventDefault();
+    }
+  };
+
+  const goToStep = (nextStep: ModalStep) => {
+    if (nextStep === currentStep) {
+      return;
+    }
+
+    setStepDirection(nextStep > currentStep ? 1 : -1);
+    setCurrentStep(nextStep);
+    setShowDatePicker(false);
+    setSubmitError(null);
+  };
 
   const parsedStartMinutes = useMemo(() => {
     const candidatePatterns =
@@ -605,6 +766,34 @@ export function ScheduleModal({
   const isValid = Boolean(
     title.trim() && startDate && startTime && selectableTimeSlots.includes(startTime)
   );
+  const canProceedToScheduling = Boolean(title.trim());
+  const primaryButtonDisabled =
+    currentStep === 1 ? !canProceedToScheduling : !isValid || isSubmitting;
+  const stepPanelVariants = {
+    enter: (direction: 1 | -1) => ({
+      opacity: 0,
+      x: direction > 0 ? 36 : -36,
+      filter: 'blur(8px)',
+    }),
+    center: {
+      opacity: 1,
+      x: 0,
+      filter: 'blur(0px)',
+      transition: {
+        duration: 0.24,
+        ease: [0.22, 1, 0.36, 1] as const,
+      },
+    },
+    exit: (direction: 1 | -1) => ({
+      opacity: 0,
+      x: direction > 0 ? -36 : 36,
+      filter: 'blur(6px)',
+      transition: {
+        duration: 0.18,
+        ease: [0.4, 0, 1, 1] as const,
+      },
+    }),
+  };
 
   return (
     <AnimatePresence>
@@ -618,7 +807,6 @@ export function ScheduleModal({
           <button
             type="button"
             className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default"
-            onClick={onClose}
             aria-label={t('common.close')}
           />
 
@@ -627,177 +815,197 @@ export function ScheduleModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden"
+            className="relative w-full max-w-[34rem] rounded-3xl border border-white/50 bg-white/80 shadow-2xl backdrop-blur-xl overflow-visible"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/50">
-              <h2 className="text-lg font-semibold text-gray-800">
-                {mode === 'create' ? t('schedule.newSchedule') : t('schedule.editSchedule')}
-              </h2>
-              <button
-                onClick={onClose}
-                className="p-1 rounded-full hover:bg-gray-200/50 transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+            <div className="border-b border-gray-200/50 px-5 py-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  {mode === 'create' ? t('schedule.newSchedule') : t('schedule.editSchedule')}
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="p-1 rounded-full hover:bg-gray-200/50 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-              <div>
-                <label
-                  htmlFor="schedule-title"
-                  className="block text-sm font-medium text-gray-700 mb-1.5"
-                >
-                  {t('schedule.title')} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="schedule-title"
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t('schedule.titlePlaceholder')}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t('schedule.icon')}
-                </label>
-                <IconSelect value={icon} onChange={setIcon} t={t} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t('schedule.date')} <span className="text-red-500">*</span>
-                </label>
-                <div className="relative date-picker-wrapper">
-                  <button
-                    type="button"
-                    ref={datePickerTriggerRef as Ref<HTMLButtonElement>}
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
+            <div className="relative h-[440px] overflow-visible" onWheelCapture={handleModalWheelCapture}>
+              <AnimatePresence custom={stepDirection} initial={false} mode="wait">
+                {currentStep === 1 ? (
+                  <motion.div
+                    key="details-step"
+                    custom={stepDirection}
+                    variants={stepPanelVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="absolute inset-0 grid content-start gap-3 px-5 py-4"
                   >
-                    <span>{startDate}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </button>
-                  <AnimatePresence>
-                    {showDatePicker && (
-                      <DatePicker
-                        ref={datePickerContentRef as Ref<HTMLDivElement>}
-                        value={parse(startDate, 'yyyy-MM-dd', new Date())}
-                        side={datePickerSide}
-                        panelStyle={datePickerStyle}
-                        onChange={(date) => {
-                          setStartDate(format(date, 'yyyy-MM-dd'));
-                          setShowDatePicker(false);
-                        }}
-                        onClose={() => setShowDatePicker(false)}
+                    <div>
+                      <label
+                        htmlFor="schedule-title"
+                        className="mb-1 block text-sm font-medium text-gray-700"
+                      >
+                        {t('schedule.title')} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="schedule-title"
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={t('schedule.titlePlaceholder')}
+                        className="h-8 w-full rounded-xl border border-gray-200/80 bg-white/60 px-4 text-[13px] text-gray-800 placeholder-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
                       />
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
+                    </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    {t('schedule.startTime')} <span className="text-red-500">*</span>
-                  </label>
-                  <TimeSelect
-                    value={startTime}
-                    onChange={setStartTime}
-                    options={selectableTimeSlots}
-                    durationMinutes={durationMinutes}
-                    is12Hour={is12Hour}
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    {t('schedule.duration')}
-                  </label>
-                  <DurationSelect
-                    value={durationMinutes}
-                    onChange={setDurationMinutes}
-                    maxDurationMinutes={maxDurationMinutes}
-                    t={t}
-                  />
-                </div>
-              </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        {t('schedule.icon')}
+                      </label>
+                      <IconSelect value={icon} onChange={setIcon} t={t} />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t('schedule.repeat')}
-                </label>
-                <RepeatSelect value={repeatMode} onChange={setRepeatMode} t={t} />
-              </div>
+                    <div>
+                      <span className="mb-1 block text-sm font-medium text-gray-700">
+                        {t('schedule.priority')}
+                      </span>
+                      <PrioritySelect value={priority} onChange={setPriority} t={t} />
+                    </div>
 
-              <div>
-                <span className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t('schedule.priority')}
-                </span>
-                <div className="flex gap-2">
-                  {(['low', 'medium', 'high'] as Priority[]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPriority(p)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                        priority === p
-                          ? p === 'high'
-                            ? 'bg-red-100 text-red-700 border-2 border-red-300'
-                            : p === 'medium'
-                              ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300'
-                              : 'bg-green-100 text-green-700 border-2 border-green-300'
-                          : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-150'
-                      }`}
-                    >
-                      {t(`schedule.priorityLabels.${p}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                    <div>
+                      <label
+                        htmlFor="schedule-location"
+                        className="mb-1 block text-sm font-medium text-gray-700"
+                      >
+                        {t('schedule.location')}
+                      </label>
+                      <input
+                        id="schedule-location"
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder={t('schedule.locationPlaceholder')}
+                        className="h-8 w-full rounded-xl border border-gray-200/80 bg-white/60 px-4 text-[13px] text-gray-800 placeholder-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
+                      />
+                    </div>
 
-              <div>
-                <label
-                  htmlFor="schedule-location"
-                  className="block text-sm font-medium text-gray-700 mb-1.5"
-                >
-                  {t('schedule.location')}
-                </label>
-                <input
-                  id="schedule-location"
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder={t('schedule.locationPlaceholder')}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
-                />
-              </div>
+                    <div>
+                      <label
+                        htmlFor="schedule-notes"
+                        className="mb-1 block text-sm font-medium text-gray-700"
+                      >
+                        {t('schedule.notes')}
+                      </label>
+                      <textarea
+                        id="schedule-notes"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder={t('schedule.notesPlaceholder')}
+                        rows={1}
+                        className="min-h-8 w-full rounded-xl border border-gray-200/80 bg-white/60 px-4 py-1.5 text-[13px] text-gray-800 placeholder-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent resize-none"
+                      />
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="schedule-step"
+                    custom={stepDirection}
+                    variants={stepPanelVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="absolute inset-0 grid content-start gap-3 px-5 py-4"
+                  >
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        {t('schedule.date')} <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative date-picker-wrapper">
+                        <button
+                          type="button"
+                          ref={datePickerTriggerRef as Ref<HTMLButtonElement>}
+                          onClick={() => setShowDatePicker(!showDatePicker)}
+                          className="flex h-8 w-full items-center justify-between rounded-xl border border-gray-200/80 bg-white/60 px-4 text-[13px] text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
+                        >
+                          <span>{startDate}</span>
+                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <AnimatePresence>
+                          {showDatePicker && (
+                            <DatePicker
+                              ref={datePickerContentRef as Ref<HTMLDivElement>}
+                              value={parse(startDate, 'yyyy-MM-dd', new Date())}
+                              side={datePickerSide}
+                              panelStyle={datePickerStyle}
+                              onChange={(date) => {
+                                setStartDate(format(date, 'yyyy-MM-dd'));
+                                setShowDatePicker(false);
+                              }}
+                              onClose={() => setShowDatePicker(false)}
+                            />
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
 
-              <div>
-                <label
-                  htmlFor="schedule-notes"
-                  className="block text-sm font-medium text-gray-700 mb-1.5"
-                >
-                  {t('schedule.notes')}
-                </label>
-                <textarea
-                  id="schedule-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder={t('schedule.notesPlaceholder')}
-                  rows={3}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all resize-none"
-                />
-              </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          {t('schedule.startTime')} <span className="text-red-500">*</span>
+                        </label>
+                        <TimeSelect
+                          value={startTime}
+                          onChange={setStartTime}
+                          options={selectableTimeSlots}
+                          durationMinutes={durationMinutes}
+                          is12Hour={is12Hour}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          {t('schedule.duration')}
+                        </label>
+                        <DurationSelect
+                          value={durationMinutes}
+                          onChange={setDurationMinutes}
+                          maxDurationMinutes={maxDurationMinutes}
+                          t={t}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        {t('schedule.repeat')}
+                      </label>
+                      <RepeatSelect value={repeatMode} onChange={setRepeatMode} t={t} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            <div className="flex justify-between px-6 py-4 border-t border-gray-200/50 bg-gray-50/50">
-              <div>
+            <div className="flex justify-between px-5 py-3.5 border-t border-gray-200/50 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div
+                  className="rounded-full px-3 py-1.5"
+                  style={{
+                    border: '1px solid var(--color-border)',
+                    background:
+                      'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent), color-mix(in srgb, var(--color-surface-elevated, var(--color-surface)) 92%, var(--color-bg) 8%))',
+                    boxShadow: 'var(--shadow-sm)',
+                  }}
+                >
+                  <span className="text-[11px] font-semibold tracking-[0.18em] text-gray-400">
+                    {currentStep} / 2
+                  </span>
+                </div>
                 {mode === 'edit' && onDelete && (
                   <button
                     onClick={onDelete}
-                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    className="px-4 py-2 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                   >
                     {t('schedule.deleteSchedule')}
                   </button>
@@ -817,38 +1025,60 @@ export function ScheduleModal({
                   >
                     {t('common.cancel')}
                   </button>
+                  {currentStep === 2 && (
+                    <button
+                      type="button"
+                      onClick={() => goToStep(1)}
+                      className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
+                      style={{
+                        minWidth: 96,
+                        color: 'var(--color-text-secondary)',
+                        background:
+                          'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent) 0%, color-mix(in srgb, var(--color-surface) 84%, var(--color-bg) 16%) 100%)',
+                        border: '1px solid var(--color-border)',
+                        boxShadow: 'var(--shadow-sm)',
+                      }}
+                    >
+                      {t('common.back')}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={handleSubmit}
-                    disabled={!isValid || isSubmitting}
+                    onClick={() => {
+                      if (currentStep === 1) {
+                        goToStep(2);
+                        return;
+                      }
+
+                      handleSubmit();
+                    }}
+                    disabled={primaryButtonDisabled}
                     className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
                     style={{
                       minWidth: 96,
-                      color:
-                        isValid && !isSubmitting
-                          ? 'var(--color-surface)'
-                          : 'var(--color-text-secondary)',
-                      background:
-                        isValid && !isSubmitting
-                          ? 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 82%, black))'
-                          : 'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent) 0%, color-mix(in srgb, var(--color-surface) 84%, var(--color-bg) 16%) 100%)',
-                      border:
-                        isValid && !isSubmitting
-                          ? '1px solid color-mix(in srgb, var(--color-primary) 70%, black)'
-                          : '1px solid var(--color-border)',
-                      boxShadow:
-                        isValid && !isSubmitting
-                          ? '0 10px 22px color-mix(in srgb, var(--color-primary) 28%, transparent)'
-                          : 'var(--shadow-sm)',
-                      cursor: isValid && !isSubmitting ? 'pointer' : 'not-allowed',
+                      color: !primaryButtonDisabled
+                        ? 'var(--color-surface)'
+                        : 'var(--color-text-secondary)',
+                      background: !primaryButtonDisabled
+                        ? 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 82%, black))'
+                        : 'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent) 0%, color-mix(in srgb, var(--color-surface) 84%, var(--color-bg) 16%) 100%)',
+                      border: !primaryButtonDisabled
+                        ? '1px solid color-mix(in srgb, var(--color-primary) 70%, black)'
+                        : '1px solid var(--color-border)',
+                      boxShadow: !primaryButtonDisabled
+                        ? '0 10px 22px color-mix(in srgb, var(--color-primary) 28%, transparent)'
+                        : 'var(--shadow-sm)',
+                      cursor: !primaryButtonDisabled ? 'pointer' : 'not-allowed',
                       opacity: 1,
                     }}
                   >
-                    {isSubmitting
-                      ? t('settings.saving')
-                      : mode === 'create'
-                        ? t('schedule.create')
-                        : t('schedule.save')}
+                    {currentStep === 1
+                      ? t('common.next')
+                      : isSubmitting
+                        ? t('settings.saving')
+                        : mode === 'create'
+                          ? t('schedule.create')
+                          : t('schedule.save')}
                   </button>
                 </div>
               </div>

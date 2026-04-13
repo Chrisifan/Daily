@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Sun, Moon, Monitor, Palette, Globe, Calendar, Clock, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import {
   setThemeSetting,
 } from "../services/settingsService";
 import { CitySelector, TimeSelectField } from "./SettingsFields";
+import { SegmentedControl } from "./SegmentedControl";
 import { isRoutineRangeValid } from "../utils/routineTime";
 
 interface SettingsPopupProps {
@@ -39,60 +40,8 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[
   { value: "system", label: "", icon: <Monitor className="w-4 h-4" /> },
 ];
 
-// RadioGroup component
-interface RadioOption {
-  value: string;
-  label: string;
-}
-
-interface RadioGroupProps {
-  value: string;
-  onChange: (value: string) => void;
-  options: RadioOption[];
-}
-
-function RadioGroup({ value, onChange, options }: RadioGroupProps) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        gap: 6,
-        padding: "4px",
-        borderRadius: 12,
-        background: "var(--color-border-light)",
-        border: "1px solid var(--color-border)",
-      }}
-    >
-      {options.map((opt) => {
-        const selected = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "all 180ms ease",
-              background: selected ? "var(--color-primary)" : "transparent",
-              color: selected ? "white" : "var(--color-text-secondary)",
-              boxShadow: selected ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
-            }}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: SettingsPopupProps) {
   const { t, i18n } = useTranslation();
-  const popupRef = useRef<HTMLDivElement>(null);
   const [draftTheme, setDraftTheme] = useState<ThemeMode>(themeMode);
   const [draftSettings, setDraftSettings] = useState<DailySettings>(() => getStoredSettings());
   const [isSaving, setIsSaving] = useState(false);
@@ -106,22 +55,6 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
     setDraftSettings(getStoredSettings());
     setIsSaving(false);
   }, [open, themeMode]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-settings-city-overlay='true']")) {
-        return;
-      }
-      if (popupRef.current && !popupRef.current.contains(target)) {
-        onClose();
-      }
-    };
-    if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [open, onClose]);
 
   const updateDraftSettings = useCallback((patch: Partial<DailySettings>) => {
     setDraftSettings((current) => ({ ...current, ...patch }));
@@ -163,22 +96,15 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
           description: t("settings.themeDesc"),
           icon: <Palette className="w-4 h-4" />,
           action: (
-            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: "var(--color-border-light)" }}>
-              {THEME_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setDraftTheme(opt.value)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    backgroundColor: draftTheme === opt.value ? "var(--color-primary)" : "transparent",
-                    color: draftTheme === opt.value ? "white" : "var(--color-text-secondary)",
-                  }}
-                >
-                  {opt.icon}
-                  {t(`settings.themeOptions.${opt.value}`)}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              value={draftTheme}
+              onChange={(nextValue) => setDraftTheme(nextValue as ThemeMode)}
+              options={THEME_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: t(`settings.themeOptions.${opt.value}`),
+                icon: opt.icon,
+              }))}
+            />
           ),
         },
       ],
@@ -192,7 +118,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
           description: t("settings.languageDesc"),
           icon: <Globe className="w-4 h-4" />,
           action: (
-            <RadioGroup
+            <SegmentedControl
               value={draftSettings.language}
               onChange={(val) => {
                 updateDraftSettings({ language: val as "zh" | "en" });
@@ -210,7 +136,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
           description: t("settings.dateFormatDesc"),
           icon: <Calendar className="w-4 h-4" />,
           action: (
-            <RadioGroup
+            <SegmentedControl
               value={draftSettings.dateFormat}
               onChange={(val) => {
                 updateDraftSettings({ dateFormat: val as "YYYY-MM-DD" | "MM/DD/YYYY" | "DD/MM/YYYY" });
@@ -229,7 +155,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
           description: t("settings.timeFormatDesc"),
           icon: <Clock className="w-4 h-4" />,
           action: (
-            <RadioGroup
+            <SegmentedControl
               value={draftSettings.timeFormat}
               onChange={(val) => {
                 updateDraftSettings({ timeFormat: val as "HH:mm" | "hh:mm A" });
@@ -309,10 +235,8 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
             transition={{ duration: 0.15 }}
             className="absolute inset-0"
             style={{ backgroundColor: "rgba(0,0,0,0.3)", backdropFilter: "blur(4px)" }}
-            onClick={onClose}
           />
           <motion.div
-            ref={popupRef}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -408,7 +332,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
               <button
                 onClick={handleResetToDefaults}
                 disabled={isSaving}
-                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="h-8 rounded-lg px-3 text-sm font-medium transition-colors"
                 style={{
                   color: "var(--color-text-secondary)",
                   backgroundColor: "var(--color-border-light)",
@@ -425,7 +349,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
                 <button
                   onClick={() => { void handleSave(); }}
                   disabled={!hasChanges || isSaving || !routineValid}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  className="h-8 rounded-lg px-4 text-sm font-medium transition-colors"
                   style={{
                     color: "white",
                     backgroundColor: !hasChanges || isSaving || !routineValid ? "var(--color-text-muted)" : "var(--color-primary)",

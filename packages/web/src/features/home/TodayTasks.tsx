@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { PRIORITY_STYLES } from "../../shared/constants/priority";
 
 const TASKS = [
   { title: "home.tasks.addNewTask", metaKey: "" as const, priority: "" as const, isAdd: true  },
@@ -8,12 +9,6 @@ const TASKS = [
   { title: "11:00 处理客户邮件并同步到今日计划",       metaKey: "home.tasks.source" as const, priority: "medium" as const, isAdd: false },
   { title: "16:00 深度工作时段，处理 audit 列表高优先事项", metaKey: "home.tasks.systemReserved" as const, priority: "low" as const,    isAdd: false },
 ];
-
-const PRIORITY_STYLE = {
-  high:   { bg: "rgba(239, 68, 68, 0.1)", color: "var(--color-error)" },
-  medium: { bg: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)" },
-  low:    { bg: "rgba(34, 197, 94, 0.1)", color: "var(--color-success)" },
-} as const;
 
 export function TodayTasks() {
   const { t } = useTranslation();
@@ -72,12 +67,12 @@ export function TodayTasks() {
                 </p>
                 {task.metaKey && <p className="m-0 task-meta">{t(task.metaKey)}</p>}
               </div>
-              {task.priority && task.priority in PRIORITY_STYLE && (
+              {task.priority && task.priority in PRIORITY_STYLES && (
                 <span
                   className="task-badge"
                   style={{
-                    background: PRIORITY_STYLE[task.priority].bg,
-                    color: PRIORITY_STYLE[task.priority].color,
+                    background: PRIORITY_STYLES[task.priority].softBackground,
+                    color: PRIORITY_STYLES[task.priority].text,
                   }}
                 >
                   {t(`home.tasks.priority.${task.priority}`)}

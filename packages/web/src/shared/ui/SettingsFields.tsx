@@ -149,7 +149,7 @@ export function CitySelector({ value, onChange }: CitySelectorProps) {
           alignItems: "center",
           gap: 8,
           padding: "0 12px",
-          minHeight: 42,
+          height: 32,
         }}
       >
         <Search className="w-4 h-4" style={{ opacity: 0.5, flexShrink: 0 }} />
@@ -168,7 +168,7 @@ export function CitySelector({ value, onChange }: CitySelectorProps) {
           placeholder={t("settings.searchCity")}
           style={{
             width: "100%",
-            padding: "10px 0",
+            padding: "6px 0",
             border: "none",
             background: "transparent",
             color: "var(--color-text)",
@@ -246,19 +246,17 @@ export function TimeSelectField({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="w-full rounded-xl border px-3 py-2.5 text-left transition-colors"
+          className="flex h-8 w-full items-center justify-between rounded-xl border px-3 text-left transition-colors"
           style={{
             borderColor: "var(--color-border)",
             backgroundColor: "var(--color-surface)",
             color: "var(--color-text)",
           }}
         >
-          <div className="flex items-center justify-between gap-3">
-            <span className="tabular-nums">
-              {formatRoutineTimeLabel(value, displayFormat, treatMidnightAsEndOfDay)}
-            </span>
-            <ChevronDown className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />
-          </div>
+          <span className="tabular-nums">
+            {formatRoutineTimeLabel(value, displayFormat, treatMidnightAsEndOfDay)}
+          </span>
+          <ChevronDown className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />
         </button>
       </DropdownMenu.Trigger>
 
@@ -269,7 +267,7 @@ export function TimeSelectField({
             <DropdownMenu.Item
               key={option}
               onSelect={() => onChange(option)}
-              className="rounded-xl px-3 py-2 text-sm outline-none transition-colors"
+              className="flex h-8 items-center rounded-xl px-3 text-sm outline-none transition-colors"
               style={{
                 backgroundColor: selected ? "color-mix(in srgb, var(--color-primary) 12%, transparent)" : "transparent",
                 color: selected ? "var(--color-primary)" : "var(--color-text)",

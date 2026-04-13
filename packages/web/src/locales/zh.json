@@ -115,6 +115,8 @@
     "save": "保存",
     "dismiss": "知道了",
     "create": "创建",
+    "back": "上一步",
+    "next": "下一步",
     "retry": "重试",
     "refresh": "刷新",
     "expand": "展开",
@@ -301,7 +303,13 @@
       "travel": "出行",
       "meal": "用餐",
       "exercise": "运动",
-      "sleep": "睡眠"
+      "sleep": "睡眠",
+      "study": "学习",
+      "work": "工作",
+      "shopping": "购物",
+      "home": "居家",
+      "music": "音乐",
+      "health": "健康"
     },
     "priorityLabels": {
       "low": "低",

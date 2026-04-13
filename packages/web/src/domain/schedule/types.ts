@@ -26,7 +26,13 @@ export type ScheduleIcon =
   | "travel"
   | "meal"
   | "exercise"
-  | "sleep";
+  | "sleep"
+  | "study"
+  | "work"
+  | "shopping"
+  | "home"
+  | "music"
+  | "health";
 
 export interface ScheduleItem {
   id: string;
@@ -83,4 +89,10 @@ export const SCHEDULE_ICON_LABELS: Record<ScheduleIcon, string> = {
   meal: "用餐",
   exercise: "运动",
   sleep: "睡眠",
+  study: "学习",
+  work: "工作",
+  shopping: "购物",
+  home: "居家",
+  music: "音乐",
+  health: "健康",
 };

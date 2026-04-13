@@ -20,6 +20,12 @@ import {
   Dumbbell,
   Moon,
   Calendar,
+  BookOpen,
+  BriefcaseBusiness,
+  ShoppingBag,
+  House,
+  Music4,
+  HeartPulse,
 } from 'lucide-react';
 import {
   format,
@@ -35,6 +41,7 @@ import { formatTime } from '../../shared/utils/date';
 import type { ScheduleItem, ScheduleIcon } from '../../domain/schedule/types';
 import { DatePicker } from '../../shared/ui/DatePicker';
 import { useAnchoredOverlay } from '../../shared/ui/useAnchoredOverlay';
+import { PRIORITY_STYLES } from '../../shared/constants/priority';
 import {
   buildDateFromRoutineMinutes,
   normalizeRoutineEndMinutes,
@@ -51,6 +58,12 @@ const ICON_MAP: Record<ScheduleIcon, typeof Clock> = {
   meal: Utensils,
   exercise: Dumbbell,
   sleep: Moon,
+  study: BookOpen,
+  work: BriefcaseBusiness,
+  shopping: ShoppingBag,
+  home: House,
+  music: Music4,
+  health: HeartPulse,
 };
 
 interface CalendarViewProps {
@@ -77,30 +90,6 @@ const WEEKDAY_KEYS = [
 const CARD_PADDING = 16;
 const SLOT_HEIGHT = 32;
 const NODE_SIZE = 32;
-
-const PRIORITY_COLORS = {
-  high: {
-    bg: 'rgba(239,68,68,1)',
-    border: '#ef4444',
-    text: '#dc2626',
-    ring: '#fca5a5',
-    zIndex: 50,
-  },
-  medium: {
-    bg: 'rgba(251,191,36,1)',
-    border: '#f59e0b',
-    text: '#d97706',
-    ring: '#fcd34d',
-    zIndex: 40,
-  },
-  low: {
-    bg: 'rgba(16,185,129,1)',
-    border: '#10b981',
-    text: '#059669',
-    ring: '#6ee7b7',
-    zIndex: 30,
-  },
-};
 
 function getEndTime(startAt: string, durationMinutes: number): Date {
   const start = parseISO(startAt);
@@ -722,7 +711,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                         key={idx}
                         className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                         style={{
-                          backgroundColor: PRIORITY_COLORS[s.priority].border,
+                          backgroundColor: PRIORITY_STYLES[s.priority].border,
                         }}
                       />
                     ))}
@@ -794,7 +783,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                     {timelineSchedules.map((schedule, index) => {
                       const scheduleDate = parseISO(schedule.startAt);
                       const isRoutineEnd = schedule.virtualKind === 'routineEnd';
-                      const colors = PRIORITY_COLORS[schedule.priority];
+                      const colors = PRIORITY_STYLES[schedule.priority];
                       const IconComponent = ICON_MAP[schedule.icon] || Clock;
                       const iconBadgeBackground = `color-mix(in srgb, ${colors.border} 16%, white 84%)`;
                       const iconBadgeBorder = `1px solid color-mix(in srgb, ${colors.border} 32%, white 68%)`;
@@ -906,7 +895,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const endSlot =
                         schedule.durationMinutes === 0 ? startSlot + 1 : getSlotEndIndex(endDate);
                       const durationSlots = Math.max(endSlot - startSlot, 1);
-                      const colors = PRIORITY_COLORS[schedule.priority];
+                      const colors = PRIORITY_STYLES[schedule.priority];
                       const IconComponent = ICON_MAP[schedule.icon] || Clock;
                       const isVirtualSchedule = schedule.isVirtual === true;
                       const hasOverlap =
@@ -977,8 +966,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const progressBackground = isUpcoming
                         ? surfaceColor
                         : isEnded
-                          ? colors.bg
-                          : `linear-gradient(to bottom, ${colors.bg} 0%, ${colors.bg} ${elapsedRatio}%, ${surfaceColor} ${elapsedRatio}%, ${surfaceColor} 100%)`;
+                          ? colors.solidBackground
+                          : `linear-gradient(to bottom, ${colors.solidBackground} 0%, ${colors.solidBackground} ${elapsedRatio}%, ${surfaceColor} ${elapsedRatio}%, ${surfaceColor} 100%)`;
                       const capsuleBorder = isUpcoming ? `2px solid ${colors.border}` : 'none';
                       const iconBadgeBackground = isUpcoming
                         ? `color-mix(in srgb, ${colors.border} 14%, white 86%)`
@@ -993,7 +982,9 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                         ? `0 4px 12px color-mix(in srgb, ${colors.border} 18%, transparent)`
                         : `0 6px 14px color-mix(in srgb, ${colors.border} 30%, transparent)`;
                       const iconColor =
-                        isUpcoming || (!isEnded && elapsedRatio >= 50) ? colors.border : '#ffffff';
+                        isUpcoming || (!isEnded && elapsedRatio >= 50)
+                          ? colors.border
+                          : colors.selectedColor;
 
                       return (
                         <div key={`${schedule.id}-seg-${segmentIndex}`}>

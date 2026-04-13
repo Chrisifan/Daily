@@ -32,8 +32,32 @@
   
   /* Priority Colors */
   --color-priority-high: #EF4444;
+  --color-priority-high-text: #B42318;
+  --color-priority-high-border: #EF4444;
+  --color-priority-high-ring: #F7A8A8;
+  --color-priority-high-surface: rgba(239, 68, 68, 0.12);
+  --color-priority-high-solid: #EF4444;
+  --color-priority-high-selected: linear-gradient(135deg, #EF4444, #F87171);
+  --color-priority-high-shadow: 0 8px 18px color-mix(in srgb, var(--color-priority-high) 24%, transparent);
+  --color-priority-high-contrast: #FFFFFF;
   --color-priority-medium: #F59E0B;
+  --color-priority-medium-text: #B45309;
+  --color-priority-medium-border: #F59E0B;
+  --color-priority-medium-ring: #F8CF7A;
+  --color-priority-medium-surface: rgba(245, 158, 11, 0.14);
+  --color-priority-medium-solid: #F59E0B;
+  --color-priority-medium-selected: linear-gradient(135deg, #F59E0B, #FBBF24);
+  --color-priority-medium-shadow: 0 8px 18px color-mix(in srgb, var(--color-priority-medium) 24%, transparent);
+  --color-priority-medium-contrast: #FFFFFF;
   --color-priority-low: #22C55E;
+  --color-priority-low-text: #15803D;
+  --color-priority-low-border: #22C55E;
+  --color-priority-low-ring: #86EFAC;
+  --color-priority-low-surface: rgba(34, 197, 94, 0.14);
+  --color-priority-low-solid: #22C55E;
+  --color-priority-low-selected: linear-gradient(135deg, #22C55E, #4ADE80);
+  --color-priority-low-shadow: 0 8px 18px color-mix(in srgb, var(--color-priority-low) 24%, transparent);
+  --color-priority-low-contrast: #FFFFFF;
 
   /* Fonts */
   font-family: "Manrope", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -65,6 +89,18 @@
   --color-border: #2A2F3C;
   --color-border-light: #22262F;
   --color-warning-alpha: rgba(245, 158, 11, 0.15);
+
+  --color-priority-high-text: #FECACA;
+  --color-priority-high-ring: #FCA5A5;
+  --color-priority-high-surface: color-mix(in srgb, var(--color-priority-high) 18%, var(--color-surface) 82%);
+
+  --color-priority-medium-text: #FDE68A;
+  --color-priority-medium-ring: #FCD34D;
+  --color-priority-medium-surface: color-mix(in srgb, var(--color-priority-medium) 18%, var(--color-surface) 82%);
+
+  --color-priority-low-text: #BBF7D0;
+  --color-priority-low-ring: #86EFAC;
+  --color-priority-low-surface: color-mix(in srgb, var(--color-priority-low) 18%, var(--color-surface) 82%);
   
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);

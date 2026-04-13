@@ -673,7 +673,8 @@ function FormField({ label, required, hint, children }: FormFieldProps) {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "8px 12px",
+  height: 32,
+  padding: "0 12px",
   borderRadius: 10,
   border: "1px solid var(--color-border)",
   background: "var(--color-surface)",

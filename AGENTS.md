@@ -91,6 +91,14 @@ Mock data available in `storage/seeds/mockData.ts` for development.
   - Component styles: Tailwind utility classes (`className`) + inline styles for dynamic values
   - UI colors must come from theme CSS variables such as `--color-*`; avoid hardcoded hex/rgb/rgba colors in component code unless you are defining or extending the theme tokens in `App.css`
   - No `.less` files or CSS modules currently in use
+  - Capsule selectors are standardized across the app:
+    - Control height must be `32px`
+    - When a selector has fewer than 6 options, render it as a capsule/segmented selector
+    - When a selector has 6 or more options, render it as a dropdown instead of a capsule selector
+  - Priority-related colors must be centralized as shared global theme tokens in `packages/web/src/App.css` and reused through shared constants/helpers instead of redefining local priority palettes inside feature components
+  - Priority badges, capsules, schedule cards, and any other priority UI must reuse the same shared priority tokens/constants so semantic colors stay consistent across the app
+  - Form controls should use a unified `32px` visual height wherever practical for single-line inputs, triggers, and selectors
+  - Popups, dialogs, and modals must not close when clicking the background overlay; close them only through explicit actions
 - Component structure: Single file per component (e.g., `CalendarView.tsx`)
   - Feature folders: `features/[feature-name]/`
   - Shared UI components: `shared/ui/`

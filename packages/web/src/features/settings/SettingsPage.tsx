@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Globe, Calendar, Clock, RotateCcw } from "lucide-react";
 import { GlassCard } from "../../shared/ui/GlassCard";
+import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 import {
   DEFAULT_DAILY_SETTINGS,
   getStoredSettings,
@@ -112,7 +113,7 @@ export function SettingsPage() {
                 </p>
               </div>
             </div>
-            <RadioGroup
+            <SegmentedControl
               value={settings.language}
               onChange={(val) => handleSettingChange("language", val)}
               options={[
@@ -149,7 +150,7 @@ export function SettingsPage() {
                 </p>
               </div>
             </div>
-            <RadioGroup
+            <SegmentedControl
               value={settings.dateFormat}
               onChange={(val) => handleSettingChange("dateFormat", val)}
               options={[
@@ -187,7 +188,7 @@ export function SettingsPage() {
                 </p>
               </div>
             </div>
-            <RadioGroup
+            <SegmentedControl
               value={settings.timeFormat}
               onChange={(val) => handleSettingChange("timeFormat", val)}
               options={[
@@ -205,7 +206,8 @@ export function SettingsPage() {
               display: "flex",
               alignItems: "center",
               gap: 8,
-              padding: "10px 16px",
+              height: 32,
+              padding: "0 16px",
               borderRadius: 10,
               border: "1px solid var(--color-border)",
               cursor: "pointer",
@@ -228,56 +230,6 @@ export function SettingsPage() {
 
         </div>
       </GlassCard>
-    </div>
-  );
-}
-
-interface RadioOption {
-  value: string;
-  label: string;
-}
-
-interface RadioGroupProps {
-  value: string;
-  onChange: (value: string) => void;
-  options: RadioOption[];
-}
-
-function RadioGroup({ value, onChange, options }: RadioGroupProps) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        gap: 6,
-        padding: "4px",
-        borderRadius: 12,
-        background: "var(--color-border-light)",
-        border: "1px solid var(--color-border)",
-      }}
-    >
-      {options.map((opt) => {
-        const selected = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "all 180ms ease",
-              background: selected ? "var(--color-primary)" : "transparent",
-              color: selected ? "white" : "var(--color-text-secondary)",
-              boxShadow: selected ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
-            }}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
     </div>
   );
 }

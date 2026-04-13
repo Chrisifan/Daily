@@ -115,6 +115,8 @@
     "save": "Save",
     "dismiss": "Got it",
     "create": "Create",
+    "back": "Back",
+    "next": "Next",
     "retry": "Retry",
     "refresh": "Refresh",
     "expand": "Expand",
@@ -301,7 +303,13 @@
       "travel": "Travel",
       "meal": "Meal",
       "exercise": "Exercise",
-      "sleep": "Sleep"
+      "sleep": "Sleep",
+      "study": "Study",
+      "work": "Work",
+      "shopping": "Shopping",
+      "home": "Home",
+      "music": "Music",
+      "health": "Health"
     },
     "priorityLabels": {
       "low": "Low",
