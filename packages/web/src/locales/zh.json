@@ -211,6 +211,7 @@
     "addIt": "添加日程",
     "duration": "({{minutes}}分钟)",
     "overlap": "重叠 {{count}} 个",
+    "overlapTask": "任务重叠",
     "routineStartTitle": "开始作息",
     "routineEndTitle": "结束作息",
     "routinePreset": "默认作息",
@@ -269,6 +270,7 @@
     "create": "创建",
     "save": "保存",
     "submitFailed": "保存失败，请稍后重试。",
+    "exceedRoutine": "超出结束作息时间",
     "durationOptions": {
       "15min": "15分钟",
       "30min": "30分钟",

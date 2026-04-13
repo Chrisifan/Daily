@@ -89,6 +89,7 @@ Mock data available in `storage/seeds/mockData.ts` for development.
 - **Styling**: Tailwind CSS v4 + CSS Variables
   - Global styles: `smart-workbench/src/App.css` (CSS variables, reset, global classes)
   - Component styles: Tailwind utility classes (`className`) + inline styles for dynamic values
+  - UI colors must come from theme CSS variables such as `--color-*`; avoid hardcoded hex/rgb/rgba colors in component code unless you are defining or extending the theme tokens in `App.css`
   - No `.less` files or CSS modules currently in use
 - Component structure: Single file per component (e.g., `CalendarView.tsx`)
   - Feature folders: `features/[feature-name]/`

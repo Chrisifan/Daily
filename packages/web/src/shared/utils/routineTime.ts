@@ -1,10 +1,10 @@
-import { format } from "date-fns";
+import { format } from 'date-fns';
 
 export const ROUTINE_STEP_MINUTES = 30;
 export const MINUTES_IN_DAY = 24 * 60;
 
 export function parseRoutineTime(value: string): number {
-  const [hoursPart = "0", minutesPart = "0"] = value.split(":");
+  const [hoursPart = '0', minutesPart = '0'] = value.split(':');
   const hours = Number.parseInt(hoursPart, 10);
   const minutes = Number.parseInt(minutesPart, 10);
 
@@ -38,16 +38,16 @@ export function buildDateFromRoutineMinutes(baseDate: Date, totalMinutes: number
 
 export function formatRoutineTimeLabel(
   value: string,
-  displayFormat: "HH:mm" | "hh:mm A",
-  treatMidnightAsEndOfDay: boolean = false,
+  displayFormat: 'HH:mm' | 'hh:mm A',
+  treatMidnightAsEndOfDay: boolean = false
 ): string {
-  if (displayFormat === "HH:mm" && treatMidnightAsEndOfDay && value === "00:00") {
-    return "24:00";
+  if (displayFormat === 'HH:mm' && treatMidnightAsEndOfDay && value === '00:00') {
+    return '24:00';
   }
 
   const minutes = parseRoutineTime(value);
   const date = new Date(2024, 0, 1, Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return format(date, displayFormat === "hh:mm A" ? "hh:mm a" : "HH:mm");
+  return format(date, displayFormat === 'hh:mm A' ? 'hh:mm a' : 'HH:mm');
 }
 
 export function createRoutineTimeOptions(): string[] {
@@ -55,40 +55,56 @@ export function createRoutineTimeOptions(): string[] {
     const totalMinutes = index * ROUTINE_STEP_MINUTES;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   });
 }
 
-export function createRoutineSelectableTimeOptions(startTime: string, endTime: string): string[] {
+export function createRoutineSelectableTimeOptions(
+  startTime: string,
+  endTime: string,
+  stepMinutes: number = ROUTINE_STEP_MINUTES
+): string[] {
   const startMinutes = parseRoutineTime(startTime);
   const normalizedEndMinutes = Math.min(
     normalizeRoutineEndMinutes(startMinutes, parseRoutineTime(endTime)),
-    MINUTES_IN_DAY,
+    MINUTES_IN_DAY
   );
+  const normalizedStepMinutes = Math.max(stepMinutes, 1);
 
   if (normalizedEndMinutes - startMinutes < ROUTINE_STEP_MINUTES) {
     return [startTime];
   }
 
   const options: string[] = [];
-  for (let minutes = startMinutes; minutes < normalizedEndMinutes; minutes += ROUTINE_STEP_MINUTES) {
+  for (
+    let minutes = startMinutes;
+    minutes < normalizedEndMinutes;
+    minutes += normalizedStepMinutes
+  ) {
     const normalizedMinutes = ((minutes % MINUTES_IN_DAY) + MINUTES_IN_DAY) % MINUTES_IN_DAY;
     const hours = Math.floor(normalizedMinutes / 60);
     const remainingMinutes = normalizedMinutes % 60;
-    options.push(`${hours.toString().padStart(2, "0")}:${remainingMinutes.toString().padStart(2, "0")}`);
+    options.push(
+      `${hours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}`
+    );
   }
 
   return options;
 }
 
-export function getNextRoutineSelectableDateTime(now: Date, startTime: string, endTime: string): Date {
+export function getNextRoutineSelectableDateTime(
+  now: Date,
+  startTime: string,
+  endTime: string
+): Date {
   const startMinutes = parseRoutineTime(startTime);
   const normalizedEndMinutes = Math.min(
     normalizeRoutineEndMinutes(startMinutes, parseRoutineTime(endTime)),
-    MINUTES_IN_DAY,
+    MINUTES_IN_DAY
   );
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const nextSlotMinutes = Math.floor(currentMinutes / ROUTINE_STEP_MINUTES) * ROUTINE_STEP_MINUTES + ROUTINE_STEP_MINUTES;
+  const nextSlotMinutes =
+    Math.floor(currentMinutes / ROUTINE_STEP_MINUTES) * ROUTINE_STEP_MINUTES + ROUTINE_STEP_MINUTES;
 
   if (nextSlotMinutes <= startMinutes) {
     return buildDateFromRoutineMinutes(now, startMinutes);

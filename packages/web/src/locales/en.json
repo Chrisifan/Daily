@@ -211,6 +211,7 @@
     "addIt": "Add",
     "duration": "({{minutes}}min)",
     "overlap": "{{count}} overlapping",
+    "overlapTask": "Overlapping task",
     "routineStartTitle": "Start Routine",
     "routineEndTitle": "End Routine",
     "routinePreset": "Default routine",
@@ -269,6 +270,7 @@
     "create": "Create",
     "save": "Save",
     "submitFailed": "Failed to save schedule. Please try again.",
+    "exceedRoutine": "Exceeds your routine end time",
     "durationOptions": {
       "15min": "15 min",
       "30min": "30 min",

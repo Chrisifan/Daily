@@ -1,110 +1,223 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronDown, Repeat, Clock, Phone, Focus, Coffee, Plane, Utensils, Dumbbell, Moon, Calendar } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import type { Ref } from "react";
-import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
-import { format, parse } from "date-fns";
-import { DatePicker } from "../../shared/ui/DatePicker";
-import { getStoredSettings } from "../../shared/services/settingsService";
-import { DropdownContent } from "../../shared/ui/DropdownContent";
-import { useAnchoredOverlay } from "../../shared/ui/useAnchoredOverlay";
-import { createRoutineSelectableTimeOptions } from "../../shared/utils/routineTime";
+import { useState, useEffect, useMemo, useRef } from 'react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  X,
+  ChevronDown,
+  Repeat,
+  Clock,
+  Phone,
+  Focus,
+  Coffee,
+  Plane,
+  Utensils,
+  Dumbbell,
+  Moon,
+  Calendar,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { Ref } from 'react';
+import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from '../../domain/schedule/types';
+import { format, parse } from 'date-fns';
+import { DatePicker } from '../../shared/ui/DatePicker';
+import { getStoredSettings } from '../../shared/services/settingsService';
+import { DropdownContent } from '../../shared/ui/DropdownContent';
+import { useAnchoredOverlay } from '../../shared/ui/useAnchoredOverlay';
+import {
+  createRoutineSelectableTimeOptions,
+  formatRoutineTimeLabel,
+  normalizeRoutineEndMinutes,
+  parseRoutineTime,
+} from '../../shared/utils/routineTime';
 
 const DURATION_OPTIONS: { value: number; labelKey: string }[] = [
-  { value: 15, labelKey: "schedule.durationOptions.15min" },
-  { value: 30, labelKey: "schedule.durationOptions.30min" },
-  { value: 45, labelKey: "schedule.durationOptions.45min" },
-  { value: 60, labelKey: "schedule.durationOptions.1hour" },
-  { value: 90, labelKey: "schedule.durationOptions.1.5hour" },
-  { value: 120, labelKey: "schedule.durationOptions.2hours" },
-  { value: 180, labelKey: "schedule.durationOptions.3hours" },
-  { value: 240, labelKey: "schedule.durationOptions.4hours" },
+  { value: 15, labelKey: 'schedule.durationOptions.15min' },
+  { value: 30, labelKey: 'schedule.durationOptions.30min' },
+  { value: 60, labelKey: 'schedule.durationOptions.1hour' },
+  { value: 120, labelKey: 'schedule.durationOptions.2hours' },
+  { value: 240, labelKey: 'schedule.durationOptions.4hours' },
 ];
 
 const ICON_OPTIONS: { value: ScheduleIcon; icon: typeof Clock }[] = [
-  { value: "clock", icon: Clock },
-  { value: "meeting", icon: Calendar },
-  { value: "call", icon: Phone },
-  { value: "focus", icon: Focus },
-  { value: "break", icon: Coffee },
-  { value: "travel", icon: Plane },
-  { value: "meal", icon: Utensils },
-  { value: "exercise", icon: Dumbbell },
-  { value: "sleep", icon: Moon },
+  { value: 'clock', icon: Clock },
+  { value: 'meeting', icon: Calendar },
+  { value: 'call', icon: Phone },
+  { value: 'focus', icon: Focus },
+  { value: 'break', icon: Coffee },
+  { value: 'travel', icon: Plane },
+  { value: 'meal', icon: Utensils },
+  { value: 'exercise', icon: Dumbbell },
+  { value: 'sleep', icon: Moon },
 ];
 
 interface TimeSelectProps {
   value: string;
   onChange: (time: string) => void;
   options: string[];
+  durationMinutes: number;
+  is12Hour: boolean;
 }
 
-function TimeSelect({ value, onChange, options }: TimeSelectProps) {
-  const is12Hour = getStoredSettings().timeFormat === "hh:mm A";
-  const [open, setOpen] = useState(false);
-  const selectedItemRef = useRef<HTMLDivElement | null>(null);
+const TIME_ALIGNMENT_MINUTES = 15;
 
-  const timeSlots = useMemo(() => {
-    const baseOptions = options.length > 0 ? options : ["09:00"];
-    if (!baseOptions.includes(value)) {
-      return [value, ...baseOptions];
+function minutesToTimeValue(totalMinutes: number): string {
+  const normalizedMinutes = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(normalizedMinutes / 60);
+  const minutes = normalizedMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+function buildTimeRangeLabel(
+  startTime: string,
+  durationMinutes: number,
+  is12Hour: boolean
+): string {
+  const startMinutes = parseRoutineTime(startTime);
+  const endMinutes = startMinutes + durationMinutes;
+  const displayFormat = is12Hour ? 'hh:mm A' : 'HH:mm';
+
+  return `${formatRoutineTimeLabel(startTime, displayFormat)}-${formatRoutineTimeLabel(
+    minutesToTimeValue(endMinutes),
+    displayFormat,
+    !is12Hour && endMinutes % (24 * 60) === 0
+  )}`;
+}
+
+function TimeSelect({ value, onChange, options, durationMinutes, is12Hour }: TimeSelectProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const selectedIndex = Math.max(options.indexOf(value), 0);
+  const visibleRange = 2;
+  const visibleSlots = Array.from({ length: visibleRange * 2 + 1 }, (_, offset) => {
+    const optionIndex = selectedIndex - visibleRange + offset;
+    return optionIndex >= 0 && optionIndex < options.length ? options[optionIndex] : null;
+  });
+
+  const stepSelection = (direction: 1 | -1) => {
+    const nextIndex = selectedIndex + direction;
+    if (nextIndex >= 0 && nextIndex < options.length) {
+      onChange(options[nextIndex]);
     }
-    return baseOptions;
-  }, [options, value]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      selectedItemRef.current?.scrollIntoView({ block: "center" });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [open, value]);
-
-  const formatOptionLabel = (time: string) => {
-    if (!is12Hour) {
-      return time;
-    }
-
-    const [hoursRaw, minutesRaw] = time.split(":").map(Number);
-    const hour12 = hoursRaw === 0 ? 12 : hoursRaw > 12 ? hoursRaw - 12 : hoursRaw;
-    const ampm = hoursRaw < 12 ? "AM" : "PM";
-    return `${hour12}:${minutesRaw.toString().padStart(2, "0")} ${ampm}`;
   };
 
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (options.length <= 1) return;
+    if (event.deltaY > 0) {
+      stepSelection(1);
+    } else if (event.deltaY < 0) {
+      stepSelection(-1);
+    }
+  };
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (options.length <= 1) return;
+      if (event.deltaY > 0) {
+        stepSelection(1);
+      } else if (event.deltaY < 0) {
+        stepSelection(-1);
+      }
+    };
+
+    element.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      element.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, [options, selectedIndex]);
+
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
-        >
-          <span>{formatOptionLabel(value)}</span>
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </button>
-      </DropdownMenu.Trigger>
-      <DropdownContent className="bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 overflow-y-auto">
-        {timeSlots.map((time) => (
-          <DropdownMenu.Item
-            key={time}
-            ref={time === value ? selectedItemRef : undefined}
-            onSelect={() => onChange(time)}
-            className={`px-4 py-2 text-left text-sm cursor-pointer transition-colors ${
-              time === value
-                ? "bg-blue-50 text-blue-600 font-medium"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            {formatOptionLabel(time)}
-          </DropdownMenu.Item>
-        ))}
-      </DropdownContent>
-    </DropdownMenu.Root>
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden rounded-[24px] px-4 py-3 shadow-[var(--shadow-md)]"
+      onWheel={handleWheel}
+      onWheelCapture={(event) => event.stopPropagation()}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          event.stopPropagation();
+          stepSelection(-1);
+        }
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          event.stopPropagation();
+          stepSelection(1);
+        }
+      }}
+      style={{
+        border: '1px solid var(--color-border)',
+        background:
+          'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent), color-mix(in srgb, var(--color-surface-elevated, var(--color-surface)) 92%, var(--color-bg) 8%))',
+        overscrollBehavior: 'contain',
+        touchAction: 'none',
+      }}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-4 top-1/2 h-10 -translate-y-1/2 rounded-full"
+        style={{
+          background:
+            'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary-hover, var(--color-primary)) 88%, white 12%))',
+          boxShadow: '0 10px 24px color-mix(in srgb, var(--color-primary) 24%, transparent)',
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-8"
+        style={{
+          background:
+            'linear-gradient(180deg, var(--color-surface) 0%, color-mix(in srgb, var(--color-surface) 72%, transparent) 55%, transparent 100%)',
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-8"
+        style={{
+          background:
+            'linear-gradient(0deg, var(--color-surface) 0%, color-mix(in srgb, var(--color-surface) 72%, transparent) 55%, transparent 100%)',
+        }}
+      />
+      <div className="relative flex flex-col items-center">
+        {visibleSlots.map((time, index) => {
+          const isSelected = time === value;
+          const distance = Math.abs(index - visibleRange);
+          const opacity = isSelected ? 1 : Math.max(0.18, 1 - distance * 0.28);
+          const scale = isSelected ? 1 : 1 - distance * 0.07;
+
+          return (
+            <div key={time ?? `empty-${index}`} className="flex h-9 items-center justify-center">
+              {time ? (
+                <button
+                  type="button"
+                  onClick={() => onChange(time)}
+                  className={`relative flex items-center justify-center rounded-full px-6 text-center transition-all ${
+                    isSelected ? 'h-10 min-w-[min(100%,18rem)]' : 'h-9 min-w-[6rem]'
+                  }`}
+                  style={{
+                    opacity,
+                    transform: `scale(${scale})`,
+                    color: isSelected ? 'var(--color-surface)' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  <span
+                    className={`tracking-[-0.02em] ${isSelected ? 'text-[15px] font-semibold' : 'text-[14px] font-medium'}`}
+                  >
+                    {isSelected
+                      ? buildTimeRangeLabel(time, durationMinutes, is12Hour)
+                      : formatRoutineTimeLabel(time, is12Hour ? 'hh:mm A' : 'HH:mm')}
+                  </span>
+                </button>
+              ) : (
+                <div className="h-9" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -116,43 +229,50 @@ interface DurationSelectProps {
 }
 
 function DurationSelect({ value, onChange, maxDurationMinutes, t }: DurationSelectProps) {
-  const selectedOpt = DURATION_OPTIONS.find(d => d.value === value);
-  const selectedLabel = selectedOpt ? t(selectedOpt.labelKey) : t("calendar.duration", { minutes: value });
-
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center justify-between"
-        >
-          <span>{selectedLabel}</span>
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </button>
-      </DropdownMenu.Trigger>
-      <DropdownContent className="bg-white/95 backdrop-blur-xl rounded-xl shadow-lg border border-black/5 z-50 overflow-y-auto">
+    <div
+      className="rounded-[24px] p-2"
+      style={{
+        border: '1px solid var(--color-border)',
+        background:
+          'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent), color-mix(in srgb, var(--color-surface-elevated, var(--color-surface)) 92%, var(--color-bg) 8%))',
+        boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      <div className="grid grid-cols-5 gap-2">
         {DURATION_OPTIONS.map((opt) => {
           const isDisabled = maxDurationMinutes !== undefined && opt.value > maxDurationMinutes;
+          const isSelected = opt.value === value;
+
           return (
-            <DropdownMenu.Item
+            <button
+              type="button"
               key={opt.value}
               disabled={isDisabled}
-              onSelect={() => !isDisabled && onChange(opt.value)}
-              className={`px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center justify-between ${
-                opt.value === value
-                  ? "bg-blue-50 text-blue-600 font-medium"
+              onClick={() => !isDisabled && onChange(opt.value)}
+              className="relative flex h-11 items-center justify-center rounded-full px-2 text-sm font-medium transition-all"
+              style={{
+                background: isSelected
+                  ? 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary-hover, var(--color-primary)) 88%, white 12%))'
+                  : 'transparent',
+                color: isSelected
+                  ? 'var(--color-surface)'
                   : isDisabled
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "text-gray-700 hover:bg-gray-50"
-              }`}
+                    ? 'var(--color-text-muted)'
+                    : 'var(--color-text-secondary)',
+                boxShadow: isSelected
+                  ? '0 10px 24px color-mix(in srgb, var(--color-primary) 22%, transparent)'
+                  : 'none',
+                opacity: isDisabled ? 0.45 : 1,
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+              }}
             >
               <span>{t(opt.labelKey)}</span>
-              {isDisabled && <span className="text-[10px] text-gray-400">{t("schedule.exceedDay")}</span>}
-            </DropdownMenu.Item>
+            </button>
           );
         })}
-      </DropdownContent>
-    </DropdownMenu.Root>
+      </div>
+    </div>
   );
 }
 
@@ -163,7 +283,16 @@ interface RepeatSelectProps {
 }
 
 function RepeatSelect({ value, onChange, t }: RepeatSelectProps) {
-  const repeatModes: RepeatMode[] = ["none", "daily", "weekly", "biweekly", "monthly", "quarterly", "semi_annually", "annually"];
+  const repeatModes: RepeatMode[] = [
+    'none',
+    'daily',
+    'weekly',
+    'biweekly',
+    'monthly',
+    'quarterly',
+    'semi_annually',
+    'annually',
+  ];
 
   return (
     <DropdownMenu.Root>
@@ -186,8 +315,8 @@ function RepeatSelect({ value, onChange, t }: RepeatSelectProps) {
             onSelect={() => onChange(mode)}
             className={`px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center justify-between ${
               mode === value
-                ? "bg-blue-50 text-blue-600 font-medium"
-                : "text-gray-700 hover:bg-gray-50"
+                ? 'bg-blue-50 text-blue-600 font-medium'
+                : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
             <span>{t(`schedule.repeatModes.${mode}`)}</span>
@@ -205,7 +334,7 @@ interface IconSelectProps {
 }
 
 function IconSelect({ value, onChange, t }: IconSelectProps) {
-  const selectedOption = ICON_OPTIONS.find(opt => opt.value === value);
+  const selectedOption = ICON_OPTIONS.find((opt) => opt.value === value);
   const SelectedIcon = selectedOption?.icon || Clock;
 
   return (
@@ -215,7 +344,7 @@ function IconSelect({ value, onChange, t }: IconSelectProps) {
           type="button"
           className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all flex items-center gap-2"
         >
-          <SelectedIcon className="w-4 h-4" style={{ color: "#6366f1" }} />
+          <SelectedIcon className="w-4 h-4" style={{ color: '#6366f1' }} />
           <span>{t(`schedule.iconLabels.${value}`)}</span>
           <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
         </button>
@@ -229,8 +358,8 @@ function IconSelect({ value, onChange, t }: IconSelectProps) {
               onSelect={() => onChange(opt.value)}
               className={`px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center gap-2 ${
                 opt.value === value
-                  ? "bg-blue-50 text-blue-600 font-medium"
-                  : "text-gray-700 hover:bg-gray-50"
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
               <IconComponent className="w-4 h-4" />
@@ -246,45 +375,54 @@ function IconSelect({ value, onChange, t }: IconSelectProps) {
 interface ScheduleModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => Promise<void> | void;
+  onSubmit: (
+    data: Omit<ScheduleItem, 'id' | 'source' | 'createdAt' | 'updatedAt'>
+  ) => Promise<void> | void;
   onDelete?: () => void;
   initialData?: Partial<ScheduleItem>;
-  mode?: "create" | "edit";
+  mode?: 'create' | 'edit';
 }
 
 function getInitialValues(initialData?: Partial<ScheduleItem>) {
-  const is12Hour = getStoredSettings().timeFormat === "hh:mm A";
   if (initialData?.startAt) {
     const start = new Date(initialData.startAt);
     return {
-      title: initialData.title || "",
-      icon: (initialData.icon || "clock") as ScheduleIcon,
-      notes: initialData.notes || "",
-      priority: (initialData.priority || "medium") as Priority,
-      location: initialData.location || "",
-      startDate: format(start, "yyyy-MM-dd"),
-      startTime: format(start, is12Hour ? "hh:mm a" : "HH:mm"),
+      title: initialData.title || '',
+      icon: (initialData.icon || 'clock') as ScheduleIcon,
+      notes: initialData.notes || '',
+      priority: (initialData.priority || 'medium') as Priority,
+      location: initialData.location || '',
+      startDate: format(start, 'yyyy-MM-dd'),
+      startTime: format(start, 'HH:mm'),
       durationMinutes: initialData.durationMinutes || 30,
-      repeatMode: (initialData.repeatMode || "none") as RepeatMode,
+      repeatMode: (initialData.repeatMode || 'none') as RepeatMode,
     };
   }
   const now = new Date();
   return {
-    title: "",
-    icon: "clock" as ScheduleIcon,
-    notes: "",
-    priority: "medium" as Priority,
-    location: "",
-    startDate: format(now, "yyyy-MM-dd"),
-    startTime: is12Hour ? "09:00 AM" : "09:00",
+    title: '',
+    icon: 'clock' as ScheduleIcon,
+    notes: '',
+    priority: 'medium' as Priority,
+    location: '',
+    startDate: format(now, 'yyyy-MM-dd'),
+    startTime: '09:00',
     durationMinutes: 30,
-    repeatMode: "none" as RepeatMode,
+    repeatMode: 'none' as RepeatMode,
   };
 }
 
-export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, mode = "create" }: ScheduleModalProps) {
+export function ScheduleModal({
+  open,
+  onClose,
+  onSubmit,
+  onDelete,
+  initialData,
+  mode = 'create',
+}: ScheduleModalProps) {
   const { t } = useTranslation();
   const settings = getStoredSettings();
+  const is12Hour = settings.timeFormat === 'hh:mm A';
   const initialValues = getInitialValues(initialData);
   const [title, setTitle] = useState(initialValues.title);
   const [icon, setIcon] = useState<ScheduleIcon>(initialValues.icon);
@@ -306,7 +444,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
   } = useAnchoredOverlay({
     open: showDatePicker,
     gap: 8,
-    matchTriggerWidth: "equal",
+    matchTriggerWidth: 'equal',
   });
 
   useEffect(() => {
@@ -334,31 +472,97 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
       }
     };
     if (showDatePicker) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showDatePicker]);
 
-  const maxDurationMinutes = useMemo(() => {
-    const parsePattern = settings.timeFormat === "hh:mm A" ? "hh:mm a" : "HH:mm";
-    const parsedStart = parse(startTime, parsePattern, new Date());
-    if (Number.isNaN(parsedStart.getTime())) {
-      return 24 * 60;
+  const parsedStartMinutes = useMemo(() => {
+    const candidatePatterns =
+      settings.timeFormat === 'hh:mm A' ? ['hh:mm a', 'HH:mm'] : ['HH:mm', 'hh:mm a'];
+
+    for (const pattern of candidatePatterns) {
+      const parsedStart = parse(startTime, pattern, new Date());
+      if (!Number.isNaN(parsedStart.getTime())) {
+        return parsedStart.getHours() * 60 + parsedStart.getMinutes();
+      }
     }
-    const startMinutes = parsedStart.getHours() * 60 + parsedStart.getMinutes();
-    const endOfDayMinutes = 24 * 60;
-    return endOfDayMinutes - startMinutes;
+
+    return null;
   }, [settings.timeFormat, startTime]);
 
-  const availableTimeSlots = useMemo(() => {
-    return createRoutineSelectableTimeOptions(settings.routineStartTime, settings.routineEndTime);
+  const routineEndBoundaryMinutes = useMemo(() => {
+    return Math.min(
+      normalizeRoutineEndMinutes(
+        parseRoutineTime(settings.routineStartTime),
+        parseRoutineTime(settings.routineEndTime)
+      ),
+      24 * 60
+    );
   }, [settings.routineEndTime, settings.routineStartTime]);
+
+  const maxDurationMinutes = useMemo(() => {
+    if (parsedStartMinutes === null) {
+      return 24 * 60;
+    }
+    return Math.max(routineEndBoundaryMinutes - parsedStartMinutes, 0);
+  }, [parsedStartMinutes, routineEndBoundaryMinutes]);
+
+  useEffect(() => {
+    if (maxDurationMinutes <= 0 || durationMinutes <= maxDurationMinutes) {
+      return;
+    }
+
+    const nextDuration =
+      [...DURATION_OPTIONS].reverse().find((option) => option.value <= maxDurationMinutes)?.value ??
+      maxDurationMinutes;
+
+    setDurationMinutes(nextDuration);
+  }, [durationMinutes, maxDurationMinutes]);
+
+  const availableTimeSlots = useMemo(() => {
+    return createRoutineSelectableTimeOptions(
+      settings.routineStartTime,
+      settings.routineEndTime,
+      TIME_ALIGNMENT_MINUTES
+    );
+  }, [settings.routineEndTime, settings.routineStartTime]);
+
+  const selectableTimeSlots = useMemo(() => {
+    const validTimeSlots = availableTimeSlots.filter(
+      (time) => routineEndBoundaryMinutes - parseRoutineTime(time) >= durationMinutes
+    );
+    const selectedStartMinutes = parseRoutineTime(startTime);
+    const nextSelectableStartMinutes =
+      selectedStartMinutes + durationMinutes + TIME_ALIGNMENT_MINUTES;
+
+    return validTimeSlots.filter((time) => {
+      if (time === startTime) {
+        return true;
+      }
+
+      const timeMinutes = parseRoutineTime(time);
+      return timeMinutes >= nextSelectableStartMinutes || timeMinutes < selectedStartMinutes;
+    });
+  }, [availableTimeSlots, durationMinutes, routineEndBoundaryMinutes, startTime]);
+
+  useEffect(() => {
+    if (selectableTimeSlots.length === 0 || selectableTimeSlots.includes(startTime)) {
+      return;
+    }
+
+    const fallbackTime =
+      selectableTimeSlots.find((time) => parseRoutineTime(time) >= parseRoutineTime(startTime)) ??
+      selectableTimeSlots[selectableTimeSlots.length - 1];
+
+    setStartTime(fallbackTime);
+  }, [selectableTimeSlots, startTime]);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
     if (!startDate) return;
 
-    const parsePattern = settings.timeFormat === "hh:mm A" ? "yyyy-MM-dd hh:mm a" : "yyyy-MM-dd HH:mm";
+    const parsePattern = 'yyyy-MM-dd HH:mm';
     const parsedStartAt = parse(`${startDate} ${startTime}`, parsePattern, new Date());
     if (Number.isNaN(parsedStartAt.getTime())) {
       return;
@@ -366,8 +570,15 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
 
     setIsSubmitting(true);
     setSubmitError(null);
+
+    if (durationMinutes > maxDurationMinutes) {
+      setSubmitError(t('schedule.exceedRoutine'));
+      setIsSubmitting(false);
+      return;
+    }
+
     const startAt = parsedStartAt.toISOString();
-    const repeatGroupId = repeatMode !== "none" ? `group-${Date.now()}` : undefined;
+    const repeatGroupId = repeatMode !== 'none' ? `group-${Date.now()}` : undefined;
 
     try {
       await onSubmit({
@@ -384,14 +595,16 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
         isFlexible: false,
       });
     } catch (error) {
-      console.error("Failed to submit schedule:", error);
-      setSubmitError(t("schedule.submitFailed"));
+      console.error('Failed to submit schedule:', error);
+      setSubmitError(t('schedule.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isValid = Boolean(title.trim() && startDate && startTime);
+  const isValid = Boolean(
+    title.trim() && startDate && startTime && selectableTimeSlots.includes(startTime)
+  );
 
   return (
     <AnimatePresence>
@@ -402,8 +615,13 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default" onClick={onClose} aria-label={t("common.close")} />
-          
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-default"
+            onClick={onClose}
+            aria-label={t('common.close')}
+          />
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -413,7 +631,7 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/50">
               <h2 className="text-lg font-semibold text-gray-800">
-                {mode === "create" ? t("schedule.newSchedule") : t("schedule.editSchedule")}
+                {mode === 'create' ? t('schedule.newSchedule') : t('schedule.editSchedule')}
               </h2>
               <button
                 onClick={onClose}
@@ -425,29 +643,32 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
 
             <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
               <div>
-                <label htmlFor="schedule-title" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.title")} <span className="text-red-500">*</span>
+                <label
+                  htmlFor="schedule-title"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  {t('schedule.title')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="schedule-title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t("schedule.titlePlaceholder")}
+                  placeholder={t('schedule.titlePlaceholder')}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.icon")}
+                  {t('schedule.icon')}
                 </label>
                 <IconSelect value={icon} onChange={setIcon} t={t} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.date")} <span className="text-red-500">*</span>
+                  {t('schedule.date')} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative date-picker-wrapper">
                   <button
@@ -477,46 +698,57 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    {t("schedule.startTime")} <span className="text-red-500">*</span>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {t('schedule.startTime')} <span className="text-red-500">*</span>
                   </label>
-                  <TimeSelect value={startTime} onChange={setStartTime} options={availableTimeSlots} />
+                  <TimeSelect
+                    value={startTime}
+                    onChange={setStartTime}
+                    options={selectableTimeSlots}
+                    durationMinutes={durationMinutes}
+                    is12Hour={is12Hour}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    {t("schedule.duration")}
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {t('schedule.duration')}
                   </label>
-                  <DurationSelect value={durationMinutes} onChange={setDurationMinutes} maxDurationMinutes={maxDurationMinutes} t={t} />
+                  <DurationSelect
+                    value={durationMinutes}
+                    onChange={setDurationMinutes}
+                    maxDurationMinutes={maxDurationMinutes}
+                    t={t}
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.repeat")}
+                  {t('schedule.repeat')}
                 </label>
                 <RepeatSelect value={repeatMode} onChange={setRepeatMode} t={t} />
               </div>
 
               <div>
                 <span className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.priority")}
+                  {t('schedule.priority')}
                 </span>
                 <div className="flex gap-2">
-                  {(["low", "medium", "high"] as Priority[]).map((p) => (
+                  {(['low', 'medium', 'high'] as Priority[]).map((p) => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => setPriority(p)}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
                         priority === p
-                          ? p === "high"
-                            ? "bg-red-100 text-red-700 border-2 border-red-300"
-                            : p === "medium"
-                            ? "bg-yellow-100 text-yellow-700 border-2 border-yellow-300"
-                            : "bg-green-100 text-green-700 border-2 border-green-300"
-                          : "bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-150"
+                          ? p === 'high'
+                            ? 'bg-red-100 text-red-700 border-2 border-red-300'
+                            : p === 'medium'
+                              ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300'
+                              : 'bg-green-100 text-green-700 border-2 border-green-300'
+                          : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-150'
                       }`}
                     >
                       {t(`schedule.priorityLabels.${p}`)}
@@ -526,83 +758,98 @@ export function ScheduleModal({ open, onClose, onSubmit, onDelete, initialData, 
               </div>
 
               <div>
-                <label htmlFor="schedule-location" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.location")}
+                <label
+                  htmlFor="schedule-location"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  {t('schedule.location')}
                 </label>
                 <input
                   id="schedule-location"
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder={t("schedule.locationPlaceholder")}
+                  placeholder={t('schedule.locationPlaceholder')}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all"
                 />
               </div>
 
               <div>
-                <label htmlFor="schedule-notes" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t("schedule.notes")}
+                <label
+                  htmlFor="schedule-notes"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  {t('schedule.notes')}
                 </label>
                 <textarea
                   id="schedule-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder={t("schedule.notesPlaceholder")}
+                  placeholder={t('schedule.notesPlaceholder')}
                   rows={3}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/60 border border-gray-200/80 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent transition-all resize-none"
                 />
               </div>
-
             </div>
 
             <div className="flex justify-between px-6 py-4 border-t border-gray-200/50 bg-gray-50/50">
               <div>
-                    {mode === "edit" && onDelete && (
-                      <button
-                        onClick={onDelete}
-                        className="px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        {t("schedule.deleteSchedule")}
-                      </button>
-                    )}
+                {mode === 'edit' && onDelete && (
+                  <button
+                    onClick={onDelete}
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    {t('schedule.deleteSchedule')}
+                  </button>
+                )}
               </div>
               <div className="flex flex-col items-end gap-2">
                 {submitError && (
-                  <p className="text-xs" style={{ color: "var(--color-error, #ef4444)" }}>
+                  <p className="text-xs" style={{ color: 'var(--color-error, #ef4444)' }}>
                     {submitError}
                   </p>
                 )}
                 <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-200/50 transition-colors"
-                >
-                  {t("common.cancel")}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!isValid || isSubmitting}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
-                  style={{
-                    minWidth: 96,
-                    color: isValid && !isSubmitting ? "#ffffff" : "#6b7280",
-                    background: isValid && !isSubmitting
-                      ? "linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 82%, black))"
-                      : "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
-                    border: isValid && !isSubmitting
-                      ? "1px solid color-mix(in srgb, var(--color-primary) 70%, black)"
-                      : "1px solid #d7dde6",
-                    boxShadow: isValid && !isSubmitting
-                      ? "0 10px 22px color-mix(in srgb, var(--color-primary) 28%, transparent)"
-                      : "0 2px 8px rgba(15, 23, 42, 0.08)",
-                    cursor: isValid && !isSubmitting ? "pointer" : "not-allowed",
-                    opacity: 1,
-                  }}
-                >
-                  {isSubmitting ? t("settings.saving") : mode === "create" ? t("schedule.create") : t("schedule.save")}
-                </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-200/50 transition-colors"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!isValid || isSubmitting}
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      minWidth: 96,
+                      color:
+                        isValid && !isSubmitting
+                          ? 'var(--color-surface)'
+                          : 'var(--color-text-secondary)',
+                      background:
+                        isValid && !isSubmitting
+                          ? 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 82%, black))'
+                          : 'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, transparent) 0%, color-mix(in srgb, var(--color-surface) 84%, var(--color-bg) 16%) 100%)',
+                      border:
+                        isValid && !isSubmitting
+                          ? '1px solid color-mix(in srgb, var(--color-primary) 70%, black)'
+                          : '1px solid var(--color-border)',
+                      boxShadow:
+                        isValid && !isSubmitting
+                          ? '0 10px 22px color-mix(in srgb, var(--color-primary) 28%, transparent)'
+                          : 'var(--shadow-sm)',
+                      cursor: isValid && !isSubmitting ? 'pointer' : 'not-allowed',
+                      opacity: 1,
+                    }}
+                  >
+                    {isSubmitting
+                      ? t('settings.saving')
+                      : mode === 'create'
+                        ? t('schedule.create')
+                        : t('schedule.save')}
+                  </button>
                 </div>
               </div>
             </div>
