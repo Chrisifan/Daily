@@ -170,6 +170,9 @@
       "todayTodo": "Today's To-dos",
       "completed": "{{completed}} / {{total}} Completed",
       "todayCount": "{{count}} schedules today",
+      "todayCountBadge": "{{count}} items",
+      "todayCountPrefix": "Today",
+      "todayCountSuffix": "schedules",
       "empty": "Nothing is scheduled for today yet. Add the first one to get started.",
       "viewSchedule": "Open schedule",
       "workspaceLink": "Linked Workspace: {{name}}",
@@ -265,6 +268,9 @@
     "duration": "Duration",
     "repeat": "Repeat",
     "priority": "Priority",
+    "workspace": "Linked Workspace",
+    "workspacePlaceholder": "Select a workspace (optional)",
+    "noWorkspace": "No workspace linked",
     "location": "Location",
     "locationPlaceholder": "Enter location (optional)",
     "notes": "Notes",
@@ -326,6 +332,20 @@
       "subtitle": "Manage all your projects and workspaces",
       "newWorkspace": "New Workspace",
       "createNew": "Create New Workspace",
+      "createHint": "Set up context, files, email, and calendar links for a new stream of work.",
+      "smartSummary": "Smart Summary",
+      "linkedCount": "{{count}} linked",
+      "openWorkspace": "Open Workspace",
+      "stats": {
+        "active": "Active Workspaces",
+        "focused": "High-Focus Projects",
+        "withSummary": "With Summary"
+      },
+      "metrics": {
+        "goals": "Goals",
+        "focus": "Focus",
+        "links": "Linked"
+      },
       "types": {
         "code": "Code",
         "image": "Design",

@@ -15,7 +15,7 @@ interface RustScheduleItem {
   repeat_group_id?: string;
   location?: string;
   notes?: string;
-  workspace_id?: string;
+  workspace_id?: string | null;
   priority: string;
   preparation_minutes?: number;
   travel_minutes?: number;
@@ -38,7 +38,7 @@ function rustToScheduleItem(rust: RustScheduleItem): ScheduleItem {
     repeatGroupId: rust.repeat_group_id,
     location: rust.location,
     notes: rust.notes,
-    workspaceId: rust.workspace_id,
+    workspaceId: rust.workspace_id ?? undefined,
     priority: rust.priority as ScheduleItem["priority"],
     preparationMinutes: rust.preparation_minutes,
     travelMinutes: rust.travel_minutes,
@@ -58,6 +58,7 @@ interface CreateScheduleInput {
   repeat_group_id?: string;
   location?: string;
   notes?: string;
+  workspace_id?: string;
   priority: string;
   is_flexible: boolean;
 }
@@ -72,6 +73,7 @@ interface UpdateScheduleInput {
   repeat_group_id?: string;
   location?: string;
   notes?: string;
+  workspace_id?: string | null;
   priority?: string;
   is_flexible?: boolean;
 }
@@ -122,6 +124,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
         repeat_group_id: data.repeatGroupId,
         location: data.location,
         notes: data.notes,
+        workspace_id: data.workspaceId,
         priority: data.priority,
         is_flexible: data.isFlexible,
       };
@@ -146,6 +149,9 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
       if (data.repeatGroupId !== undefined) input.repeat_group_id = data.repeatGroupId;
       if (data.location !== undefined) input.location = data.location;
       if (data.notes !== undefined) input.notes = data.notes;
+      if (Object.prototype.hasOwnProperty.call(data, "workspaceId")) {
+        input.workspace_id = data.workspaceId ?? null;
+      }
       if (data.priority !== undefined) input.priority = data.priority;
       if (data.isFlexible !== undefined) input.is_flexible = data.isFlexible;
 

@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { CalendarView } from "./CalendarView";
 import { ScheduleModal } from "./ScheduleModal";
 import { useScheduleStore } from "../../shared/hooks/useScheduleStore";
-import { mockSchedules } from "../../storage/seeds/mockData";
+import { mockSchedules, mockWorkspaces } from "../../storage/seeds/mockData";
 import type { ScheduleItem } from "../../domain/schedule/types";
 import { format } from "date-fns";
 import { getStoredSettings } from "../../shared/services/settingsService";
@@ -120,6 +120,7 @@ export function SchedulePage() {
         onSubmit={handleSubmit}
         onDelete={editingSchedule ? handleDelete : undefined}
         schedules={schedules}
+        workspaces={mockWorkspaces}
         initialData={
           editingSchedule
             ? editingSchedule

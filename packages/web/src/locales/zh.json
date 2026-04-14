@@ -170,6 +170,9 @@
       "todayTodo": "今日待办",
       "completed": "{{completed}} / {{total}} 已完成",
       "todayCount": "今日 {{count}} 项日程",
+      "todayCountBadge": "{{count}} 项",
+      "todayCountPrefix": "今天",
+      "todayCountSuffix": "个日程",
       "empty": "今天还没有安排日程，先添加第一项吧。",
       "viewSchedule": "查看日程页",
       "workspaceLink": "关联工作区：{{name}}",
@@ -265,6 +268,9 @@
     "duration": "时长",
     "repeat": "重复",
     "priority": "优先级",
+    "workspace": "关联工作区",
+    "workspacePlaceholder": "选择工作区（可选）",
+    "noWorkspace": "不关联工作区",
     "location": "位置",
     "locationPlaceholder": "输入地点（可选）",
     "notes": "备注",
@@ -326,6 +332,20 @@
       "subtitle": "管理你的所有项目和工作区",
       "newWorkspace": "新建工作区",
       "createNew": "新建工作区",
+      "createHint": "为新的项目流建立上下文、文件、邮件与日历关联。",
+      "smartSummary": "智能摘要",
+      "linkedCount": "{{count}} 个关联",
+      "openWorkspace": "进入工作区",
+      "stats": {
+        "active": "活跃工作区",
+        "focused": "高专注项目",
+        "withSummary": "已有摘要"
+      },
+      "metrics": {
+        "goals": "目标",
+        "focus": "专注度",
+        "links": "关联资源"
+      },
       "types": {
         "code": "代码",
         "image": "设计",

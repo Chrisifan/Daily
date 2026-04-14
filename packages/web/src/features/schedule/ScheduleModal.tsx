@@ -24,6 +24,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { Ref } from 'react';
 import type { ScheduleItem, Priority, RepeatMode, ScheduleIcon } from '../../domain/schedule/types';
+import type { Workspace } from '../../domain/workspace/types';
 import { format, parse } from 'date-fns';
 import { DatePicker } from '../../shared/ui/DatePicker';
 import { getStoredSettings } from '../../shared/services/settingsService';
@@ -411,6 +412,88 @@ interface IconSelectProps {
   t: (key: string) => string;
 }
 
+interface WorkspaceSelectProps {
+  value?: string;
+  onChange: (workspaceId?: string) => void;
+  workspaces: Workspace[];
+  t: (key: string) => string;
+}
+
+function WorkspaceSelect({ value, onChange, workspaces, t }: WorkspaceSelectProps) {
+  const selectedWorkspace = workspaces.find((workspace) => workspace.id === value);
+
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className="flex h-8 w-full items-center justify-between rounded-xl border border-gray-200/80 bg-white/60 px-4 text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            {selectedWorkspace ? (
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: selectedWorkspace.color }}
+              />
+            ) : (
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: 'var(--color-border)' }}
+              />
+            )}
+            <span className="truncate text-[13px] font-medium text-[var(--color-text-secondary)]">
+              {selectedWorkspace ? selectedWorkspace.name : t('schedule.workspacePlaceholder')}
+            </span>
+          </div>
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownContent className="z-50 overflow-y-auto rounded-xl border border-black/5 bg-white/95 shadow-lg backdrop-blur-xl">
+        <DropdownMenu.Item
+          onSelect={() => onChange(undefined)}
+          className="flex h-8 items-center gap-2 px-3 text-sm outline-none transition-colors"
+          style={{
+            color: value === undefined ? 'var(--color-primary)' : 'var(--color-text)',
+            background:
+              value === undefined
+                ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
+                : 'transparent',
+          }}
+        >
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: 'var(--color-border)' }}
+          />
+          {t('schedule.noWorkspace')}
+        </DropdownMenu.Item>
+        {workspaces.map((workspace) => {
+          const isSelected = workspace.id === value;
+
+          return (
+            <DropdownMenu.Item
+              key={workspace.id}
+              onSelect={() => onChange(workspace.id)}
+              className="flex h-8 items-center gap-2 px-3 text-sm outline-none transition-colors"
+              style={{
+                color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                background: isSelected
+                  ? 'color-mix(in srgb, var(--color-primary) 10%, transparent)'
+                  : 'transparent',
+              }}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: workspace.color }}
+              />
+              <span className="truncate">{workspace.name}</span>
+            </DropdownMenu.Item>
+          );
+        })}
+      </DropdownContent>
+    </DropdownMenu.Root>
+  );
+}
+
 function IconSelect({ value, onChange, t }: IconSelectProps) {
   const [open, setOpen] = useState(false);
   const selectedOption = ICON_OPTIONS.find((opt) => opt.value === value);
@@ -548,6 +631,7 @@ interface ScheduleModalProps {
   onDelete?: () => void;
   initialData?: Partial<ScheduleItem>;
   schedules?: ScheduleItem[];
+  workspaces?: Workspace[];
   mode?: 'create' | 'edit';
 }
 
@@ -562,6 +646,7 @@ function getInitialValues(initialData?: Partial<ScheduleItem>) {
       notes: initialData.notes || '',
       priority: (initialData.priority || 'medium') as Priority,
       location: initialData.location || '',
+      workspaceId: initialData.workspaceId,
       startDate: format(start, 'yyyy-MM-dd'),
       startTime: format(start, 'HH:mm'),
       durationMinutes: initialData.durationMinutes || 30,
@@ -575,6 +660,7 @@ function getInitialValues(initialData?: Partial<ScheduleItem>) {
     notes: '',
     priority: 'medium' as Priority,
     location: '',
+    workspaceId: undefined,
     startDate: format(now, 'yyyy-MM-dd'),
     startTime: '09:00',
     durationMinutes: 30,
@@ -589,6 +675,7 @@ export function ScheduleModal({
   onDelete,
   initialData,
   schedules = [],
+  workspaces = [],
   mode = 'create',
 }: ScheduleModalProps) {
   const { t } = useTranslation();
@@ -600,6 +687,7 @@ export function ScheduleModal({
   const [title, setTitle] = useState(initialValues.title);
   const [icon, setIcon] = useState<ScheduleIcon>(initialValues.icon);
   const [notes, setNotes] = useState(initialValues.notes);
+  const [workspaceId, setWorkspaceId] = useState<string | undefined>(initialValues.workspaceId);
   const [startDate, setStartDate] = useState(initialValues.startDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [startTime, setStartTime] = useState(initialValues.startTime);
@@ -626,6 +714,7 @@ export function ScheduleModal({
       setTitle(values.title);
       setIcon(values.icon);
       setNotes(values.notes);
+      setWorkspaceId(values.workspaceId);
       setStartDate(values.startDate);
       setStartTime(values.startTime);
       setDurationMinutes(values.durationMinutes);
@@ -808,6 +897,7 @@ export function ScheduleModal({
         title: title.trim(),
         icon,
         notes: notes.trim() || undefined,
+        workspaceId,
         startAt,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         durationMinutes,
@@ -938,6 +1028,18 @@ export function ScheduleModal({
                         {t('schedule.priority')}
                       </span>
                       <PrioritySelect value={priority} onChange={setPriority} t={t} />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        {t('schedule.workspace')}
+                      </label>
+                      <WorkspaceSelect
+                        value={workspaceId}
+                        onChange={setWorkspaceId}
+                        workspaces={workspaces}
+                        t={t}
+                      />
                     </div>
 
                     <div>

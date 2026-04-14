@@ -565,8 +565,8 @@ export function WeatherBackground({ condition }: WeatherBackgroundProps) {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 rounded-[32px_32px_38px_28px] overflow-hidden"
-      style={{ zIndex: 0 }}
+      className="absolute inset-0 overflow-hidden"
+      style={{ zIndex: 0, borderRadius: "var(--radius-surface-lg)" }}
     >
       <canvas
         ref={canvasRef}

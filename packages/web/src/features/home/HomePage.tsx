@@ -47,6 +47,7 @@ export function HomePage() {
           <div className="home-grid__tasks">
             <TodayTasks
               schedules={schedules}
+              workspaces={mockWorkspaces}
               loading={loading}
               onCreateSchedule={handleCreateSchedule}
               onOpenSchedule={handleOpenSchedule}

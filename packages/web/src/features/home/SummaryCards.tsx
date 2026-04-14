@@ -11,38 +11,45 @@ interface SummaryCardsProps {
   inboxItems: InboxItem[];
 }
 
+const CARD_SHAPES = {
+  left: {
+    transform: "rotate(-0.9deg)",
+    borderRadius: "30px 24px 24px 24px",
+  },
+  right: {
+    transform: "translateY(8px) rotate(1deg)",
+    borderRadius: "24px 30px 24px 24px",
+  },
+} as const;
+
 const CARD_DEFS = [
   {
     value: "40%",
     titleKey: "home.summary.schedulePlanning",
     textKey: "home.summary.viewFullCalendar",
     iconBg: "rgba(63, 86, 214, 0.15)",
-    transform: "rotate(-0.9deg)",
-    borderRadius: "30px 24px 24px 24px",
+    ...CARD_SHAPES.left,
   },
   {
     value: "4",
     titleKey: "home.summary.projectTracking",
     textKey: "home.summary.activeProjects",
     iconBg: "rgba(34, 197, 94, 0.15)",
-    transform: "translateY(8px) rotate(1deg)",
-    borderRadius: "24px 30px 24px 24px",
+    ...CARD_SHAPES.right,
   },
   {
     value: "2",
     titleKey: "home.summary.emailSync",
     textKey: "home.summary.newEmails",
     iconBg: "rgba(245, 158, 11, 0.15)",
-    transform: "translateY(-6px) rotate(-0.8deg)",
-    borderRadius: "24px 24px 30px 24px",
+    ...CARD_SHAPES.left,
   },
   {
     value: "1",
     titleKey: "home.summary.workspace",
     textKey: "home.summary.enterActiveWorkspace",
     iconBg: "rgba(139, 92, 246, 0.15)",
-    transform: "translateX(-8px) rotate(0.6deg)",
-    borderRadius: "24px 24px 24px 30px",
+    ...CARD_SHAPES.right,
   },
 ];
 

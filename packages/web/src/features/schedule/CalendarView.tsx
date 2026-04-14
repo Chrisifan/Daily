@@ -1009,25 +1009,33 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const prevScheduleLayout = prevSchedule
                         ? scheduleDisplayLayout.layoutMap[prevSchedule.id]
                         : undefined;
+                      const prevDisplayStartSlot = prevSchedule
+                        ? (prevScheduleLayout?.displayStartSlot ??
+                          (compressedSlotMap[prevSchedule.id] ?? 0))
+                        : 0;
+                      const prevDurationSlots = prevSchedule
+                        ? Math.max(
+                            prevSchedule.durationMinutes > 0
+                              ? prevSchedule.durationMinutes / TIME_UNIT_MINUTES
+                              : 1,
+                            MIN_EVENT_HEIGHT_SLOTS
+                          )
+                        : 0;
+                      const prevIsOverlapStack =
+                        prevSchedule ? (overlapGroupMap[prevSchedule.id]?.stacked ?? false) : false;
                       const prevDisplayEndSlot = prevSchedule
                         ? (prevScheduleLayout?.displayEndSlot ??
-                          ((compressedSlotMap[prevSchedule.id] ?? 0) +
-                            Math.max(
-                              prevSchedule.durationMinutes > 0
-                                ? prevSchedule.durationMinutes / TIME_UNIT_MINUTES
-                                : 1,
-                              MIN_EVENT_HEIGHT_SLOTS
-                            )))
+                          (prevDisplayStartSlot + prevDurationSlots))
+                        : 0;
+                      const prevVisibleBottomSlot = prevSchedule
+                        ? prevIsOverlapStack
+                          ? prevDisplayEndSlot
+                          : prevDisplayStartSlot + prevDurationSlots / 2
                         : 0;
                       const prevEffectiveEndDate = prevSchedule
                         ? overlapGroupMap[prevSchedule.id]?.groupEndAt ??
                           getEndTime(prevSchedule.startAt, prevSchedule.durationMinutes)
                         : null;
-                      const isDashed =
-                        globalIndex > 0 &&
-                        !isVirtualSchedule &&
-                        !(scheduleLayout?.overlapsPrevious ?? false) &&
-                        compressedStartSlot - prevDisplayEndSlot > MAX_GAP_SLOTS;
                       const gapMinutes =
                         globalIndex > 0 && prevEffectiveEndDate
                           ? differenceInMinutes(
@@ -1035,6 +1043,11 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                               prevEffectiveEndDate
                             )
                           : 0;
+                      const isDashed =
+                        globalIndex > 0 &&
+                        !isVirtualSchedule &&
+                        !(scheduleLayout?.overlapsPrevious ?? false) &&
+                        gapMinutes > LONG_SCHEDULE_THRESHOLD_HOURS * 60;
                       const showGapHint =
                         !(scheduleLayout?.overlapsPrevious ?? false) &&
                         gapMinutes >= TIME_UNIT_MINUTES;
@@ -1106,8 +1119,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 <div
                                   className="absolute"
                                   style={{
-                                    top: slotToTop(prevDisplayEndSlot),
-                                    height: startTop - slotToTop(prevDisplayEndSlot),
+                                    top: slotToTop(prevVisibleBottomSlot),
+                                    height: startTop - slotToTop(prevVisibleBottomSlot),
                                     left: 24,
                                   }}
                                 >

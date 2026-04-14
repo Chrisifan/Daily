@@ -189,6 +189,7 @@ pub struct ScheduleItem {
     pub repeat_group_id: Option<String>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    pub workspace_id: Option<String>,
     pub priority: String,
     pub is_flexible: bool,
     pub created_at: String,
@@ -206,6 +207,7 @@ pub struct CreateScheduleInput {
     pub repeat_group_id: Option<String>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    pub workspace_id: Option<String>,
     pub priority: String,
     pub is_flexible: bool,
 }
@@ -221,6 +223,7 @@ pub struct UpdateScheduleInput {
     pub repeat_group_id: Option<String>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    pub workspace_id: Option<Option<String>>,
     pub priority: Option<String>,
     pub is_flexible: Option<bool>,
 }
@@ -259,7 +262,7 @@ fn get_schedules() -> Result<Vec<ScheduleItem>, String> {
     let conn = DB.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
-        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at FROM schedule_items ORDER BY start_at")
+        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, created_at, updated_at FROM schedule_items ORDER BY start_at")
         .map_err(|e| e.to_string())?;
 
     let items = stmt
@@ -276,10 +279,11 @@ fn get_schedules() -> Result<Vec<ScheduleItem>, String> {
                 repeat_group_id: row.get(8)?,
                 location: row.get(9)?,
                 notes: row.get(10)?,
-                priority: row.get(11)?,
-                is_flexible: row.get::<_, i32>(12)? != 0,
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
+                workspace_id: row.get(11)?,
+                priority: row.get(12)?,
+                is_flexible: row.get::<_, i32>(13)? != 0,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -304,7 +308,7 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
 
     if let Some(ref end_at) = end_at {
         conn.execute(
-            "INSERT INTO schedule_items (id, source, title, icon, start_at, end_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT INTO schedule_items (id, source, title, icon, start_at, end_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 id,
                 input.title,
@@ -317,6 +321,7 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
                 input.repeat_group_id,
                 input.location,
                 input.notes,
+                input.workspace_id,
                 input.priority,
                 input.is_flexible as i32,
                 now,
@@ -325,7 +330,7 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
         ).map_err(|e| e.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO schedule_items (id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            "INSERT INTO schedule_items (id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, created_at, updated_at) VALUES (?1, 'manual', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 id,
                 input.title,
@@ -337,6 +342,7 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
                 input.repeat_group_id,
                 input.location,
                 input.notes,
+                input.workspace_id,
                 input.priority,
                 input.is_flexible as i32,
                 now,
@@ -357,6 +363,7 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
         repeat_group_id: input.repeat_group_id,
         location: input.location,
         notes: input.notes,
+        workspace_id: input.workspace_id,
         priority: input.priority,
         is_flexible: input.is_flexible,
         created_at: now.clone(),
@@ -472,6 +479,13 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
         )
         .map_err(|e| e.to_string())?;
     }
+    if let Some(workspace_id) = input.workspace_id {
+        conn.execute(
+            "UPDATE schedule_items SET workspace_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![workspace_id, now, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     if let Some(is_flexible) = input.is_flexible {
         conn.execute(
             "UPDATE schedule_items SET is_flexible = ?1, updated_at = ?2 WHERE id = ?3",
@@ -481,7 +495,7 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
     }
 
     let mut stmt = conn
-        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, priority, is_flexible, created_at, updated_at FROM schedule_items WHERE id = ?1")
+        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, created_at, updated_at FROM schedule_items WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let item = stmt
@@ -498,10 +512,11 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
                 repeat_group_id: row.get(8)?,
                 location: row.get(9)?,
                 notes: row.get(10)?,
-                priority: row.get(11)?,
-                is_flexible: row.get::<_, i32>(12)? != 0,
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
+                workspace_id: row.get(11)?,
+                priority: row.get(12)?,
+                is_flexible: row.get::<_, i32>(13)? != 0,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
             })
         })
         .map_err(|e| e.to_string())?;

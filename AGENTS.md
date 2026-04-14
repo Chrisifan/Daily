@@ -97,7 +97,10 @@ Mock data available in `storage/seeds/mockData.ts` for development.
     - When a selector has 6 or more options, render it as a dropdown instead of a capsule selector
   - Priority-related colors must be centralized as shared global theme tokens in `packages/web/src/App.css` and reused through shared constants/helpers instead of redefining local priority palettes inside feature components
   - Priority badges, capsules, schedule cards, and any other priority UI must reuse the same shared priority tokens/constants so semantic colors stay consistent across the app
+  - Buttons must use shared radius tokens from `packages/web/src/App.css`; default action buttons should use the smaller shared button radii (`--radius-button-sm/md/lg/pill`) rather than oversized pill corners
+  - Rounded surfaces, nested content blocks, badges, tags, and buttons must use shared radius and spacing tokens from `packages/web/src/App.css`; keep rounded content on the same visual scale and unify vertical padding/height for pill-like elements
   - Form controls should use a unified `32px` visual height wherever practical for single-line inputs, triggers, and selectors
+  - Informational tips/counts/status summaries must not reuse button styling or button-like affordances; only clickable actions should look like buttons
   - Popups, dialogs, and modals must not close when clicking the background overlay; close them only through explicit actions
 - Component structure: Single file per component (e.g., `CalendarView.tsx`)
   - Feature folders: `features/[feature-name]/`
