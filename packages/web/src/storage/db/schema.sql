@@ -86,11 +86,18 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS mail_accounts (
   id TEXT PRIMARY KEY,
   provider TEXT NOT NULL CHECK (provider IN ('gmail', 'outlook', 'imap')),
+  imap_host TEXT NOT NULL,
+  imap_port INTEGER NOT NULL DEFAULT 993,
+  username TEXT NOT NULL,
+  secure BOOLEAN NOT NULL DEFAULT 1,
+  display_name TEXT,
   email_address TEXT NOT NULL UNIQUE,
   auth_status TEXT NOT NULL DEFAULT 'disconnected' CHECK (auth_status IN ('connected', 'disconnected', 'error')),
   sync_status TEXT NOT NULL DEFAULT 'idle' CHECK (sync_status IN ('syncing', 'idle', 'error')),
   last_synced_at TEXT,
-  scopes TEXT DEFAULT '[]'
+  scopes TEXT DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 -- 日历账户表

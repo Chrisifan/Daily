@@ -1,16 +1,4 @@
 {
   "version": "1.0",
-  "accounts": [
-    {
-      "id": "acc_1776233861940_58969vs",
-      "email": "cesyzhao@163.com",
-      "imapHost": "Imap.163.com",
-      "imapPort": 993,
-      "username": "cesyzhao@163.com",
-      "secure": true,
-      "displayName": "克里斯的 163 邮箱",
-      "createdAt": "2026-04-15T06:17:41.940Z",
-      "lastSyncedAt": "2026-04-15T09:04:30.075Z"
-    }
-  ]
+  "accounts": []
 }

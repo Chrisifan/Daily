@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+packages/service/config/mail-accounts.json
+packages/service/config/mail-accounts*.bak
 
 # Editor directories and files
 .vscode/*

@@ -18,6 +18,17 @@ fn schedule_items_columns(conn: &Connection) -> rusqlite::Result<HashSet<String>
     Ok(existing_columns)
 }
 
+fn mail_accounts_columns(conn: &Connection) -> rusqlite::Result<HashSet<String>> {
+    let mut stmt = conn.prepare("PRAGMA table_info(mail_accounts)")?;
+    let existing_columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .collect();
+
+    Ok(existing_columns)
+}
+
 fn ensure_schedule_items_schema(conn: &Connection) -> rusqlite::Result<()> {
     let existing_columns = schedule_items_columns(conn)?;
 
@@ -110,6 +121,49 @@ fn ensure_schedule_items_schema(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn ensure_mail_accounts_schema(conn: &Connection) -> rusqlite::Result<()> {
+    let existing_columns = mail_accounts_columns(conn)?;
+
+    let migrations = [
+        (
+            "imap_host",
+            "ALTER TABLE mail_accounts ADD COLUMN imap_host TEXT NOT NULL DEFAULT ''",
+        ),
+        (
+            "imap_port",
+            "ALTER TABLE mail_accounts ADD COLUMN imap_port INTEGER NOT NULL DEFAULT 993",
+        ),
+        (
+            "username",
+            "ALTER TABLE mail_accounts ADD COLUMN username TEXT NOT NULL DEFAULT ''",
+        ),
+        (
+            "secure",
+            "ALTER TABLE mail_accounts ADD COLUMN secure INTEGER NOT NULL DEFAULT 1",
+        ),
+        (
+            "display_name",
+            "ALTER TABLE mail_accounts ADD COLUMN display_name TEXT",
+        ),
+        (
+            "created_at",
+            "ALTER TABLE mail_accounts ADD COLUMN created_at TEXT NOT NULL DEFAULT ''",
+        ),
+        (
+            "updated_at",
+            "ALTER TABLE mail_accounts ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''",
+        ),
+    ];
+
+    for (column, sql) in migrations {
+        if !existing_columns.contains(column) {
+            conn.execute(sql, [])?;
+        }
+    }
+
+    Ok(())
+}
+
 fn compute_end_at(start_at: &str, duration_minutes: i32) -> Result<String, String> {
     let start = chrono::DateTime::parse_from_rfc3339(start_at)
         .map_err(|e| format!("invalid start_at: {e}"))?;
@@ -172,6 +226,35 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
             value TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )",
+        [],
+    )
+    .ok();
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mail_accounts (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL DEFAULT 'imap',
+            email_address TEXT NOT NULL UNIQUE,
+            imap_host TEXT NOT NULL DEFAULT '',
+            imap_port INTEGER NOT NULL DEFAULT 993,
+            username TEXT NOT NULL DEFAULT '',
+            secure INTEGER NOT NULL DEFAULT 1,
+            display_name TEXT,
+            auth_status TEXT NOT NULL DEFAULT 'disconnected',
+            sync_status TEXT NOT NULL DEFAULT 'idle',
+            last_synced_at TEXT,
+            scopes TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )
+    .ok();
+
+    ensure_mail_accounts_schema(&conn).ok();
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_mail_accounts_email_address ON mail_accounts(email_address)",
         [],
     )
     .ok();
