@@ -25,6 +25,12 @@ import { Readable } from "stream";
 // IMAP 类型别名（来自 @types/imap）
 type ImapSearchCriteria = any[];
 type ImapFetchOptions = Imap.FetchOptions;
+type ImapConnectionWithId = Imap & {
+  id(
+    identification: Record<string, string> | null,
+    callback: (err?: Error | null) => void
+  ): void;
+};
 
 // ==================== 类型声明 ====================
 
@@ -131,6 +137,8 @@ export class ImapConnector extends EventEmitter {
     }
 
     if (this.state === ConnectionState.CONNECTED) {
+      await this.sendClientIdentification();
+
       // 打开 INBOX 以完成认证
       return new Promise((resolve, reject) => {
         this.imap.openBox("INBOX", true, (err) => {
@@ -286,14 +294,12 @@ export class ImapConnector extends EventEmitter {
           return;
         }
 
-        // 使用 UID 范围或单个 UID
-        const uidList = uids.join(",");
         const fetchOptions: ImapFetchOptions = {
           bodies: ["HEADER", "TEXT", ""],
           struct: true,
         };
 
-        const fetch = this.imap.fetch(`{${uidList}}`, fetchOptions);
+        const fetch = this.imap.fetch(uids, fetchOptions);
         const emails: EmailMessage[] = [];
         let pending = uids.length;
         let fetchError: Error | null = null;
@@ -449,6 +455,32 @@ export class ImapConnector extends EventEmitter {
       connTimeout: this.config.connectionTimeout,
       authTimeout: 15000,
       debug: process.env.IMAP_DEBUG === "true" ? console.log : undefined,
+    });
+  }
+
+  private async sendClientIdentification(): Promise<void> {
+    if (!this.imap.serverSupports("ID")) {
+      return;
+    }
+
+    const imapWithId = this.imap as ImapConnectionWithId;
+
+    return new Promise((resolve, reject) => {
+      imapWithId.id(
+        {
+          name: "Daily",
+          version: "0.1.0",
+          vendor: "Daily",
+          "support-url": "https://github.com/openai",
+        },
+        (err?: Error | null) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve();
+        }
+      );
     });
   }
 
@@ -814,6 +846,14 @@ export class ImapConnector extends EventEmitter {
 
   private mapError(err: Error): EmailServiceError {
     const message = err.message ?? String(err);
+
+    if (message.includes("Unsafe Login")) {
+      return new EmailServiceError(
+        EmailServiceErrorCode.AUTH_INVALID_CREDENTIALS,
+        "邮箱服务拒绝当前客户端登录：请确认已开启 IMAP、使用客户端授权码；若为 188.com 邮箱，还需要服务器允许带 ID 标识的第三方客户端访问",
+        err
+      );
+    }
 
     if (
       message.includes("Authentication failed") ||

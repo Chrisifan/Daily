@@ -1,85 +1,53 @@
 # Workspace List Redesign Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax here because the redesign has already been implemented and this file now documents the completed plan against the current project structure.
 
-**Goal:** Rebuild the workspace list page into a readable, light-theme project workbench with solid cards and stronger information hierarchy.
+**Goal:** Rebuild the workspace list page into a readable, compact, light-theme workspace list that matches the current `packages/web` structure and visual language.
 
-**Architecture:** Keep the page within the existing route and data flow, but replace the current glass-card presentation with a page-specific layout and CSS class system in `App.css`. Reuse existing mock workspace data and route structure while moving the page toward the same surface and spacing language used on the home dashboard.
+**Architecture:** Keep the route and data flow inside `packages/web`, remove glass-card dependence from the page, and use page-specific classes in `packages/web/src/App.css` to produce a minimal, solid-surface workspace list.
 
-**Tech Stack:** React 19, TypeScript, Tailwind utility classes, shared CSS variables in `packages/web/src/App.css`, framer-motion where already present
+**Tech Stack:** React 19, TypeScript, Vite, shared CSS variables in `packages/web/src/App.css`, react-router-dom, lucide-react
 
 ---
 
-### Task 1: Replace the current page structure
+### Task 1: Rebuild the page structure
 
 **Files:**
 - Modify: `packages/web/src/features/workspace/WorkspaceListPage.tsx`
 
-- [ ] **Step 1: Rebuild the page scaffold**
+- [x] Replace the glass-card layout with a dedicated page shell.
+- [x] Keep a single header-level primary action (`New Workspace`).
+- [x] Render a responsive grid of minimal workspace cards.
+- [x] Remove the previously explored summary strip and in-grid create card.
 
-Create a dedicated page shell with:
-- a header row
-- a compact summary strip
-- a responsive grid of workspace cards
-- a styled create-new card
-
-- [ ] **Step 2: Remove glass-card dependence from this page**
-
-Stop using `GlassCard` in the workspace list so this screen can follow the product’s light-surface dashboard language.
-
-- [ ] **Step 3: Add card-level derived data**
-
-Derive simple per-card metrics such as linked resource count and whether a summary exists so the UI can show consistent metadata blocks.
-
-### Task 2: Add page-specific styling
+### Task 2: Align the page with the current design system
 
 **Files:**
 - Modify: `packages/web/src/App.css`
 
-- [ ] **Step 1: Add workspace list page classes**
+- [x] Add workspace list page classes under the shared global stylesheet.
+- [x] Use shared radius, spacing, border, and color tokens.
+- [x] Replace low-contrast glass styling with solid light surfaces.
+- [x] Compress card height and internal spacing to keep the page lightweight.
 
-Add classes for:
-- page wrapper
-- header
-- summary strip
-- grid
-- workspace card
-- create card
-- metric cells
-- footer hint
-
-- [ ] **Step 2: Use shared tokens**
-
-Ensure all colors, surfaces, borders, spacing, and radii use existing theme variables instead of page-local hardcoded light/dark utility values.
-
-- [ ] **Step 3: Keep cards compact**
-
-Tune vertical spacing and card min-height so the page reads like a workbench instead of an oversized gallery.
-
-### Task 3: Refresh copy where needed
+### Task 3: Refresh copy to match the simplified layout
 
 **Files:**
 - Modify: `packages/web/src/locales/zh.json`
 - Modify: `packages/web/src/locales/en.json`
 
-- [ ] **Step 1: Add any missing page strings**
-
-Add concise strings for the summary strip, action hints, and any new labels introduced by the redesigned layout.
+- [x] Add page strings needed by the redesigned header and cards.
+- [x] Keep copy concise and compatible with the simplified card structure.
 
 ### Task 4: Verify
 
 **Files:**
 - Modify: none
 
-- [ ] **Step 1: Run the build**
-
-Run: `pnpm --filter @daily/web build`
-
-Expected: Vite production build succeeds without TypeScript errors.
-
-- [ ] **Step 2: Review the resulting page visually in code**
-
-Check that:
-- no text still uses low-contrast white-on-light styling
-- cards have clear section hierarchy
-- the create-new panel matches the size and rhythm of the grid
+- [x] Run: `pnpm --filter @daily/web build`
+- [x] Confirm the page no longer depends on low-contrast white-on-light styling.
+- [x] Confirm the current structure matches:
+  - header action only
+  - minimal card body
+  - no summary strip
+  - no create card in the grid

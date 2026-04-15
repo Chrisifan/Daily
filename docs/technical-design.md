@@ -1,280 +1,253 @@
-# 智能工作台桌面应用技术设计文档
+# Daily 技术设计文档
 
 ## 1. 文档目标
 
-本技术设计文档用于把产品设计文档落到可执行实现层，明确：
+本文档用于把 Daily 当前的产品设计落到实际代码结构与技术实现层，重点描述：
 
-- 桌面端技术栈
-- 前端模块边界
-- 数据模型与本地存储
-- 邮件 / 日历 / 天气接入方式
-- 同步流程
-- 权限与安全策略
-- MVP 实现顺序
+- 当前 monorepo 结构
+- `web / desktop / service` 三段式职责划分
+- 前端模块与页面边界
+- 核心数据模型
+- 当前状态管理、存储与同步方式
+- 下一阶段的技术推进方向
 
-本文默认基于当前产品设计文档：
+对应产品文档：
 
-- [design-doc.md](/Users/sifan/Documents/openSource/Daily/design-doc.md)
+- [design-doc.md](/Users/sifan/Documents/openSource/Daily/docs/design-doc.md)
 
-## 2. 技术路线建议
+## 2. 当前技术栈
 
-### 2.1 桌面容器
+### 2.1 前端
 
-建议优先方案：
+- React 19
+- TypeScript
+- Vite 7
+- Tailwind CSS v4
+- framer-motion
+- date-fns
+- i18next
+- Zustand
+- TanStack Query
 
-- `Tauri`
+### 2.2 桌面容器
 
-原因：
+- Tauri 2
+- Rust
 
-- 包体更轻
-- 系统能力扩展足够
-- 性能和资源占用更适合长期驻留型工作台
+### 2.3 服务层
 
-备选方案：
+- Express
+- TypeScript
+- LangChain
+- OpenAI
+- IMAP / mailparser / ical
 
-- `Electron`
+### 2.4 存储与配置
 
-适用情况：
+- SQLite schema（前端 storage 层保留 schema 与 mock 数据）
+- 本地设置服务
+- 环境变量驱动的 service 配置
 
-- 团队更熟悉 Node/Electron 生态
-- 需要更成熟的原生桥接能力
-- 需要大量现成桌面插件
-
-### 2.2 前端框架
-
-建议：
-
-- `React`
-- `TypeScript`
-- `Vite`
-
-原因：
-
-- 组件化适合首页卡片、工作区、日程总览等复杂界面
-- TypeScript 适合统一数据模型
-- Vite 适合原型快速迭代
-
-### 2.3 状态管理
-
-建议：
-
-- 服务端同步状态：`TanStack Query`
-- 本地 UI 状态：`Zustand`
-
-拆分原则：
-
-- Query 管同步数据、缓存、轮询
-- Zustand 管筛选器、当前工作区、展开状态、界面偏好
-
-### 2.4 本地存储
-
-建议：
-
-- `SQLite`
-
-用途：
-
-- 缓存邮件摘要
-- 缓存日历事件
-- 工作区和任务数据
-- 同步游标
-- 用户偏好设置
-
-### 2.5 时间与日期
-
-建议：
-
-- `date-fns` 或 `dayjs`
-
-要求：
-
-- 所有时间统一存 UTC
-- UI 层按用户本地时区展示
-- 外部系统原始时区信息保留
-
-## 3. 应用架构
-
-### 3.1 模块划分
-
-建议拆成 5 层：
-
-1. UI 层
-2. Domain 层
-3. Application 层
-4. Connector 层
-5. Storage 层
-
-### 3.2 各层职责
-
-#### UI 层
-
-负责：
-
-- 首页
-- 日程总览
-- 工作区列表与详情
-- 收件箱
-- 设置与集成
-
-不负责：
-
-- 直接调用第三方 API
-- 直接拼装复杂同步逻辑
-
-#### Domain 层
-
-负责定义核心实体：
-
-- Workspace
-- ScheduleItem
-- InboxItem
-- TaskItem
-- MailAccount
-- CalendarAccount
-
-这一层只放业务模型和纯逻辑，不依赖具体 API。
-
-#### Application 层
-
-负责：
-
-- 同步流程编排
-- 自动归类
-- 冲突检测
-- 智能建议生成
-- 首页聚合结果组装
-
-例如：
-
-- `syncTodaySnapshot()`
-- `routeInboxItemToWorkspace()`
-- `buildHomeOverview()`
-- `detectScheduleConflicts()`
-
-#### Connector 层
-
-负责外部系统接入：
-
-- Gmail Connector
-- Graph Mail Connector
-- Google Calendar Connector
-- Outlook Calendar Connector
-- Weather Connector
-- Local Calendar Bridge
-
-这一层只关注“拉什么、怎么拉、怎么鉴权”。
-
-#### Storage 层
-
-负责：
-
-- SQLite schema
-- Repository
-- 同步游标
-- 本地缓存
-- 离线读取
-
-## 4. 推荐目录结构
+## 3. 当前仓库结构
 
 ```text
-src/
-  app/
-    routes/
-    layout/
-  features/
-    home/
-    schedule/
-    workspace/
-    inbox/
-    settings/
-  domain/
-    workspace/
-    schedule/
-    inbox/
-    account/
-  application/
-    sync/
-    routing/
-    suggestions/
-    overview/
-  connectors/
-    gmail/
-    graph-mail/
-    google-calendar/
-    outlook-calendar/
-    weather/
-    local-calendar/
-  storage/
-    db/
-    repositories/
-    migrations/
-  shared/
-    ui/
-    utils/
-    constants/
+Daily/
+├── package.json
+├── packages/
+│   ├── web/
+│   │   ├── package.json
+│   │   └── src/
+│   │       ├── app/
+│   │       ├── application/
+│   │       ├── domain/
+│   │       ├── features/
+│   │       ├── i18n/
+│   │       ├── locales/
+│   │       ├── shared/
+│   │       └── storage/
+│   ├── desktop/
+│   │   ├── package.json
+│   │   └── src/
+│   └── service/
+│       ├── package.json
+│       └── src/
+└── docs/
 ```
 
-## 5. 页面与模块映射
+## 4. Package 级职责
 
-### 5.1 首页
+### 4.1 `packages/web`
 
-输入：
+当前前端主应用。负责：
 
-- 今日天气
-- 今日事件
-- 重要邮件摘要
-- 活跃工作区
-- 今日待办
+- 路由与应用布局
+- 页面与交互逻辑
+- 主题、样式 token、共享 UI
+- 本地 mock 数据驱动
+- 调用 weather / settings / schedule 等前端服务
 
-输出模块：
+### 4.2 `packages/desktop`
 
-- 主卡
-- 小型摘要卡
-- 今日待办卡
-- 工作区总览卡
+当前桌面运行时壳。负责：
 
-聚合函数建议：
+- Tauri 窗口能力
+- 桌面端原生桥接
+- 打包与运行
 
-- `buildHomeOverview()`
+当前 Rust 入口：
 
-### 5.2 日程总览
+- `packages/desktop/src/main.rs`
+- `packages/desktop/src/lib.rs`
 
-输入：
+### 4.3 `packages/service`
 
-- 系统日历事件
-- 手动任务转日程
-- 邮件提取出的会议建议
+当前独立服务进程。负责：
 
-支持：
+- 邮件接入与同步
+- 分类与建议接口
+- 位置相关接口
+- LangChain / OpenAI 集成
 
-- 来源过滤
-- 工作区过滤
-- 重要性过滤
-- 冲突标记
+当前主要入口：
 
-### 5.3 工作区详情
+- `packages/service/src/index.ts`
+- `packages/service/src/routes/classify.ts`
+- `packages/service/src/routes/suggestions.ts`
+- `packages/service/src/routes/email.ts`
+- `packages/service/src/routes/location.ts`
 
-输入：
+## 5. Web 当前模块结构
 
-- 当前工作区
-- 关联任务
-- 关联邮件
-- 关联日历
-- 相关文件
+### 5.1 `packages/web/src/app`
 
-输出模块：
+负责应用壳与路由：
 
-- 工作区状态
-- 时间线
-- 任务队列
-- 智能摘要
+- `app/layout/`：应用布局、导航、设置弹层上下文
+- `app/routes/`：页面级路由
 
-## 6. 数据模型设计
+### 5.2 `packages/web/src/features`
 
-### 6.1 Workspace
+当前已落地的页面模块：
+
+- `home/`
+- `inbox/`（当前仅保留目录，未形成稳定功能页）
+- `schedule/`
+- `workspace/`
+- `integrations/`
+- `settings/`
+- `onboarding/`
+
+说明：
+
+- 当前真正可进入主路由的页面仍以 `home / schedule / workspace / integrations / settings` 为主
+
+### 5.3 `packages/web/src/domain`
+
+当前核心实体：
+
+- `home`
+- `inbox`
+- `schedule`
+- `task`
+- `weather`
+- `workspace`
+
+### 5.4 `packages/web/src/shared`
+
+当前通用层：
+
+- `constants/`
+- `hooks/`
+- `services/`
+- `ui/`
+- `utils/`
+
+### 5.5 `packages/web/src/application`
+
+当前存在以下预留目录：
+
+- `overview/`
+- `routing/`
+- `suggestions/`
+- `sync/`
+
+这些目录目前主要用于占位未来编排层边界，尚未形成稳定实现文件。
+
+### 5.6 `packages/web/src/storage`
+
+当前负责：
+
+- `db/schema.sql`
+- `seeds/mockData.ts`
+- `repositories/`（当前仅保留目录）
+
+这一层当前仍偏向原型与前端本地结构定义，而不是完整 repository 实现。
+
+## 6. 当前应用运行模型
+
+Daily 当前采用“三段式运行模型”：
+
+1. `web` 负责页面与交互
+2. `desktop` 负责桌面容器与原生桥接
+3. `service` 负责外部能力与智能处理
+
+运行方式：
+
+- `pnpm dev:web`：前端开发
+- `pnpm dev:desktop`：桌面壳开发
+- `pnpm dev:service`：AI / 邮件服务开发
+- `pnpm dev:app`：并行启动 web + service
+
+## 7. 当前路由结构
+
+前端当前主要路由包括：
+
+- `/`：首页
+- `/schedule`
+- `/workspaces`
+- `/workspace/:id`
+- `/integrations`
+- `/settings`
+
+这些路由集中定义于：
+
+- `packages/web/src/app/routes/index.tsx`
+
+## 8. 当前状态管理与共享服务
+
+### 8.1 Zustand
+
+当前用于本地 UI 状态与配置状态：
+
+- `useSettingsStore`
+- 其他页面级或偏好类状态
+
+### 8.2 TanStack Query
+
+当前作为同步状态层已在技术栈中明确，但项目仍处于前端原型与本地数据驱动阶段，尚未全面接管页面数据流。
+
+### 8.3 Shared services
+
+当前已有：
+
+- `weatherService`
+- `settingsService`
+
+以及对应 hooks：
+
+- `useWeather`
+- `useScheduleStore`
+- `useAppContext`
+
+## 9. 核心数据模型
+
+以下模型以当前 `domain` 中的真实定义为准。
+
+### 9.1 Workspace
 
 ```ts
 type WorkspaceType = "code" | "image" | "writing" | "general";
+type WorkspaceStatus = "active" | "pending" | "archived";
 
 interface Workspace {
   id: string;
@@ -282,7 +255,7 @@ interface Workspace {
   type: WorkspaceType;
   description: string;
   color: string;
-  status: "active" | "pending" | "archived";
+  status: WorkspaceStatus;
   focusLevel: number;
   linkedMailAccountIds: string[];
   linkedCalendarIds: string[];
@@ -294,22 +267,34 @@ interface Workspace {
 }
 ```
 
-### 6.2 ScheduleItem
+### 9.2 ScheduleItem
 
 ```ts
+type ScheduleSource =
+  | "google_calendar"
+  | "outlook_calendar"
+  | "system_calendar"
+  | "manual"
+  | "mail_extracted";
+
+type Priority = "low" | "medium" | "high";
+
 interface ScheduleItem {
   id: string;
-  source: "google_calendar" | "outlook_calendar" | "system_calendar" | "manual" | "mail_extracted";
+  source: ScheduleSource;
   sourceEventId?: string;
   title: string;
+  icon: ScheduleIcon;
   startAt: string;
-  endAt: string;
   timezone: string;
+  durationMinutes: number;
+  repeatMode: RepeatMode;
+  repeatGroupId?: string;
   location?: string;
   attendees?: string[];
   notes?: string;
   workspaceId?: string;
-  priority: "low" | "medium" | "high";
+  priority: Priority;
   preparationMinutes?: number;
   travelMinutes?: number;
   isFlexible: boolean;
@@ -318,324 +303,199 @@ interface ScheduleItem {
 }
 ```
 
-### 6.3 InboxItem
+### 9.3 InboxItem
 
 ```ts
+type InboxSource = "gmail" | "outlook" | "imap";
+type ActionType = "schedule" | "task" | "review" | "note";
+
 interface InboxItem {
   id: string;
-  source: "gmail" | "outlook" | "imap";
+  source: InboxSource;
   threadId?: string;
   from: string;
+  fromEmail: string;
   subject: string;
   summary: string;
   receivedAt: string;
   workspaceId?: string;
   workspaceTypeHint?: WorkspaceType;
-  actionType?: "schedule" | "task" | "review" | "note";
+  actionType?: ActionType;
   relatedScheduleId?: string;
-  attachments?: string[];
+  attachments?: Attachment[];
   parsedEntities?: string[];
   confidence?: number;
+  isRead: boolean;
+  isImportant: boolean;
 }
 ```
 
-### 6.4 TaskItem
+### 9.4 TaskItem
 
 ```ts
+type TaskStatus = "todo" | "doing" | "done";
+type TaskSource = "manual" | "mail" | "schedule" | "system";
+
 interface TaskItem {
   id: string;
   title: string;
   description?: string;
-  status: "todo" | "doing" | "done";
-  priority: "low" | "medium" | "high";
+  status: TaskStatus;
+  priority: Priority;
   dueAt?: string;
   workspaceId?: string;
-  source?: "manual" | "mail" | "schedule" | "system";
+  source?: TaskSource;
   relatedInboxItemId?: string;
   relatedScheduleId?: string;
-}
-```
-
-## 7. SQLite 设计建议
-
-建议表：
-
-- `workspaces`
-- `workspace_type_configs`
-- `schedule_items`
-- `inbox_items`
-- `tasks`
-- `mail_accounts`
-- `calendar_accounts`
-- `sync_cursors`
-- `settings`
-
-### 7.1 sync_cursors
-
-用于记录增量同步位置：
-
-- `provider`
-- `account_id`
-- `cursor`
-- `last_synced_at`
-
-## 8. 外部系统接入设计
-
-### 8.1 天气系统
-
-建议接入：
-
-- OpenWeather
-- QWeather
-
-第一版需要的数据：
-
-- 当前天气
-- 温度
-- 天气类型
-- 日出日落时间
-- 未来 6 小时天气
-
-用途：
-
-- 首页背景主题
-- 首页文案
-- 通勤提醒
-
-接口输出统一格式：
-
-```ts
-interface WeatherSnapshot {
-  condition: "sunny" | "cloudy" | "rainy" | "snow" | "storm" | "night";
-  temperature: number;
-  feelsLike: number;
-  city: string;
+  createdAt: string;
   updatedAt: string;
 }
 ```
 
-### 8.2 Gmail 接入
-
-鉴权：
-
-- OAuth 2.0
-
-建议 scope：
-
-- 只读邮件 scope 优先
-
-第一版只需要：
-
-- 邮件列表
-- 邮件摘要
-- 线程 ID
-- 时间
-- 附件元信息
-
-不建议第一版做：
-
-- 发信
-- 删除
-- 修改标签
-
-### 8.3 Outlook / Microsoft Graph 接入
-
-鉴权：
-
-- Microsoft OAuth
-
-读取对象：
-
-- 邮件
-- 日历
-
-优先级：
-
-- 邮件和日历都可以后续统一走 Graph
-
-### 8.4 IMAP 接入
-
-定位：
-
-- 通用邮箱兜底
-
-风险：
-
-- 各家服务行为不完全一致
-- 邮件解析复杂度更高
-
-建议：
-
-- 作为 V3 或 V4 再接
-
-### 8.5 Google Calendar 接入
-
-鉴权：
-
-- Google OAuth
-
-第一版读取：
-
-- 未来 14 天
-- 最近 7 天
-- 今日所有事件
-
-用途：
-
-- 首页摘要
-- 日程总览
-- 冲突检测
-
-### 8.6 系统日历接入
-
-建议延后做本地桥接：
-
-- macOS 下通过原生桥接能力读本地日历
-
-原因：
-
-- 本地权限更复杂
-- 不同桌面框架下实现方式不同
-- 早期云日历接入更稳定
-
-## 9. 智能归类与建议引擎
-
-### 9.1 归类输入
-
-- 邮件主题
-- 邮件正文摘要
-- 日历标题
-- 附件名称
-- 用户最近使用的工作区
-
-### 9.2 归类输出
-
-- 推荐工作区类型
-- 推荐具体工作区
-- 推荐动作
-
-### 9.3 规则优先级
-
-建议先规则，后模型：
-
-1. 关键词规则
-2. 最近上下文命中
-3. 工作区历史行为
-4. 模型推断
-
-### 9.4 推荐动作示例
-
-- 加入日程
-- 转成待办
-- 加入代码工作区
-- 加入图片处理工作区
-- 加入写作工作区
-- 稍后提醒
-
-## 10. 首页聚合逻辑
-
-建议建立首页快照对象：
+### 9.5 WeatherSnapshot
 
 ```ts
-interface HomeOverviewSnapshot {
-  weather: WeatherSnapshot;
-  currentTime: string;
-  primarySchedule?: ScheduleItem;
-  scheduleSummary: ScheduleItem[];
-  inboxSummary: InboxItem[];
-  activeWorkspaces: Workspace[];
-  taskSummary: TaskItem[];
-  warnings: string[];
+type WeatherCondition =
+  | "sunny"
+  | "cloudy"
+  | "overcast"
+  | "rainy"
+  | "thunderstorm"
+  | "haze"
+  | "snow"
+  | "night";
+
+interface WeatherSnapshot {
+  condition: WeatherCondition;
+  temperature: number;
+  feelsLike: number;
+  humidity: number;
+  windSpeed: number;
+  city: string;
+  description: string;
+  sunrise: string;
+  sunset: string;
+  hourlyForecast: HourlyForecast[];
+  updatedAt: string;
 }
 ```
 
-生成流程：
+## 10. 当前 UI 架构原则
 
-1. 拉天气
-2. 拉今日事件
-3. 拉今日重要邮件
-4. 拉活跃工作区
-5. 拉今日任务
-6. 组装首页视图模型
+### 10.1 Feature-first
 
-## 11. 同步流程
+页面 UI 以 `features/*` 为主要组织单元，避免把页面逻辑分散到过多横向层级。
 
-### 11.1 启动时
+### 10.2 Domain-driven typing
 
-1. 读取本地缓存
-2. 先渲染首页
-3. 后台执行同步
-4. 局部刷新模块
+所有页面共享的核心实体统一从 `domain/*` 引用，避免页面局部重复定义。
 
-### 11.2 前台轮询
+### 10.3 Shared token first
 
-建议：
+颜色、圆角、间距、优先级色板等统一从 `packages/web/src/App.css` 和共享常量中复用。
 
-- 天气：30 分钟
-- 日历：5 分钟
-- 邮件摘要：3-5 分钟
+### 10.4 信息与操作分离
 
-### 11.3 手动刷新
+tips、badge、状态摘要和按钮在视觉上必须语义分离。只有可点击动作使用按钮视觉。
 
-行为：
+### 10.5 Form Modal First
 
-- 用户点击刷新时，立即重拉首页所需摘要
-- 不强制拉全量正文
+创建、编辑、连接、配置类表单默认必须放在弹窗或模态层中，不在页面主内容流里以内联表单直接展开。
 
-## 12. 权限与安全
+### 10.6 Delete Confirmation Required
 
-### 12.1 权限原则
+所有删除类危险操作必须通过显式确认弹窗二次确认后再执行，不能在第一次点击时直接触发实际删除。
 
-- 默认最小权限
-- 默认只读
-- 用户可随时断开
+### 10.7 Async Action Feedback Required
 
-### 12.2 本地存储原则
+所有异步操作按钮必须提供统一操作反馈：按钮本地进入 loading 并禁用重复点击，成功通过全局 success toast 明确反馈，失败通过全局 error toast 明确反馈；表单内联错误可作为补充，但不能替代全局失败反馈。
 
-- Access Token 不直接明文存 SQLite
-- 凭证优先放系统安全存储
-- SQLite 只存业务缓存和同步状态
+## 11. 当前 service 架构
 
-### 12.3 隐私设计
+### 11.1 路由层
 
-- 邮件正文默认只用于摘要和归类
-- 用户可关闭智能解析
-- 用户可清除本地缓存
+当前 service 暴露的核心路由：
 
-## 13. MVP 技术实现顺序
+- `/api/classify`
+- `/api/suggestions`
+- `/api/email`
+- `/api/location`
 
-### 第一阶段
+### 11.2 邮件服务层
 
-- React + TypeScript + Vite 原型
-- 首页
-- 工作区模板
-- SQLite 本地模型
-- 模拟数据
+当前邮件能力位于：
 
-### 第二阶段
+- `packages/service/src/services/email/imap-connector.ts`
+- `packages/service/src/services/email/email-parser.ts`
+- `packages/service/src/services/email/email-sync-service.ts`
+- `packages/service/src/services/email/mail-account.ts`
 
-- 天气接入
-- Google Calendar 接入
-- 首页与日程联动
+当前定位：
 
-### 第三阶段
+- IMAP 连接与基础同步
+- 邮件解析
+- ICS / 邮件结构处理
+- 为前端摘要与建议层提供输入
 
-- Gmail 接入
-- 邮件摘要
-- 自动归类
+### 11.3 LangChain 层
 
-### 第四阶段
+当前 AI 能力统一位于：
 
-- Outlook / Graph
-- 冲突检测
-- 智能建议
+- `packages/service/src/services/langchain.ts`
 
-## 14. 推荐下一步
+它用于分类与建议相关的模型调用封装。
 
-当前最适合继续做的是：
+## 12. 当前存储设计
 
-1. 初始化真实项目脚手架
-2. 先定义 TypeScript 类型与 SQLite schema
-3. 再实现首页视图模型和模拟同步层
+### 12.1 前端侧
 
-这样可以先把应用骨架搭稳，再逐步接入真实邮件和日历系统。
+前端当前主要通过：
+
+- `storage/db/schema.sql`
+- `storage/seeds/mockData.ts`
+
+来维持结构定义和原型数据。
+
+### 12.2 时间策略
+
+当前时间策略保持不变：
+
+- 存储统一 UTC
+- UI 本地时区展示
+- 外部来源时区信息保留在模型中
+
+## 13. 当前成熟度判断
+
+### 已较稳定
+
+- 首页布局与主要卡片
+- 日程页时间轴和编辑弹窗
+- 工作区列表与详情的基本页面流
+- 设置与主题基础能力
+
+### 仍在演进
+
+- service 与前端的真实数据闭环
+- 收件箱独立页面
+- 多来源账号连接体验
+- schedule / inbox / workspace 的深度联动
+- application 层编排逻辑（当前目录已预留，文件尚未形成）
+
+## 14. 下一阶段技术重点
+
+建议下一阶段优先推进：
+
+1. 完成 `service` 到 `web` 的真实数据接线
+2. 把 `application/*` 从预留目录推进为真实编排层
+3. 明确 SQLite 的前端/桌面/service 边界
+4. 把 Inbox 页面从 domain/mock 阶段推进到功能页
+5. 为集成页补齐账号连接、状态和错误处理流程
+
+## 15. 文档维护规则
+
+后续更新本文档时应遵循：
+
+- 目录结构必须以 `packages/*` 为准
+- 文件路径必须引用真实存在的目录
+- 数据模型以 `domain/*` 中的现状为准，不使用过期字段
+- 当设计与实现发生偏离时，应优先更新技术设计文档说明“当前真实状态”

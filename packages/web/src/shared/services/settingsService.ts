@@ -7,6 +7,7 @@ const STORAGE_KEY = "daily-settings";
 const ONBOARDING_STORAGE_KEY = "daily-onboarding-completed";
 
 export type ThemeMode = "light" | "dark" | "system";
+export type ExternalScheduleCreationMode = "automatic" | "always_remind";
 
 export interface DailySettings {
   language: "zh" | "en";
@@ -17,6 +18,7 @@ export interface DailySettings {
   locationLongitude: number | null;
   routineStartTime: string;
   routineEndTime: string;
+  externalScheduleCreationMode: ExternalScheduleCreationMode;
 }
 
 export const DEFAULT_THEME_MODE: ThemeMode = "system";
@@ -30,6 +32,7 @@ export const DEFAULT_DAILY_SETTINGS: DailySettings = {
   locationLongitude: null,
   routineStartTime: "08:00",
   routineEndTime: "22:00",
+  externalScheduleCreationMode: "automatic",
 };
 
 let cachedSettings: DailySettings = DEFAULT_DAILY_SETTINGS;

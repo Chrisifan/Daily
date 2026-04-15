@@ -6,15 +6,19 @@ import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 import {
   DEFAULT_DAILY_SETTINGS,
   getStoredSettings,
+  setDailySettings,
   storeSettingsPartial,
 } from "../../shared/services/settingsService";
 import type { DailySettings } from "../../shared/services/settingsService";
+import { queueToastAfterReload, useToast } from "../../shared/ui/ToastProvider";
 
 const DEFAULT_SETTINGS: DailySettings = DEFAULT_DAILY_SETTINGS;
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
+  const toast = useToast();
   const [showRestartPrompt, setShowRestartPrompt] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const settings = useMemo(() => getStoredSettings(), []);
 
@@ -40,10 +44,19 @@ export function SettingsPage() {
   }, [settings, i18n]);
 
   const handleResetToDefaults = useCallback(async () => {
-    await storeSettingsPartial(DEFAULT_SETTINGS);
-    i18n.changeLanguage(DEFAULT_SETTINGS.language);
-    setShowRestartPrompt(true);
-  }, [i18n]);
+    setIsResetting(true);
+    try {
+      await setDailySettings(DEFAULT_SETTINGS);
+      i18n.changeLanguage(DEFAULT_SETTINGS.language);
+      queueToastAfterReload({ tone: "success", title: t("feedback.settingsReset") });
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to reset settings:", error);
+      toast.error(t("feedback.settingsResetFailed"));
+    } finally {
+      setIsResetting(false);
+    }
+  }, [i18n, t, toast]);
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "8px 0 24px" }}>
@@ -202,6 +215,7 @@ export function SettingsPage() {
 
           <button
             onClick={handleResetToDefaults}
+            disabled={isResetting}
             style={{
               display: "flex",
               alignItems: "center",
@@ -210,22 +224,25 @@ export function SettingsPage() {
               padding: "0 16px",
               borderRadius: 10,
               border: "1px solid var(--color-border)",
-              cursor: "pointer",
+              cursor: isResetting ? "not-allowed" : "pointer",
               fontSize: 13,
               fontWeight: 500,
               background: "transparent",
               color: "var(--color-text-secondary)",
+              opacity: isResetting ? 0.6 : 1,
               transition: "all 180ms ease",
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = "var(--color-border-light)";
+              if (!isResetting) {
+                e.currentTarget.style.background = "var(--color-border-light)";
+              }
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.background = "transparent";
             }}
           >
             <RotateCcw className="w-4 h-4" />
-            {t("settings.resetToDefaults")}
+            {isResetting ? t("common.processing") : t("settings.resetToDefaults")}
           </button>
 
         </div>

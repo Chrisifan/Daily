@@ -260,7 +260,7 @@ export function TimeSelectField({
         </button>
       </DropdownMenu.Trigger>
 
-      <DropdownContent className="max-h-72 overflow-y-auto rounded-2xl border bg-[var(--color-surface)] p-1 shadow-xl">
+      <DropdownContent className="z-[120] max-h-72 overflow-y-auto rounded-2xl border bg-[var(--color-surface)] p-1 shadow-xl">
         {options.map((option) => {
           const selected = option === value;
           return (

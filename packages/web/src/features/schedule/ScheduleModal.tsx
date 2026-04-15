@@ -30,6 +30,7 @@ import { DatePicker } from '../../shared/ui/DatePicker';
 import { getStoredSettings } from '../../shared/services/settingsService';
 import { DropdownContent } from '../../shared/ui/DropdownContent';
 import { SegmentedControl } from '../../shared/ui/SegmentedControl';
+import { useToast } from '../../shared/ui/ToastProvider';
 import { useAnchoredOverlay } from '../../shared/ui/useAnchoredOverlay';
 import { PRIORITY_STYLES } from '../../shared/constants/priority';
 import {
@@ -679,6 +680,7 @@ export function ScheduleModal({
   mode = 'create',
 }: ScheduleModalProps) {
   const { t } = useTranslation();
+  const toast = useToast();
   const settings = getStoredSettings();
   const is12Hour = settings.timeFormat === 'hh:mm A';
   const initialValues = getInitialValues(initialData);
@@ -907,9 +909,11 @@ export function ScheduleModal({
         priority,
         isFlexible: false,
       });
+      toast.success(mode === 'create' ? t('feedback.scheduleCreated') : t('feedback.scheduleUpdated'));
     } catch (error) {
       console.error('Failed to submit schedule:', error);
       setSubmitError(t('schedule.submitFailed'));
+      toast.error(mode === 'create' ? t('feedback.scheduleCreateFailed') : t('feedback.scheduleUpdateFailed'));
     } finally {
       setIsSubmitting(false);
     }

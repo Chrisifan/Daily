@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarView } from "./CalendarView";
 import { ScheduleModal } from "./ScheduleModal";
@@ -8,12 +8,19 @@ import type { ScheduleItem } from "../../domain/schedule/types";
 import { format } from "date-fns";
 import { getStoredSettings } from "../../shared/services/settingsService";
 import { getNextRoutineSelectableDateTime } from "../../shared/utils/routineTime";
+import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
+import { useToast } from "../../shared/ui/ToastProvider";
+import { useTranslation } from "react-i18next";
 
 export function SchedulePage() {
+  const { t } = useTranslation();
+  const toast = useToast();
   const { schedules, addSchedule, updateSchedule, deleteSchedule, refreshSchedules, loading } = useScheduleStore(mockSchedules);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleItem | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [schedulePendingDelete, setSchedulePendingDelete] = useState<ScheduleItem | null>(null);
+  const [deletingSchedule, setDeletingSchedule] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const handleAddSchedule = (date?: Date) => {
@@ -28,13 +35,13 @@ export function SchedulePage() {
     setModalOpen(true);
   };
 
-  const handleModalClose = () => {
+  const handleModalClose = useCallback(() => {
     setModalOpen(false);
     setEditingSchedule(null);
     setSelectedDate(null);
-  };
+  }, []);
 
-  const handleSubmit = async (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => {
+  const handleSubmit = useCallback(async (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => {
     if (editingSchedule) {
       await updateSchedule(editingSchedule.id, data);
     } else {
@@ -42,7 +49,7 @@ export function SchedulePage() {
     }
     await refreshSchedules();
     handleModalClose();
-  };
+  }, [addSchedule, editingSchedule, handleModalClose, refreshSchedules, updateSchedule]);
 
   const getDefaultTimes = () => {
     const settings = getStoredSettings();
@@ -71,12 +78,39 @@ export function SchedulePage() {
     };
   };
 
-  const handleDelete = () => {
+  const handleRequestDelete = useCallback(() => {
     if (editingSchedule) {
-      deleteSchedule(editingSchedule.id);
-      handleModalClose();
+      setSchedulePendingDelete(editingSchedule);
     }
-  };
+  }, [editingSchedule]);
+
+  const handleCloseDeleteDialog = useCallback(() => {
+    if (deletingSchedule) {
+      return;
+    }
+
+    setSchedulePendingDelete(null);
+  }, [deletingSchedule]);
+
+  const handleDelete = useCallback(async () => {
+    if (!schedulePendingDelete) {
+      return;
+    }
+
+    try {
+      setDeletingSchedule(true);
+      await deleteSchedule(schedulePendingDelete.id);
+      await refreshSchedules();
+      setSchedulePendingDelete(null);
+      handleModalClose();
+      toast.success(t("feedback.scheduleDeleted"));
+    } catch (error) {
+      console.error("Failed to delete schedule:", error);
+      toast.error(t("feedback.scheduleDeleteFailed"));
+    } finally {
+      setDeletingSchedule(false);
+    }
+  }, [deleteSchedule, handleModalClose, refreshSchedules, schedulePendingDelete, t, toast]);
 
   useEffect(() => {
     const shouldCreate = searchParams.get("create") === "1";
@@ -118,7 +152,7 @@ export function SchedulePage() {
         open={modalOpen}
         onClose={handleModalClose}
         onSubmit={handleSubmit}
-        onDelete={editingSchedule ? handleDelete : undefined}
+        onDelete={editingSchedule ? handleRequestDelete : undefined}
         schedules={schedules}
         workspaces={mockWorkspaces}
         initialData={
@@ -127,6 +161,22 @@ export function SchedulePage() {
             : getDefaultTimes()
         }
         mode={editingSchedule ? "edit" : "create"}
+      />
+
+      <ConfirmDialog
+        open={Boolean(schedulePendingDelete)}
+        title={t("schedule.confirmDeleteTitle")}
+        description={
+          schedulePendingDelete
+            ? t("schedule.confirmDeleteDescription", {
+                title: schedulePendingDelete.title || t("schedule.untitled"),
+              })
+            : undefined
+        }
+        confirmLabel={t("common.delete")}
+        confirming={deletingSchedule}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleDelete}
       />
     </div>
   );

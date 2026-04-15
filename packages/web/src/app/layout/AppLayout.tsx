@@ -4,7 +4,9 @@ import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppNav } from "./AppNav";
 import { SettingsPopup } from "../../shared/ui/SettingsPopup";
+import { ExternalScheduleReviewDialog } from "../../shared/ui/ExternalScheduleReviewDialog";
 import { AppContext } from "../../shared/hooks/useAppContext";
+import { useExternalScheduleIntake } from "../../shared/hooks/useExternalScheduleIntake";
 import { StartupSplash } from "../../features/onboarding/StartupSplash";
 import {
   getThemeSetting,
@@ -23,6 +25,17 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [settingsPopupOpen, setSettingsPopupOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [showStartupSplash, setShowStartupSplash] = useState(() => !hasCompletedOnboarding());
+  const {
+    open: externalScheduleReviewOpen,
+    activeCandidate,
+    pendingCount,
+    confirming,
+    dismissing,
+    closeCandidateReview,
+    reopenPendingReview,
+    confirmCandidate,
+    dismissCandidate,
+  } = useExternalScheduleIntake();
 
   useEffect(() => {
     getThemeSetting().then((theme) => {
@@ -54,7 +67,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <AppContext.Provider value={{ openSettings: handleSettingsClick }}>
       <div className={`app-shell ${resolvedTheme === "dark" ? "dark" : ""}`}>
-        <AppNav onSettingsClick={handleSettingsClick} />
+        <AppNav
+          onSettingsClick={handleSettingsClick}
+          pendingScheduleCount={pendingCount}
+          onPendingSchedulesClick={reopenPendingReview}
+        />
         <main className="app-main">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -77,6 +94,16 @@ export function AppLayout({ children }: AppLayoutProps) {
         <StartupSplash
           open={showStartupSplash}
           onComplete={() => setShowStartupSplash(false)}
+        />
+        <ExternalScheduleReviewDialog
+          open={externalScheduleReviewOpen}
+          candidate={activeCandidate}
+          pendingCount={pendingCount}
+          confirming={confirming}
+          dismissing={dismissing}
+          onClose={closeCandidateReview}
+          onConfirm={confirmCandidate}
+          onDismiss={dismissCandidate}
         />
       </div>
     </AppContext.Provider>

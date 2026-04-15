@@ -26,18 +26,22 @@ declare module "ical" {
     end?: Date | string;
     allDay?: boolean;
     location?: string;
-    organizer?: string;
-    attendee?: string | string[];
+    organizer?: string | { params?: { CN?: string }; val?: string };
+    attendee?:
+      | string
+      | { params?: { CN?: string }; val?: string }
+      | Array<string | { params?: { CN?: string }; val?: string }>;
     method?: string;
     rrule?: string;
     status?: string;
     sequence?: number;
     value?: unknown;
+    params?: unknown;
   }
 
   export interface ParsedCalendar {
     [key: string]: Component | Event | unknown;
   }
 
-  export function parse(input: string): ParsedCalendar;
+  export function parseICS(input: string): ParsedCalendar;
 }

@@ -9,6 +9,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { ImapConnector } from "../services/email/imap-connector.js";
 import type { EmailAccount, ImapConnectorConfig, ImapFolder } from "../services/email/models/email.js";
+import { detectEmailScheduleCandidate } from "../services/intake/email-schedule-candidate-detector.js";
+import type { ExternalScheduleCandidate } from "../services/intake/external-schedule-candidate.js";
 
 const router: Router = Router();
 
@@ -57,6 +59,14 @@ export interface EmailSummary {
   snippet: string;
 }
 
+export interface SyncAccountResponse {
+  accountId: string;
+  totalEmails: number;
+  messages: EmailSummary[];
+  candidates: ExternalScheduleCandidate[];
+  lastSyncedAt: string;
+}
+
 // ==================== 工具函数 ====================
 
 const CONFIG_PATH = path.join(process.cwd(), "config", "mail-accounts.json");
@@ -78,6 +88,15 @@ function deobfuscatePassword(obfuscated: string): string {
 /** 生成 UUID 风格的 ID */
 function generateAccountId(): string {
   return `acc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function normalizeDisplayName(displayName: string | undefined, email: string): string | undefined {
+  const alias = displayName?.trim();
+  if (!alias) {
+    return undefined;
+  }
+
+  return alias.toLowerCase() === email.trim().toLowerCase() ? undefined : alias;
 }
 
 /** 确保配置文件存在 */
@@ -113,7 +132,7 @@ function toAccountResponse(acc: StoredAccount): AccountResponse {
     imapPort: acc.imapPort,
     username: acc.username,
     secure: acc.secure,
-    displayName: acc.displayName,
+    displayName: normalizeDisplayName(acc.displayName, acc.email),
     lastSyncedAt: acc.lastSyncedAt,
     createdAt: acc.createdAt,
     connected: !!acc.lastSyncedAt, // 简单判断：有过同步记录即为"已连接"
@@ -164,7 +183,7 @@ router.post("/accounts", async (req, res) => {
       username: (username || email).trim(),
       passwordObfuscated: obfuscatePassword(password),
       secure: secure !== false,
-      displayName: displayName?.trim() || email,
+      displayName: normalizeDisplayName(displayName, email),
       createdAt: new Date().toISOString(),
     };
 
@@ -305,7 +324,7 @@ router.post("/accounts/sync", async (req, res) => {
       username: account.username,
       passwordEnvKey: "", // 不使用 env key
       secure: account.secure,
-      displayName: account.displayName,
+      displayName: normalizeDisplayName(account.displayName, account.email),
       lastSyncedAt: account.lastSyncedAt,
       createdAt: account.createdAt,
     };
@@ -346,14 +365,43 @@ router.post("/accounts/sync", async (req, res) => {
       account.lastSyncedAt = new Date().toISOString();
       await writeConfig(config);
 
+      const candidates = emails
+        .map((email) =>
+          detectEmailScheduleCandidate({
+            accountId: account.id,
+            messageId: email.messageId,
+            subject: email.subject,
+            bodyText: email.body.text,
+            bodyHtml: email.body.html,
+            sentAt: email.date.toISOString(),
+            icsEvents: email.icsEvents?.map((event) => ({
+              uid: event.uid,
+              summary: event.summary,
+              start: event.start,
+              end: event.end,
+              timezone: event.timezone,
+              location: event.location,
+              description: event.description,
+              attendees: event.attendees?.map((attendee) => ({
+                name: attendee.name,
+                address: attendee.address,
+              })),
+            })),
+          })
+        )
+        .filter((candidate): candidate is ExternalScheduleCandidate => candidate !== null);
+
+      const response: SyncAccountResponse = {
+        accountId,
+        totalEmails: searchResults.length,
+        messages: summaries,
+        candidates,
+        lastSyncedAt: account.lastSyncedAt,
+      };
+
       res.json({
         success: true,
-        data: {
-          accountId,
-          totalEmails: searchResults.length,
-          messages: summaries,
-          lastSyncedAt: account.lastSyncedAt,
-        },
+        data: response,
       });
     } catch (syncErr) {
       await connector.disconnect().catch(() => {});

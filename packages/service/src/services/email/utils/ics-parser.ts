@@ -4,7 +4,8 @@
  */
 
 import { IcsEvent } from "../models/email.js";
-import ical, { Component, Event } from "ical";
+import * as ical from "ical";
+import type { Component, Event } from "ical";
 
 /**
  * 解析 .ics 格式的日历邀请文本
@@ -23,8 +24,8 @@ export function parseIcsContent(
   }
 
   try {
-    // 使用 ical.js 解析
-    const data = ical.parse(icsText);
+    // 使用 ical 解析
+    const data = ical.parseICS(icsText);
 
     if (!data || typeof data !== "object") {
       return [];
@@ -41,6 +42,14 @@ export function parseIcsContent(
       }
 
       const component = item as Component;
+
+      if ((component as Event).type === "VEVENT") {
+        const event = parseVEventObject(component as Event, sourceEmailUid, sourceEmailMessageId, icsText);
+        if (event) {
+          events.push(event);
+        }
+        continue;
+      }
 
       // 跳过非组件对象（如 prodid 元信息）
       if (component.type !== "VCALENDAR") {
@@ -125,7 +134,7 @@ function parseVEvent(
     const summary = getPropValue<string>(props, "summary", false) ?? undefined;
 
     // 提取 DESCRIPTION
-    const description = getPropValue<string>(props, "description", false) ?? undefined;
+    const description = sanitizeIcsRichText(getPropValue<string>(props, "description", false) ?? undefined);
 
     // 提取 LOCATION
     const location = getPropValue<string>(props, "location", false) ?? undefined;
@@ -190,17 +199,17 @@ function parseVEventObject(
       return null;
     }
 
-    const start = vevent.start ? new Date(vevent.start) : undefined;
+    const start = extractEventDate(vevent.start);
     if (!start || isNaN(start.getTime())) {
       return null;
     }
 
-    const end = vevent.end ? new Date(vevent.end) : undefined;
+    const end = extractEventDate(vevent.end);
     const allDay = vevent.allDay ?? false;
 
     let organizer;
     if (vevent.organizer) {
-      organizer = parseEmailAddress(vevent.organizer as string);
+      organizer = parseEventParticipant(vevent.organizer);
     }
 
     let attendees: IcsEvent["attendees"] = [];
@@ -209,18 +218,19 @@ function parseVEventObject(
         ? vevent.attendee
         : [vevent.attendee];
       attendees = attendeeList
-        .map((a) => parseEmailAddress(a as string))
+        .map((a) => parseEventParticipant(a))
         .filter(Boolean) as IcsEvent["attendees"];
     }
 
     return {
       uid: vevent.uid ?? "",
-      summary: vevent.summary,
-      description: vevent.description,
+      summary: extractEventText(vevent.summary),
+      description: sanitizeIcsRichText(extractEventText(vevent.description)),
       start,
       end,
       allDay,
-      location: vevent.location,
+      timezone: extractEventTimezone(vevent),
+      location: extractEventText(vevent.location),
       organizer,
       attendees: attendees && attendees.length > 0 ? attendees : undefined,
       method: normalizeMethod(vevent.method as string),
@@ -297,7 +307,7 @@ function parseVEventText(
 
     // 提取其他字段
     const summary = extractLine(veventText, "SUMMARY") ?? undefined;
-    const description = extractLine(veventText, "DESCRIPTION") ?? undefined;
+    const description = sanitizeIcsRichText(extractLine(veventText, "DESCRIPTION") ?? undefined);
     const location = extractLine(veventText, "LOCATION") ?? undefined;
 
     // 提取 ORGANIZER
@@ -525,6 +535,120 @@ function parseEmailAddress(value: string | undefined): IcsEvent["organizer"] {
     address: email,
     name: nameMatch ? nameMatch[1].trim() : undefined,
   };
+}
+
+function parseEventParticipant(value: unknown): IcsEvent["organizer"] {
+  if (typeof value === "string") {
+    return parseEmailAddress(value);
+  }
+
+  if (typeof value === "object" && value !== null) {
+    const candidate = value as { val?: string; params?: { CN?: string } };
+    const parsed = parseEmailAddress(candidate.val);
+    if (!parsed) {
+      return undefined;
+    }
+
+    return {
+      ...parsed,
+      name: candidate.params?.CN ?? parsed.name,
+    };
+  }
+
+  return undefined;
+}
+
+function extractEventDate(value: unknown): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value as string | number | Date);
+  return isNaN(date.getTime()) ? undefined : date;
+}
+
+function extractEventText(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  if (typeof value === "object" && value !== null && "val" in (value as Record<string, unknown>)) {
+    const candidate = (value as Record<string, unknown>).val;
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      return trimmed || undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function extractEventTimezone(vevent: Event): string | undefined {
+  const dateCandidate = vevent.start as { tz?: string } | undefined;
+  return dateCandidate?.tz;
+}
+
+function sanitizeIcsRichText(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  let text = value
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'")
+    .replace(/\\n/gi, "\n")
+    .replace(/\\r/gi, "");
+
+  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+  text = text.replace(/<(br|hr)[^>]*>/gi, "\n");
+  text = text.replace(/<(div|p)[^>]*>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  text = text.replace(/<[^>]+>/g, "");
+  text = decodeHtmlEntities(text);
+  text = text.replace(/[ \t]+/g, " ");
+  text = text.replace(/ *\n */g, "\n");
+  text = text.replace(/\n{3,}/g, "\n\n");
+
+  const trimmed = text.trim();
+  return trimmed || undefined;
+}
+
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    "&nbsp;": " ",
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&apos;": "'",
+    "&#x27;": "'",
+    "&#x2F;": "/",
+    "&mdash;": "\u2014",
+    "&ndash;": "\u2013",
+    "&hellip;": "\u2026",
+    "&ldquo;": "\u201C",
+    "&rdquo;": "\u201D",
+    "&lsquo;": "\u2018",
+    "&rsquo;": "\u2019",
+  };
+
+  let result = text;
+  for (const [entity, char] of Object.entries(entities)) {
+    result = result.replace(new RegExp(entity, "gi"), char);
+  }
+
+  result = result.replace(/&#(\d+);/g, (_, code) =>
+    String.fromCharCode(parseInt(code, 10))
+  );
+  result = result.replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+    String.fromCharCode(parseInt(code, 16))
+  );
+
+  return result;
 }
 
 /**

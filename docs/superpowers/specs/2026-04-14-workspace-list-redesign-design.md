@@ -1,59 +1,54 @@
 # Workspace List Redesign Design
 
-**Goal:** Redesign the workspace list page so text is readable on the light theme and the page feels like a focused project workbench instead of a translucent glass gallery.
+**Goal:** Keep the workspace list page readable, lightweight, and aligned with the current `packages/web` light-surface design language.
 
 ## Context
 
-The current workspace list page uses semi-transparent glass cards and `text-white/*` utilities on top of a light application background. That combination causes low contrast and makes the page feel visually disconnected from the rest of the product, especially the updated home dashboard.
+The original workspace list implementation used translucent glass cards and `text-white/*` utilities, which no longer matched the app's light background and made content hard to read. A heavier intermediate redesign introduced summary strips, dense metrics, and a create card, but the current product direction has since been simplified.
 
-## Design Direction
+## Current Direction
 
-Use a light, solid-surface "project panel" style:
+The current workspace list page should follow a minimal workbench-card approach:
 
-- Keep the app-wide light background and shared tokens from `App.css`
-- Replace glassmorphism with solid cards, clear borders, and soft layered shadows
-- Use strong dark text for all primary content and neutral secondary text for supporting details
-- Treat each workspace as a compact project panel with explicit sections for identity, status, summary, and metrics
+- solid light cards instead of glassmorphism
+- strong text contrast
+- compact card height
+- low visual noise
+- one clear primary action in the page header
 
 ## Layout
 
-- Header area:
-  - Left: page title and short supporting subtitle
-  - Right: primary action button for creating a workspace
-- Summary strip:
-  - Show lightweight page-level counts to make the page feel operational, not empty
-- Workspace grid:
-  - Use a regular responsive grid
-  - Each workspace card keeps the same size rhythm and consistent spacing
-- Create card:
-  - Keep as a first-class action card in the same grid, but style it as a deliberate dashed panel rather than an empty placeholder
+- Header:
+  - left: title and short subtitle
+  - right: `New Workspace` primary button
+- Grid:
+  - responsive grid of existing workspaces
+  - no page-level summary strip
+  - no dedicated create card inside the grid
 
 ## Card Structure
 
-Each workspace card should contain:
+Each workspace card contains only:
 
-1. Identity row
-   - Type icon in a tinted surface
-   - Status pill
-   - Optional overflow button
-2. Workspace name and description
-3. Smart summary block or fallback description block
-4. Metrics row
-   - Focus count
-   - Goal count
-   - Link count
-5. Footer action hint
-   - Small text cue that the card is enterable/openable
+1. Type icon tile
+2. Workspace title
+3. Short description
+4. Two lightweight badges:
+   - workspace type
+   - workspace status
+
+The card should remain enterable/clickable, but this affordance should come from the card container and hover state, not from extra footer hints.
 
 ## Styling Rules
 
-- Use shared theme variables from `packages/web/src/App.css`
-- Avoid `text-white/*` on this page in light mode
-- Use the workspace color only as an accent for icon tiles, soft badges, and subtle emphasis
-- Keep cards compact and dense enough to feel like a workbench, not a marketing page
+- Use shared tokens from `packages/web/src/App.css`
+- Keep the accent color tied to the workspace color
+- Avoid extra metric blocks, summary panels, or dense dashboard treatment
+- Prefer compact spacing over rich information density
 
 ## Success Criteria
 
-- All main text is readable on the default light theme
-- The page matches the visual language of the home page better than the current glass version
-- Cards feel more like project management surfaces with clearer information hierarchy
+- Text is readable in the default light theme
+- The page feels simpler than the previous redesign iteration
+- The header button is the only primary create action
+- The grid reads as a clean workspace list, not a dashboard

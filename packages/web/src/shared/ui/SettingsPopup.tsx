@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sun, Moon, Monitor, Palette, Globe, Calendar, Clock, MapPin } from "lucide-react";
+import { X, Sun, Moon, Monitor, Palette, Globe, Calendar, Clock, MapPin, Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DailySettings, ThemeMode } from "../services/settingsService";
 import {
@@ -12,6 +12,7 @@ import {
 } from "../services/settingsService";
 import { CitySelector, TimeSelectField } from "./SettingsFields";
 import { SegmentedControl } from "./SegmentedControl";
+import { queueToastAfterReload, useToast } from "./ToastProvider";
 import { isRoutineRangeValid } from "../utils/routineTime";
 
 interface SettingsPopupProps {
@@ -42,6 +43,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[
 
 export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: SettingsPopupProps) {
   const { t, i18n } = useTranslation();
+  const toast = useToast();
   const [draftTheme, setDraftTheme] = useState<ThemeMode>(themeMode);
   const [draftSettings, setDraftSettings] = useState<DailySettings>(() => getStoredSettings());
   const [isSaving, setIsSaving] = useState(false);
@@ -69,12 +71,16 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
       ]);
       onThemeChange(draftTheme);
       i18n.changeLanguage(draftSettings.language);
+      queueToastAfterReload({ tone: "success", title: t("feedback.settingsSaved") });
       onClose();
       window.location.reload();
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast.error(t("feedback.settingsSaveFailed"));
     } finally {
       setIsSaving(false);
     }
-  }, [draftSettings, draftTheme, i18n, onClose, onThemeChange]);
+  }, [draftSettings, draftTheme, i18n, onClose, onThemeChange, t, toast]);
 
   const handleResetToDefaults = useCallback(() => {
     setDraftTheme(DEFAULT_THEME_MODE);
@@ -218,6 +224,31 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
                 </p>
               )}
             </div>
+          ),
+        },
+      ],
+    },
+    {
+      title: "messagesAndNotifications",
+      items: [
+        {
+          id: "externalScheduleCreationMode",
+          label: t("settings.externalScheduleCreationMode"),
+          description: t("settings.externalScheduleCreationModeDesc"),
+          icon: <Bell className="w-4 h-4" />,
+          action: (
+            <SegmentedControl
+              value={draftSettings.externalScheduleCreationMode}
+              onChange={(val) => {
+                updateDraftSettings({
+                  externalScheduleCreationMode: val as "automatic" | "always_remind",
+                });
+              }}
+              options={[
+                { value: "automatic", label: t("settings.externalScheduleModes.automatic") },
+                { value: "always_remind", label: t("settings.externalScheduleModes.alwaysRemind") },
+              ]}
+            />
           ),
         },
       ],

@@ -210,6 +210,7 @@ img {
    App Shell
    ============================================================ */
 .app-shell {
+  position: relative;
   min-height: 100vh;
   background-color: var(--color-bg);
   display: flex;
@@ -326,9 +327,19 @@ img {
   transition: color 180ms ease, background 180ms ease;
 }
 
+.nav-link--pending {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
 .nav-link:hover {
   color: var(--color-text);
   background: var(--color-border-light);
+}
+
+.nav-link--pending:hover {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 .nav-link--active {
@@ -363,6 +374,26 @@ img {
 
 .nav-link:hover::after {
   opacity: 1;
+}
+
+.nav-link__badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 /* TrafficLights */
@@ -766,6 +797,107 @@ button[class*='rounded-sm'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.toast-viewport {
+  position: fixed;
+  top: 22px;
+  right: 24px;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-surface-sm);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 94%, white 6%);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+
+.toast-card--success {
+  border-color: color-mix(in srgb, var(--color-success) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface) 90%);
+}
+
+.toast-card--error {
+  border-color: color-mix(in srgb, var(--color-error) 26%, var(--color-border));
+  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface) 90%);
+}
+
+.toast-card--info {
+  border-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface) 92%);
+}
+
+.toast-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.toast-card--success .toast-card__icon {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, white 84%);
+}
+
+.toast-card--error .toast-card__icon {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, white 86%);
+}
+
+.toast-card--info .toast-card__icon {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, white 86%);
+}
+
+.toast-card__content {
+  min-width: 0;
+  flex: 1;
+}
+
+.toast-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.45;
+}
+
+.toast-card__description {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.toast-card__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-button-sm);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.toast-card__close:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-border) 72%, transparent);
 }
 
 .task-toolbar {

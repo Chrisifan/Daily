@@ -44,11 +44,18 @@
     "searchCity": "Search city...",
     "location": "Location",
     "routine": "Routine",
+    "messagesAndNotifications": "Messages & Notifications",
     "routineWindow": "Routine Window",
     "routineWindowDesc": "Defines the timeline start and end, and creates two default routine markers on empty days",
     "routineStart": "Start Time",
     "routineEnd": "End Time",
     "routineValidation": "End time must be later than start time with at least a 30-minute gap.",
+    "externalScheduleCreationMode": "Automatically create schedules from new email or calendar events",
+    "externalScheduleCreationModeDesc": "Choose whether new schedules from email or calendar sources are added to Daily immediately or always announced through a system notification first.",
+    "externalScheduleModes": {
+      "automatic": "Automatic",
+      "alwaysRemind": "Always remind"
+    },
     "email": {
       "title": "Email Accounts",
       "addAccount": "Add Email Account",
@@ -105,13 +112,31 @@
     "optional": "Optional",
     "foldersFound": "Found {{count}} folders",
     "testing": "Testing...",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "confirmDeleteAccountTitle": "Delete Email Account",
+    "confirmDeleteAccountDescription": "Delete \"{{name}}\"? This will remove the account and its sync status.",
+    "externalCandidate": {
+      "title": "New Schedule Detected",
+      "sync": "Sync to Daily",
+      "dismiss": "Dismiss",
+      "reviewLater": "Review later",
+      "pendingTooltip": "Pending schedules",
+      "pendingCount": "{{count}} pending",
+      "sourceEmail": "From Email",
+      "sourceCalendar": "From Calendar"
+    },
+    "ai": {
+      "eyebrow": "AI",
+      "title": "AI Integrations",
+      "description": "Future AI model access, capability toggles, and related preferences will live here."
+    }
   },
   "common": {
     "close": "Close",
     "delete": "Delete",
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "processing": "Processing...",
     "save": "Save",
     "dismiss": "Got it",
     "create": "Create",
@@ -120,7 +145,34 @@
     "retry": "Retry",
     "refresh": "Refresh",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "confirmDelete": "Delete"
+  },
+  "feedback": {
+    "settingsSaved": "Settings saved",
+    "settingsSaveFailed": "Failed to save settings",
+    "settingsReset": "Default settings restored",
+    "settingsResetFailed": "Failed to restore default settings",
+    "onboardingCompleted": "Basic setup completed",
+    "onboardingCompleteFailed": "Failed to save basic setup",
+    "scheduleCreated": "Schedule created",
+    "scheduleUpdated": "Schedule saved",
+    "scheduleDeleted": "Schedule deleted",
+    "scheduleCreateFailed": "Failed to create schedule",
+    "scheduleUpdateFailed": "Failed to save schedule",
+    "scheduleDeleteFailed": "Failed to delete schedule",
+    "emailConnectionSuccess": "Connection test succeeded",
+    "emailConnectionFailed": "Connection test failed",
+    "emailAccountSaved": "Email account saved",
+    "emailAccountSaveFailed": "Failed to save email account",
+    "emailSyncSuccess": "Email sync completed",
+    "emailSyncFailed": "Email sync failed",
+    "emailAccountDeleted": "Email account deleted",
+    "emailAccountDeleteFailed": "Failed to delete email account",
+    "externalScheduleSynced": "New schedule synced to Daily",
+    "externalScheduleSyncFailed": "Failed to sync new schedule",
+    "externalScheduleDismissed": "Schedule dismissed",
+    "externalScheduleDismissFailed": "Failed to dismiss schedule"
   },
   "home": {
     "greeting": {
@@ -227,20 +279,22 @@
   },
   "onboarding": {
     "badge": "First Setup",
-    "title": "Set your daily rhythm before you start using Daily",
-    "subtitle": "These two steps define your weather city, where the schedule timeline begins and ends, and which routine markers still appear on empty days.",
+    "title": "Basic Setup",
+    "subtitle": "Only your city and routine window are needed here. You can change both later in settings.",
     "preview": "Preview",
     "previewPending": "Pending",
     "impact": "What this changes",
     "stepLabel": "Step {{step}}",
+    "routineHint": "Used for the schedule timeline range.",
+    "footer": "You can change this later in settings.",
     "actions": {
       "back": "Back",
       "next": "Next",
       "finish": "Finish Setup"
     },
     "city": {
-      "title": "Pick your city",
-      "description": "Your city powers the weather card, environment context, and future location-aware defaults, so it is worth locking in during the first launch flow.",
+      "title": "Choose your city",
+      "description": "Used for weather display and the city context shown across the home view.",
       "effect": "Weather, city details, and future location-aware features will use this setting.",
       "tipPrimaryTitle": "Why this matters",
       "tipPrimary": "Once your city is set, the home weather card and main location display can use it directly instead of relying on temporary guesses.",
@@ -248,8 +302,8 @@
       "tipSecondary": "Search and select a city-level result. The same city setting will later be reused inside the settings popup."
     },
     "routine": {
-      "title": "Define your day boundaries",
-      "description": "These times become the start and end of the schedule timeline. Even on days without any schedules, the app will still generate default routine markers at these two points so the timeline always feels anchored.",
+      "title": "Set your routine",
+      "description": "Defines the default schedule range and the visible timeline bounds on empty days.",
       "effect": "The schedule timeline expands around this routine window, and new schedules start from here by default.",
       "tipPrimaryTitle": "How the timeline uses it",
       "tipPrimary": "The start time becomes the opening edge of the timeline, and the end time becomes the closing edge, even when the day is still empty.",
@@ -277,6 +331,9 @@
     "notesPlaceholder": "Add notes (optional)",
     "flexibleTime": "Flexible Time",
     "deleteSchedule": "Delete Schedule",
+    "confirmDeleteTitle": "Delete Schedule",
+    "confirmDeleteDescription": "Delete \"{{title}}\"? This action cannot be undone.",
+    "untitled": "Untitled Schedule",
     "cancel": "Cancel",
     "create": "Create",
     "save": "Save",
