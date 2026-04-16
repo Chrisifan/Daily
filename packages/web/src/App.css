@@ -376,6 +376,55 @@ img {
   opacity: 1;
 }
 
+.settings-item-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-item-header__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.settings-item-header__tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: help;
+  outline: none;
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+.settings-item-header__tooltip-trigger:hover,
+.settings-item-header__tooltip-trigger:focus-visible {
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.settings-item-header__tooltip {
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 8px 10px;
+  border-radius: var(--radius-button-md);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  z-index: 160;
+}
+
 .nav-link__badge {
   position: absolute;
   top: -3px;

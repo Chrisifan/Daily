@@ -6,6 +6,7 @@ import type {
   ExternalScheduleSource,
 } from "../../domain/intake/types";
 import { getStoredSettings } from "./settingsService";
+import { emitScheduleReminderRefresh } from "./scheduleReminderService";
 
 interface DesktopExternalScheduleCandidate {
   id: string;
@@ -145,6 +146,7 @@ export async function createScheduleFromCandidate(candidate: ExternalScheduleCan
       is_flexible: false,
     },
   });
+  emitScheduleReminderRefresh();
 }
 
 export async function handleIncomingCandidates(candidates: ExternalScheduleCandidate[]): Promise<void> {

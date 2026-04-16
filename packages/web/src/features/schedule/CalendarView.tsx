@@ -26,6 +26,7 @@ import {
   House,
   Music4,
   HeartPulse,
+  CalendarCheck,
 } from 'lucide-react';
 import {
   format,
@@ -643,12 +644,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
       <div className="flex flex-col justify-center items-center w-84 lg:w-96 p-4 lg:p-5 shrink-0">
         <div className="space-y-6">
           <div className="flex flex-col items-center text-center gap-3">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: 'var(--color-primary)', opacity: 0.1 }}
-            >
-              <Inbox className="w-6 h-6" style={{ color: 'var(--color-primary)' }} />
-            </div>
+            <CalendarCheck className="size-24 mb-4" style={{ color: 'var(--color-primary)' }} />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
               {t('calendar.title')}
             </h3>
@@ -999,8 +995,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const startTop = slotToTop(compressedStartSlot);
                       const nodeHeight = durationSlots * SLOT_HEIGHT;
                       const nodeWidth = NODE_SIZE;
-                      const nodeTop =
-                        isOverlapStack ? startTop : startTop - nodeHeight / 2;
+                      const nodeTop = isOverlapStack ? startTop : startTop - nodeHeight / 2;
                       const isFirstSegment = segmentIndex === 0;
                       const isMultiSegment = totalSegments > 1;
                       const globalIndex = timelineSchedules.indexOf(schedule);
@@ -1011,7 +1006,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                         : undefined;
                       const prevDisplayStartSlot = prevSchedule
                         ? (prevScheduleLayout?.displayStartSlot ??
-                          (compressedSlotMap[prevSchedule.id] ?? 0))
+                          compressedSlotMap[prevSchedule.id] ??
+                          0)
                         : 0;
                       const prevDurationSlots = prevSchedule
                         ? Math.max(
@@ -1021,11 +1017,12 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                             MIN_EVENT_HEIGHT_SLOTS
                           )
                         : 0;
-                      const prevIsOverlapStack =
-                        prevSchedule ? (overlapGroupMap[prevSchedule.id]?.stacked ?? false) : false;
+                      const prevIsOverlapStack = prevSchedule
+                        ? (overlapGroupMap[prevSchedule.id]?.stacked ?? false)
+                        : false;
                       const prevDisplayEndSlot = prevSchedule
                         ? (prevScheduleLayout?.displayEndSlot ??
-                          (prevDisplayStartSlot + prevDurationSlots))
+                          prevDisplayStartSlot + prevDurationSlots)
                         : 0;
                       const prevVisibleBottomSlot = prevSchedule
                         ? prevIsOverlapStack
@@ -1033,15 +1030,12 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                           : prevDisplayStartSlot + prevDurationSlots / 2
                         : 0;
                       const prevEffectiveEndDate = prevSchedule
-                        ? overlapGroupMap[prevSchedule.id]?.groupEndAt ??
-                          getEndTime(prevSchedule.startAt, prevSchedule.durationMinutes)
+                        ? (overlapGroupMap[prevSchedule.id]?.groupEndAt ??
+                          getEndTime(prevSchedule.startAt, prevSchedule.durationMinutes))
                         : null;
                       const gapMinutes =
                         globalIndex > 0 && prevEffectiveEndDate
-                          ? differenceInMinutes(
-                              parseISO(schedule.startAt),
-                              prevEffectiveEndDate
-                            )
+                          ? differenceInMinutes(parseISO(schedule.startAt), prevEffectiveEndDate)
                           : 0;
                       const isDashed =
                         globalIndex > 0 &&
@@ -1051,10 +1045,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const showGapHint =
                         !(scheduleLayout?.overlapsPrevious ?? false) &&
                         gapMinutes >= TIME_UNIT_MINUTES;
-                      const sharesTimeWithPrev =
-                        scheduleLayout?.overlapsPrevious ?? false;
-                      const sharesTimeWithNext =
-                        scheduleLayout?.overlapsNext ?? false;
+                      const sharesTimeWithPrev = scheduleLayout?.overlapsPrevious ?? false;
+                      const sharesTimeWithNext = scheduleLayout?.overlapsNext ?? false;
                       const startTimeShiftUp =
                         globalIndex > 0 &&
                         !(scheduleLayout?.overlapsPrevious ?? false) &&
@@ -1283,22 +1275,22 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                               {isFirstSegment &&
                                 schedule.durationMinutes > 0 &&
                                 !sharesTimeWithNext && (
-                                <div
-                                  className="absolute -left-3 bottom-0 flex flex-col items-end"
-                                  style={{ transform: 'translateX(-100%)', width: '56px' }}
-                                >
-                                  <span
-                                    className="block w-full text-right tabular-nums text-[10px] font-medium whitespace-nowrap"
-                                    style={{ color: 'var(--color-text)' }}
+                                  <div
+                                    className="absolute -left-3 bottom-0 flex flex-col items-end"
+                                    style={{ transform: 'translateX(-100%)', width: '56px' }}
                                   >
-                                    {formatBoundaryTime(
-                                      labelEndDate,
-                                      uses24HourTime,
-                                      schedule.virtualKind === 'routineEnd'
-                                    )}
-                                  </span>
-                                </div>
-                              )}
+                                    <span
+                                      className="block w-full text-right tabular-nums text-[10px] font-medium whitespace-nowrap"
+                                      style={{ color: 'var(--color-text)' }}
+                                    >
+                                      {formatBoundaryTime(
+                                        labelEndDate,
+                                        uses24HourTime,
+                                        schedule.virtualKind === 'routineEnd'
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
                               <div
                                 className="relative w-full h-full rounded-full flex items-center justify-center"
                                 style={{
@@ -1389,11 +1381,17 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 <div className="mt-1 flex items-center gap-1">
                                   <AlertCircle
                                     className="w-3 h-3"
-                                    style={{ color: 'color-mix(in srgb, var(--color-primary) 70%, #3b82f6)' }}
+                                    style={{
+                                      color:
+                                        'color-mix(in srgb, var(--color-primary) 70%, #3b82f6)',
+                                    }}
                                   />
                                   <span
                                     className="text-[10px] font-medium"
-                                    style={{ color: 'color-mix(in srgb, var(--color-primary) 70%, #3b82f6)' }}
+                                    style={{
+                                      color:
+                                        'color-mix(in srgb, var(--color-primary) 70%, #3b82f6)',
+                                    }}
                                   >
                                     {t('calendar.overlapTask')}
                                   </span>
@@ -1438,8 +1436,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                     })}
 
                     {[visibleStartMinutes, visibleEndMinutes].map((minuteValue, index) => {
-                      const slot =
-                        index === 0 ? 0 : scheduleDisplayLayout.endSlot;
+                      const slot = index === 0 ? 0 : scheduleDisplayLayout.endSlot;
                       const top = slotToTop(slot);
                       const nodeTop = top;
                       const boundaryDate = buildDateFromRoutineMinutes(selectedDate, minuteValue);

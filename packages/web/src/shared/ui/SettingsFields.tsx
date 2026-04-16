@@ -9,6 +9,10 @@ import { searchCities, searchCitiesRemote, FEATURED_CITIES, type City } from "..
 import { useAnchoredOverlay } from "./useAnchoredOverlay";
 import { DropdownContent } from "./DropdownContent";
 import { createRoutineTimeOptions, formatRoutineTimeLabel } from "../utils/routineTime";
+import {
+  TIME_SELECT_DROPDOWN_CONTENT_CLASSNAME,
+  TIME_SELECT_DROPDOWN_ITEM_CLASSNAME,
+} from "./settings-field-styles";
 
 interface CitySelectorProps {
   value: DailySettings;
@@ -260,14 +264,14 @@ export function TimeSelectField({
         </button>
       </DropdownMenu.Trigger>
 
-      <DropdownContent className="z-[120] max-h-72 overflow-y-auto rounded-2xl border bg-[var(--color-surface)] p-1 shadow-xl">
+      <DropdownContent className={TIME_SELECT_DROPDOWN_CONTENT_CLASSNAME}>
         {options.map((option) => {
           const selected = option === value;
           return (
             <DropdownMenu.Item
               key={option}
               onSelect={() => onChange(option)}
-              className="flex h-8 items-center rounded-xl px-3 text-sm outline-none transition-colors"
+              className={TIME_SELECT_DROPDOWN_ITEM_CLASSNAME}
               style={{
                 backgroundColor: selected ? "color-mix(in srgb, var(--color-primary) 12%, transparent)" : "transparent",
                 color: selected ? "var(--color-primary)" : "var(--color-text)",

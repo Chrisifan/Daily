@@ -14,6 +14,7 @@ import { CitySelector, TimeSelectField } from "./SettingsFields";
 import { SegmentedControl } from "./SegmentedControl";
 import { queueToastAfterReload, useToast } from "./ToastProvider";
 import { isRoutineRangeValid } from "../utils/routineTime";
+import { SettingsItemHeader } from "./SettingsItemHeader";
 
 interface SettingsPopupProps {
   open: boolean;
@@ -251,6 +252,28 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
             />
           ),
         },
+        {
+          id: "scheduleReminderLeadMinutes",
+          label: t("settings.scheduleReminderLeadMinutes"),
+          description: t("settings.scheduleReminderLeadMinutesDesc"),
+          icon: <Clock className="w-4 h-4" />,
+          action: (
+            <SegmentedControl
+              value={draftSettings.scheduleReminderLeadMinutes}
+              onChange={(val) => {
+                updateDraftSettings({
+                  scheduleReminderLeadMinutes: val as "none" | "5" | "10" | "30",
+                });
+              }}
+              options={[
+                { value: "none", label: t("settings.scheduleReminderModes.none") },
+                { value: "5", label: t("settings.scheduleReminderModes.5") },
+                { value: "10", label: t("settings.scheduleReminderModes.10") },
+                { value: "30", label: t("settings.scheduleReminderModes.30") },
+              ]}
+            />
+          ),
+        },
       ],
     },
   ];
@@ -337,14 +360,7 @@ export function SettingsPopup({ open, onClose, themeMode, onThemeChange }: Setti
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
-                              {item.label}
-                            </p>
-                            {item.description && (
-                              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-secondary)" }}>
-                                {item.description}
-                              </p>
-                            )}
+                            <SettingsItemHeader label={item.label} description={item.description} />
                           </div>
                         </div>
                         <div className="flex flex-row pt-1">

@@ -1,39 +1,21 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  DEFAULT_DAILY_SETTINGS,
+  DEFAULT_THEME_MODE,
+  mergeDailySettings,
+  type DailySettings,
+  type ExternalScheduleCreationMode,
+  type ScheduleReminderLeadMinutes,
+  type ThemeMode,
+} from "./settings-model";
 
 const SETTINGS_KEY_THEME = "theme";
 const SETTINGS_KEY_DAILY = "daily-settings";
 const SETTINGS_KEY_ONBOARDING = "daily-onboarding-completed";
 const STORAGE_KEY = "daily-settings";
 const ONBOARDING_STORAGE_KEY = "daily-onboarding-completed";
-
-export type ThemeMode = "light" | "dark" | "system";
-export type ExternalScheduleCreationMode = "automatic" | "always_remind";
-
-export interface DailySettings {
-  language: "zh" | "en";
-  dateFormat: "YYYY-MM-DD" | "MM/DD/YYYY" | "DD/MM/YYYY";
-  timeFormat: "HH:mm" | "hh:mm A";
-  locationCity: string | null;
-  locationLatitude: number | null;
-  locationLongitude: number | null;
-  routineStartTime: string;
-  routineEndTime: string;
-  externalScheduleCreationMode: ExternalScheduleCreationMode;
-}
-
-export const DEFAULT_THEME_MODE: ThemeMode = "system";
-
-export const DEFAULT_DAILY_SETTINGS: DailySettings = {
-  language: "zh",
-  dateFormat: "YYYY-MM-DD",
-  timeFormat: "HH:mm",
-  locationCity: null,
-  locationLatitude: null,
-  locationLongitude: null,
-  routineStartTime: "08:00",
-  routineEndTime: "22:00",
-  externalScheduleCreationMode: "automatic",
-};
+export type { DailySettings, ExternalScheduleCreationMode, ScheduleReminderLeadMinutes, ThemeMode };
+export { DEFAULT_DAILY_SETTINGS, DEFAULT_THEME_MODE, mergeDailySettings };
 
 let cachedSettings: DailySettings = DEFAULT_DAILY_SETTINGS;
 let settingsInitialized = false;
@@ -49,7 +31,7 @@ export async function initSettings(): Promise<void> {
 
     if (settingsRaw) {
       const parsed = JSON.parse(settingsRaw);
-      cachedSettings = { ...DEFAULT_DAILY_SETTINGS, ...parsed };
+      cachedSettings = mergeDailySettings(parsed);
     }
 
     if (onboardingRaw) {
@@ -78,7 +60,7 @@ export function getStoredSettings(): DailySettings {
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...DEFAULT_DAILY_SETTINGS, ...JSON.parse(raw) } : cachedSettings;
+    return raw ? mergeDailySettings(JSON.parse(raw)) : cachedSettings;
   } catch {
     return cachedSettings;
   }
@@ -159,7 +141,7 @@ export async function getDailySettings(): Promise<DailySettings> {
     const raw = await getSetting(SETTINGS_KEY_DAILY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_DAILY_SETTINGS, ...parsed };
+      return mergeDailySettings(parsed);
     }
   } catch {
     // ignore

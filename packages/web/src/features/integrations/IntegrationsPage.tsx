@@ -12,6 +12,7 @@ import {
 } from "../../shared/services/externalScheduleIntakeService";
 import { MAIL_WATCH_STATUS_CHANGED_EVENT } from "../../shared/hooks/useMailWatchSync";
 import { formatDateTime } from "../../shared/utils/date";
+import { shouldShowBlockingAccountsLoading } from "./integrations-view-state";
 
 // ==================== 类型定义 ====================
 
@@ -215,16 +216,23 @@ export function IntegrationsPage() {
   const [accountPendingDelete, setAccountPendingDelete] = useState<Account | null>(null);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
 
-  const loadAccounts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadAccounts = useCallback(async (options?: { background?: boolean }) => {
+    const background = options?.background === true;
+    if (!background) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const data = await fetchAccounts();
       setAccounts(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("integrations.loadFailed") || "加载失败");
+      if (!background) {
+        setError(err instanceof Error ? err.message : t("integrations.loadFailed") || "加载失败");
+      }
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
   }, [t]);
 
@@ -234,7 +242,7 @@ export function IntegrationsPage() {
 
   useEffect(() => {
     const handleStatusChanged = () => {
-      void loadAccounts();
+      void loadAccounts({ background: true });
     };
 
     window.addEventListener(MAIL_WATCH_STATUS_CHANGED_EVENT, handleStatusChanged as EventListener);
@@ -407,7 +415,9 @@ export function IntegrationsPage() {
         }}>
           {error}
           <button
-            onClick={loadAccounts}
+            onClick={() => {
+              void loadAccounts();
+            }}
             style={{ marginLeft: 12, textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 13 }}
           >
             {t("integrations.retry") || "重试"}
@@ -438,7 +448,7 @@ export function IntegrationsPage() {
         </div>
 
         {/* Account List */}
-        {loading ? (
+        {shouldShowBlockingAccountsLoading(loading, accounts.length) ? (
           <div style={{ textAlign: "center", padding: "24px 0", color: "var(--color-text-muted)", fontSize: 13 }}>
             {t("integrations.loading") || "加载中..."}
           </div>
@@ -498,7 +508,7 @@ export function IntegrationsPage() {
                         </span>
                       )}
                     </div>
-                    {acc.lastSyncError && (
+                    {acc.lastSyncError && (acc.authStatus === "error" || acc.syncStatus === "error") && (
                       <div style={{ marginTop: 6, fontSize: 12, color: "var(--color-error)" }}>
                         {acc.lastSyncError}
                       </div>

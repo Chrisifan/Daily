@@ -50,11 +50,19 @@
     "routineStart": "Start Time",
     "routineEnd": "End Time",
     "routineValidation": "End time must be later than start time with at least a 30-minute gap.",
-    "externalScheduleCreationMode": "Automatically create schedules from new email or calendar events",
+    "externalScheduleCreationMode": "Auto-create schedules",
     "externalScheduleCreationModeDesc": "Choose whether new schedules from email or calendar sources are added to Daily immediately or always announced through a system notification first.",
+    "scheduleReminderLeadMinutes": "Schedule advance reminder",
+    "scheduleReminderLeadMinutesDesc": "Choose whether Daily should send a system reminder before a schedule starts.",
     "externalScheduleModes": {
       "automatic": "Automatic",
       "alwaysRemind": "Always remind"
+    },
+    "scheduleReminderModes": {
+      "none": "No reminder",
+      "5": "5 min before",
+      "10": "10 min before",
+      "30": "30 min before"
     },
     "email": {
       "title": "Email Accounts",

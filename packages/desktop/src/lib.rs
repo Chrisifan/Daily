@@ -182,6 +182,66 @@ fn ensure_external_schedule_candidates_schema(conn: &Connection) -> rusqlite::Re
     Ok(())
 }
 
+fn ensure_schedule_reminder_deliveries_schema(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schedule_reminder_deliveries (
+            id TEXT PRIMARY KEY,
+            schedule_id TEXT NOT NULL,
+            remind_at TEXT NOT NULL,
+            delivered_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_reminder_deliveries_schedule_time
+         ON schedule_reminder_deliveries(schedule_id, remind_at)",
+        [],
+    )?;
+
+    Ok(())
+}
+
+fn schedule_reminder_delivery_id(schedule_id: &str, remind_at: &str) -> String {
+    format!("schedule-reminder::{schedule_id}::{remind_at}")
+}
+
+fn was_schedule_reminder_delivered(
+    conn: &Connection,
+    schedule_id: &str,
+    remind_at: &str,
+) -> rusqlite::Result<bool> {
+    let mut stmt = conn.prepare(
+        "SELECT EXISTS(
+            SELECT 1 FROM schedule_reminder_deliveries
+            WHERE schedule_id = ?1 AND remind_at = ?2
+        )",
+    )?;
+
+    let exists: i64 = stmt.query_row(params![schedule_id, remind_at], |row| row.get(0))?;
+    Ok(exists != 0)
+}
+
+fn mark_schedule_reminder_delivery(
+    conn: &Connection,
+    schedule_id: &str,
+    remind_at: &str,
+    delivered_at: &str,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO schedule_reminder_deliveries (id, schedule_id, remind_at, delivered_at)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            schedule_reminder_delivery_id(schedule_id, remind_at),
+            schedule_id,
+            remind_at,
+            delivered_at,
+        ],
+    )?;
+
+    Ok(())
+}
+
 fn compute_end_at(start_at: &str, duration_minutes: i32) -> Result<String, String> {
     let start = chrono::DateTime::parse_from_rfc3339(start_at)
         .map_err(|e| format!("invalid start_at: {e}"))?;
@@ -303,6 +363,7 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
     .ok();
 
     ensure_external_schedule_candidates_schema(&conn).ok();
+    ensure_schedule_reminder_deliveries_schema(&conn).ok();
 
     Mutex::new(conn)
 });
@@ -987,6 +1048,26 @@ fn update_external_schedule_candidate_notified_at(
 }
 
 #[tauri::command]
+fn was_schedule_reminder_delivered_command(
+    schedule_id: String,
+    remind_at: String,
+) -> Result<bool, String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+    was_schedule_reminder_delivered(&conn, &schedule_id, &remind_at).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mark_schedule_reminder_delivered_command(
+    schedule_id: String,
+    remind_at: String,
+    delivered_at: String,
+) -> Result<(), String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+    mark_schedule_reminder_delivery(&conn, &schedule_id, &remind_at, &delivered_at)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn show_system_notification(app: AppHandle, title: String, body: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     if tauri::is_dev() {
@@ -1073,6 +1154,8 @@ pub fn run() {
             list_pending_external_schedule_candidates,
             update_external_schedule_candidate_status,
             update_external_schedule_candidate_notified_at,
+            was_schedule_reminder_delivered_command,
+            mark_schedule_reminder_delivered_command,
             show_system_notification
         ])
         .run(tauri::generate_context!())
@@ -1081,6 +1164,49 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    use rusqlite::Connection;
+    use rusqlite::params;
+
+    #[test]
+    fn schedule_reminder_delivery_marking_is_idempotent() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        super::ensure_schedule_reminder_deliveries_schema(&conn).expect("schema");
+
+        super::mark_schedule_reminder_delivery(
+            &conn,
+            "schedule-1",
+            "2026-04-16T09:50:00Z",
+            "2026-04-16T09:50:02Z",
+        )
+        .expect("first insert");
+        super::mark_schedule_reminder_delivery(
+            &conn,
+            "schedule-1",
+            "2026-04-16T09:50:00Z",
+            "2026-04-16T09:50:05Z",
+        )
+        .expect("second insert");
+
+        assert!(
+            super::was_schedule_reminder_delivered(
+                &conn,
+                "schedule-1",
+                "2026-04-16T09:50:00Z",
+            )
+            .expect("delivery lookup")
+        );
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM schedule_reminder_deliveries WHERE schedule_id = ?1 AND remind_at = ?2",
+                params!["schedule-1", "2026-04-16T09:50:00Z"],
+                |row| row.get(0),
+            )
+            .expect("row count");
+
+        assert_eq!(count, 1);
+    }
+
     #[test]
     fn applescript_notification_script_escapes_special_characters() {
         let script = super::build_applescript_notification_script(

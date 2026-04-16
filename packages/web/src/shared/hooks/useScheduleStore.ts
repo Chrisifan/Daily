@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ScheduleItem, RepeatMode, ScheduleIcon } from "../../domain/schedule/types";
+import { emitScheduleReminderRefresh } from "../services/scheduleReminderService";
 
 interface RustScheduleItem {
   id: string;
@@ -100,6 +101,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
     try {
       const result = await invoke<RustScheduleItem[]>("get_schedules");
       setSchedules(result.map(rustToScheduleItem));
+      emitScheduleReminderRefresh();
     } catch (e) {
       console.error("Failed to fetch schedules:", e);
       setError(e as string);
@@ -132,6 +134,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
       const result = await invoke<RustScheduleItem>("create_schedule", { input });
       const schedule = rustToScheduleItem(result);
       setSchedules((prev) => [...prev, schedule]);
+      emitScheduleReminderRefresh();
       return schedule;
     },
     []
@@ -158,6 +161,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
       const result = await invoke<RustScheduleItem>("update_schedule", { id, input });
       const schedule = rustToScheduleItem(result);
       setSchedules((prev) => prev.map((s) => (s.id === id ? schedule : s)));
+      emitScheduleReminderRefresh();
     },
     []
   );
@@ -165,11 +169,13 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
   const deleteSchedule = useCallback(async (id: string): Promise<void> => {
     await invoke("delete_schedule", { id });
     setSchedules((prev) => prev.filter((s) => s.id !== id));
+    emitScheduleReminderRefresh();
   }, []);
 
   const deleteAllSchedules = useCallback(async (): Promise<void> => {
     await invoke("delete_all_schedules");
     setSchedules([]);
+    emitScheduleReminderRefresh();
   }, []);
 
   return {

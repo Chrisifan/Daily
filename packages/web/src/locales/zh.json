@@ -50,11 +50,19 @@
     "routineStart": "开始时间",
     "routineEnd": "结束时间",
     "routineValidation": "结束时间需要晚于开始时间，且至少保留 30 分钟。",
-    "externalScheduleCreationMode": "收到来自邮箱或日历的新日程时自动创建日程",
+    "externalScheduleCreationMode": "自动创建日程",
     "externalScheduleCreationModeDesc": "控制来自邮箱或日历的新日程是直接加入 Daily，还是总是先通过系统通知提醒你。",
+    "scheduleReminderLeadMinutes": "日程提前提醒",
+    "scheduleReminderLeadMinutesDesc": "控制普通日程是否在开始前通过系统通知提醒你。",
     "externalScheduleModes": {
       "automatic": "自动",
       "alwaysRemind": "总是提醒"
+    },
+    "scheduleReminderModes": {
+      "none": "不提醒",
+      "5": "5 分钟前",
+      "10": "10 分钟前",
+      "30": "30 分钟前"
     },
     "email": {
       "title": "邮箱账号",

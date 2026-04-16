@@ -98,3 +98,41 @@ test("MailAccountStore persists background sync errors", async () => {
   assert.equal(account?.lastSyncError, "socket timeout");
   await fs.rm(dbPath, { force: true });
 });
+
+test("MailAccountStore clears background sync errors when lastSyncError is updated to null", async () => {
+  const dbPath = createTempDbPath("mail-account-clear-error");
+  const store = new MailAccountStore({ dbPath });
+
+  await store.upsertAccount({
+    id: "acc-clear-error",
+    provider: "imap",
+    emailAddress: "watch@example.com",
+    imapHost: "imap.example.com",
+    imapPort: 993,
+    username: "watch@example.com",
+    secure: true,
+    displayName: "Watcher",
+    authStatus: "error",
+    syncStatus: "error",
+    lastSyncedAt: null,
+    lastSyncError: "Not authenticated",
+    scopes: [],
+    createdAt: "2026-04-16T00:00:00.000Z",
+    updatedAt: "2026-04-16T00:00:00.000Z",
+  });
+
+  store.updateAccountState("acc-clear-error", {
+    authStatus: "connected",
+    syncStatus: "idle",
+    lastSyncError: null,
+    updatedAt: "2026-04-16T00:05:00.000Z",
+  });
+
+  const account = store.getAccount("acc-clear-error");
+
+  assert.equal(account?.authStatus, "connected");
+  assert.equal(account?.syncStatus, "idle");
+  assert.equal(account?.lastSyncError, null);
+
+  await fs.rm(dbPath, { force: true });
+});

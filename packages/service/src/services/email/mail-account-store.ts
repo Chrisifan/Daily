@@ -226,7 +226,9 @@ export class MailAccountStore {
       authStatus: updates.authStatus ?? existing.authStatus,
       syncStatus: updates.syncStatus ?? existing.syncStatus,
       lastSyncedAt: updates.lastSyncedAt ?? existing.lastSyncedAt,
-      lastSyncError: updates.lastSyncError ?? existing.lastSyncError,
+      lastSyncError: Object.prototype.hasOwnProperty.call(updates, "lastSyncError")
+        ? updates.lastSyncError ?? null
+        : existing.lastSyncError,
       updatedAt: updates.updatedAt ?? new Date().toISOString(),
     });
   }
