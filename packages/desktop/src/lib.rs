@@ -7,6 +7,8 @@ use std::sync::Mutex;
 use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
 
+mod system_calendar;
+
 fn schedule_items_columns(conn: &Connection) -> rusqlite::Result<HashSet<String>> {
     let mut stmt = conn.prepare("PRAGMA table_info(schedule_items)")?;
     let existing_columns = stmt
@@ -202,6 +204,112 @@ fn ensure_schedule_reminder_deliveries_schema(conn: &Connection) -> rusqlite::Re
     Ok(())
 }
 
+const SYSTEM_CALENDAR_SYNC_STATE_ID: &str = "system-calendar";
+
+fn ensure_system_calendar_sync_state_schema(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS system_calendar_sync_state (
+            id TEXT PRIMARY KEY,
+            auth_status TEXT NOT NULL DEFAULT 'disconnected',
+            sync_status TEXT NOT NULL DEFAULT 'idle',
+            last_synced_at TEXT,
+            last_sync_error TEXT,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO system_calendar_sync_state (
+            id,
+            auth_status,
+            sync_status,
+            last_synced_at,
+            last_sync_error,
+            updated_at
+        ) VALUES (?1, 'disconnected', 'idle', NULL, NULL, ?2)",
+        params![SYSTEM_CALENDAR_SYNC_STATE_ID, now_rfc3339()],
+    )?;
+
+    Ok(())
+}
+
+fn is_system_calendar_supported_for_platform(platform: &str) -> bool {
+    platform == "macos"
+}
+
+fn current_platform_name() -> &'static str {
+    std::env::consts::OS
+}
+
+fn update_system_calendar_sync_state(
+    conn: &Connection,
+    auth_status: &str,
+    sync_status: &str,
+    last_synced_at: Option<&str>,
+    last_sync_error: Option<&str>,
+) -> rusqlite::Result<()> {
+    ensure_system_calendar_sync_state_schema(conn)?;
+    conn.execute(
+        "UPDATE system_calendar_sync_state
+         SET auth_status = ?1,
+             sync_status = ?2,
+             last_synced_at = ?3,
+             last_sync_error = ?4,
+             updated_at = ?5
+         WHERE id = ?6",
+        params![
+            auth_status,
+            sync_status,
+            last_synced_at,
+            last_sync_error,
+            now_rfc3339(),
+            SYSTEM_CALENDAR_SYNC_STATE_ID,
+        ],
+    )?;
+
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SystemCalendarStatus {
+    available: bool,
+    auth_status: String,
+    sync_status: String,
+    last_synced_at: Option<String>,
+    last_sync_error: Option<String>,
+}
+
+fn read_system_calendar_status(
+    conn: &Connection,
+    platform: &str,
+) -> rusqlite::Result<SystemCalendarStatus> {
+    ensure_system_calendar_sync_state_schema(conn)?;
+
+    let available = is_system_calendar_supported_for_platform(platform);
+    let (auth_status, sync_status, last_synced_at, last_sync_error): (
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+    ) = conn.query_row(
+        "SELECT auth_status, sync_status, last_synced_at, last_sync_error
+         FROM system_calendar_sync_state
+         WHERE id = ?1",
+        params![SYSTEM_CALENDAR_SYNC_STATE_ID],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
+
+    Ok(SystemCalendarStatus {
+        available,
+        auth_status,
+        sync_status,
+        last_synced_at,
+        last_sync_error,
+    })
+}
+
 fn schedule_reminder_delivery_id(schedule_id: &str, remind_at: &str) -> String {
     format!("schedule-reminder::{schedule_id}::{remind_at}")
 }
@@ -364,6 +472,7 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
 
     ensure_external_schedule_candidates_schema(&conn).ok();
     ensure_schedule_reminder_deliveries_schema(&conn).ok();
+    ensure_system_calendar_sync_state_schema(&conn).ok();
 
     Mutex::new(conn)
 });
@@ -1091,6 +1200,139 @@ fn show_system_notification(app: AppHandle, title: String, body: String) -> Resu
         })
 }
 
+#[tauri::command]
+fn get_system_calendar_status() -> Result<SystemCalendarStatus, String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+    read_system_calendar_status(&conn, current_platform_name()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn request_system_calendar_access() -> Result<SystemCalendarStatus, String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+    let platform = current_platform_name();
+
+    if !is_system_calendar_supported_for_platform(platform) {
+        return read_system_calendar_status(&conn, platform).map_err(|e| e.to_string());
+    }
+
+    let current_status = read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?;
+
+    match system_calendar::request_access() {
+        Ok(()) => {
+            update_system_calendar_sync_state(
+                &conn,
+                "connected",
+                "idle",
+                current_status.last_synced_at.as_deref(),
+                None,
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Err(error) => {
+            update_system_calendar_sync_state(
+                &conn,
+                "error",
+                "idle",
+                current_status.last_synced_at.as_deref(),
+                Some(error.as_str()),
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn sync_system_calendar() -> Result<SystemCalendarStatus, String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+    let platform = current_platform_name();
+
+    if !is_system_calendar_supported_for_platform(platform) {
+        return read_system_calendar_status(&conn, platform).map_err(|e| e.to_string());
+    }
+
+    let current_status = read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?;
+
+    update_system_calendar_sync_state(
+        &conn,
+        if current_status.auth_status == "connected" {
+            "connected"
+        } else {
+            "disconnected"
+        },
+        "syncing",
+        current_status.last_synced_at.as_deref(),
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+
+    let window = system_calendar::default_sync_window(chrono::Utc::now());
+    let next_status = match system_calendar::fetch_events(&window) {
+        Ok(events) => match events
+            .iter()
+            .map(system_calendar::map_native_event)
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(mapped_events) => match system_calendar::sync_events(&conn, &mapped_events, &window) {
+                Ok(()) => {
+                    let synced_at = now_rfc3339();
+                    update_system_calendar_sync_state(
+                        &conn,
+                        "connected",
+                        "idle",
+                        Some(synced_at.as_str()),
+                        None,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?
+                }
+                Err(error) => {
+                    let message = error.to_string();
+                    update_system_calendar_sync_state(
+                        &conn,
+                        "connected",
+                        "error",
+                        current_status.last_synced_at.as_deref(),
+                        Some(message.as_str()),
+                    )
+                    .map_err(|e| e.to_string())?;
+                    read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?
+                }
+            },
+            Err(error) => {
+                update_system_calendar_sync_state(
+                    &conn,
+                    "connected",
+                    "error",
+                    current_status.last_synced_at.as_deref(),
+                    Some(error.as_str()),
+                )
+                .map_err(|e| e.to_string())?;
+                read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?
+            }
+        },
+        Err(error) => {
+            let auth_status = if current_status.auth_status == "connected" {
+                "connected"
+            } else {
+                "error"
+            };
+            update_system_calendar_sync_state(
+                &conn,
+                auth_status,
+                "error",
+                current_status.last_synced_at.as_deref(),
+                Some(error.as_str()),
+            )
+            .map_err(|e| e.to_string())?;
+            read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?
+        }
+    };
+
+    Ok(next_status)
+}
+
 #[cfg(target_os = "macos")]
 fn show_macos_dev_notification(title: &str, body: &str) -> Result<(), String> {
     let script = build_applescript_notification_script(title, body);
@@ -1156,7 +1398,10 @@ pub fn run() {
             update_external_schedule_candidate_notified_at,
             was_schedule_reminder_delivered_command,
             mark_schedule_reminder_delivered_command,
-            show_system_notification
+            show_system_notification,
+            get_system_calendar_status,
+            request_system_calendar_access,
+            sync_system_calendar
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -1166,6 +1411,34 @@ pub fn run() {
 mod tests {
     use rusqlite::Connection;
     use rusqlite::params;
+
+    fn create_schedule_items_table(conn: &Connection) {
+        conn.execute(
+            "CREATE TABLE schedule_items (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL DEFAULT 'manual',
+                source_event_id TEXT,
+                title TEXT NOT NULL,
+                icon TEXT NOT NULL DEFAULT 'clock',
+                start_at TEXT NOT NULL,
+                timezone TEXT NOT NULL DEFAULT 'UTC',
+                duration_minutes INTEGER NOT NULL DEFAULT 30,
+                repeat_mode TEXT NOT NULL DEFAULT 'none',
+                repeat_group_id TEXT,
+                location TEXT,
+                notes TEXT,
+                workspace_id TEXT,
+                priority TEXT NOT NULL DEFAULT 'medium',
+                preparation_minutes INTEGER,
+                travel_minutes INTEGER,
+                is_flexible INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("create schedule_items");
+    }
 
     #[test]
     fn schedule_reminder_delivery_marking_is_idempotent() {
@@ -1218,5 +1491,150 @@ mod tests {
             script,
             "display notification \"Line 1\\nLine 2 \\\\ test\" with title \"Daily \\\"Focus\\\"\""
         );
+    }
+
+    #[test]
+    fn ensure_system_calendar_sync_state_schema_creates_table() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+
+        super::ensure_system_calendar_sync_state_schema(&conn).expect("schema migration");
+
+        let exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'system_calendar_sync_state'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("table lookup");
+
+        assert_eq!(exists, 1);
+    }
+
+    #[test]
+    fn system_calendar_support_is_disabled_on_unsupported_platforms() {
+        assert!(!super::is_system_calendar_supported_for_platform("windows"));
+        assert!(!super::is_system_calendar_supported_for_platform("linux"));
+        assert!(super::is_system_calendar_supported_for_platform("macos"));
+    }
+
+    #[test]
+    fn default_system_calendar_status_is_disconnected_and_idle() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        super::ensure_system_calendar_sync_state_schema(&conn).expect("schema migration");
+
+        let status = super::read_system_calendar_status(&conn, "macos").expect("status");
+
+        assert!(status.available);
+        assert_eq!(status.auth_status, "disconnected");
+        assert_eq!(status.sync_status, "idle");
+        assert_eq!(status.last_synced_at, None);
+        assert_eq!(status.last_sync_error, None);
+    }
+
+    #[test]
+    fn system_calendar_event_mapping_uses_source_event_id_and_duration() {
+        let mapped =
+            super::system_calendar::map_native_event(&super::system_calendar::SystemCalendarNativeEvent {
+                id: "native-123".to_string(),
+                title: "设计评审".to_string(),
+                start_at: "2026-04-16T01:00:00Z".to_string(),
+                end_at: "2026-04-16T02:30:00Z".to_string(),
+                timezone: "Asia/Shanghai".to_string(),
+                location: "会议室 A".to_string(),
+                notes: "带上文档".to_string(),
+                is_all_day: false,
+            })
+            .expect("mapped event");
+
+        assert_eq!(mapped.source_event_id, "native-123");
+        assert_eq!(mapped.start_at, "2026-04-16T01:00:00+00:00");
+        assert_eq!(mapped.duration_minutes, 90);
+        assert_eq!(mapped.location.as_deref(), Some("会议室 A"));
+    }
+
+    #[test]
+    fn system_calendar_event_mapping_normalizes_edge_case_durations() {
+        let mapped =
+            super::system_calendar::map_native_event(&super::system_calendar::SystemCalendarNativeEvent {
+                id: "all-day".to_string(),
+                title: "".to_string(),
+                start_at: "2026-04-16T00:00:00Z".to_string(),
+                end_at: "2026-04-16T00:00:00Z".to_string(),
+                timezone: "".to_string(),
+                location: "".to_string(),
+                notes: "".to_string(),
+                is_all_day: true,
+            })
+            .expect("mapped event");
+
+        assert_eq!(mapped.title, "系统日历");
+        assert_eq!(mapped.timezone, "UTC");
+        assert_eq!(mapped.duration_minutes, 60);
+    }
+
+    #[test]
+    fn system_calendar_sync_updates_existing_rows_without_duplicates() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        create_schedule_items_table(&conn);
+
+        let window = super::system_calendar::SystemCalendarSyncWindow {
+            start_at: "2026-04-01T00:00:00Z".to_string(),
+            end_at: "2026-05-01T00:00:00Z".to_string(),
+        };
+
+        let first_event = super::system_calendar::ImportedSystemCalendarEvent {
+            source_event_id: "event-1".to_string(),
+            title: "旧标题".to_string(),
+            start_at: "2026-04-16T09:00:00Z".to_string(),
+            timezone: "UTC".to_string(),
+            duration_minutes: 30,
+            location: Some("A".to_string()),
+            notes: None,
+        };
+        super::system_calendar::sync_events(&conn, &[first_event], &window).expect("first sync");
+
+        let updated_event = super::system_calendar::ImportedSystemCalendarEvent {
+            source_event_id: "event-1".to_string(),
+            title: "新标题".to_string(),
+            start_at: "2026-04-16T10:00:00Z".to_string(),
+            timezone: "Asia/Shanghai".to_string(),
+            duration_minutes: 45,
+            location: Some("B".to_string()),
+            notes: Some("updated".to_string()),
+        };
+        super::system_calendar::sync_events(&conn, &[updated_event], &window).expect("second sync");
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM schedule_items WHERE source = 'system_calendar' AND source_event_id = 'event-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count rows");
+        assert_eq!(count, 1);
+
+        let row = conn
+            .query_row(
+                "SELECT title, start_at, timezone, duration_minutes, location, notes FROM schedule_items WHERE source_event_id = 'event-1'",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i32>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                    ))
+                },
+            )
+            .expect("read updated row");
+
+        assert_eq!(row.0, "新标题");
+        assert_eq!(row.1, "2026-04-16T10:00:00Z");
+        assert_eq!(row.2, "Asia/Shanghai");
+        assert_eq!(row.3, 45);
+        assert_eq!(row.4.as_deref(), Some("B"));
+        assert_eq!(row.5.as_deref(), Some("updated"));
     }
 }

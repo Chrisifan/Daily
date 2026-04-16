@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { Ref } from 'react';
 import { getStoredSettings } from '../../shared/services/settingsService';
 import {
-  Inbox,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
