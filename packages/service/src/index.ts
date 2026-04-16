@@ -3,14 +3,36 @@ import cors from "cors";
 import dotenv from "dotenv";
 import classifyRouter from "./routes/classify.js";
 import suggestionsRouter from "./routes/suggestions.js";
-import emailRouter from "./routes/email.js";
+import { createEmailRouter, createEnsureMailAccountsReady } from "./routes/email.js";
 import locationRouter from "./routes/location.js";
+import { MailAccountStore } from "./services/email/mail-account-store.js";
+import { MailSecretStore } from "./services/email/mail-secret-store.js";
+import { MailSyncCursorStore } from "./services/email/mail-sync-cursor-store.js";
+import { ExternalScheduleCandidateStore } from "./services/intake/external-schedule-candidate-store.js";
+import { createMailWatchEvents } from "./services/email/mail-watch-events.js";
+import { MailWatchService } from "./services/email/mail-watch-service.js";
 
 // 加载环境变量
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const mailAccountStore = new MailAccountStore();
+const mailSecretStore = new MailSecretStore();
+const mailSyncCursorStore = new MailSyncCursorStore();
+const externalScheduleCandidateStore = new ExternalScheduleCandidateStore();
+const mailWatchEvents = createMailWatchEvents();
+const ensureMailAccountsReady = createEnsureMailAccountsReady({
+  store: mailAccountStore,
+  secretStore: mailSecretStore,
+});
+const mailWatchService = new MailWatchService({
+  accountStore: mailAccountStore,
+  cursorStore: mailSyncCursorStore,
+  candidateStore: externalScheduleCandidateStore,
+  secretStore: mailSecretStore,
+  events: mailWatchEvents,
+});
 
 // 中间件
 app.use(cors({
@@ -29,7 +51,13 @@ app.use((req, _res, next) => {
 // 路由
 app.use("/api/classify", classifyRouter);
 app.use("/api/suggestions", suggestionsRouter);
-app.use("/api/email", emailRouter);
+app.use("/api/email", createEmailRouter({
+  mailAccountStore,
+  mailSecretStore,
+  mailWatchService,
+  mailWatchEvents,
+  ensureMailAccountsReady,
+}));
 app.use("/api/location", locationRouter);
 
 // 健康检查
@@ -60,9 +88,12 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
-// 启动服务器
-app.listen(PORT, () => {
-  console.log(`
+async function bootstrap(): Promise<void> {
+  await ensureMailAccountsReady();
+  await mailWatchService.start();
+
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════════════════════╗
 ║         Smart Workbench AI Service                     ║
 ╠════════════════════════════════════════════════════════╣
@@ -70,4 +101,10 @@ app.listen(PORT, () => {
 ║  AI Enabled: ${process.env.OPENAI_API_KEY ? "Yes ✓" : "No (mock mode)"}                          ║
 ╚════════════════════════════════════════════════════════╝
   `);
+  });
+}
+
+void bootstrap().catch((error) => {
+  console.error("Failed to bootstrap service:", error);
+  process.exitCode = 1;
 });

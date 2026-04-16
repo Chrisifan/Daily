@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import type { CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +7,10 @@ import { GlassCard } from "../../shared/ui/GlassCard";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { useToast } from "../../shared/ui/ToastProvider";
 import type { ExternalScheduleCandidate } from "../../domain/intake/types";
-import { handleIncomingCandidates } from "../../shared/services/externalScheduleIntakeService";
+import {
+  processPersistedExternalScheduleCandidates,
+} from "../../shared/services/externalScheduleIntakeService";
+import { MAIL_WATCH_STATUS_CHANGED_EVENT } from "../../shared/hooks/useMailWatchSync";
 import { formatDateTime } from "../../shared/utils/date";
 
 // ==================== 类型定义 ====================
@@ -19,7 +23,10 @@ interface Account {
   username: string;
   secure: boolean;
   displayName?: string;
+  authStatus: "connected" | "disconnected" | "error";
+  syncStatus: "syncing" | "idle" | "error";
   lastSyncedAt?: string;
+  lastSyncError?: string;
   createdAt: string;
   connected: boolean;
 }
@@ -142,6 +149,48 @@ function getAccountAlias(account: Pick<Account, "displayName" | "email">): strin
   return alias.toLowerCase() === account.email.trim().toLowerCase() ? undefined : alias;
 }
 
+function getAccountStatusLabel(account: Account, t: ReturnType<typeof useTranslation>["t"]): string {
+  if (account.syncStatus === "syncing") {
+    return t("integrations.syncing") || "同步中...";
+  }
+  if (account.authStatus === "error") {
+    return t("integrations.watchError") || "监听异常";
+  }
+  if (account.authStatus === "connected") {
+    return t("integrations.watching") || "监听中";
+  }
+  return t("settings.email.notConnected");
+}
+
+function getAccountStatusStyle(account: Account): CSSProperties {
+  if (account.syncStatus === "syncing") {
+    return {
+      background: "var(--color-warning-soft)",
+      color: "var(--color-warning)",
+      border: "1px solid color-mix(in srgb, var(--color-warning) 24%, transparent)",
+    };
+  }
+  if (account.authStatus === "error") {
+    return {
+      background: "var(--color-error-soft)",
+      color: "var(--color-error)",
+      border: "1px solid color-mix(in srgb, var(--color-error) 24%, transparent)",
+    };
+  }
+  if (account.authStatus === "connected") {
+    return {
+      background: "var(--color-success-soft)",
+      color: "var(--color-success)",
+      border: "1px solid color-mix(in srgb, var(--color-success) 24%, transparent)",
+    };
+  }
+  return {
+    background: "var(--color-warning-soft)",
+    color: "var(--color-warning)",
+    border: "1px solid color-mix(in srgb, var(--color-warning) 24%, transparent)",
+  };
+}
+
 // ==================== 组件 ====================
 
 export function IntegrationsPage() {
@@ -181,6 +230,17 @@ export function IntegrationsPage() {
 
   useEffect(() => {
     loadAccounts();
+  }, [loadAccounts]);
+
+  useEffect(() => {
+    const handleStatusChanged = () => {
+      void loadAccounts();
+    };
+
+    window.addEventListener(MAIL_WATCH_STATUS_CHANGED_EVENT, handleStatusChanged as EventListener);
+    return () => {
+      window.removeEventListener(MAIL_WATCH_STATUS_CHANGED_EVENT, handleStatusChanged as EventListener);
+    };
   }, [loadAccounts]);
 
   const resetFormState = useCallback(() => {
@@ -313,7 +373,7 @@ export function IntegrationsPage() {
     setSyncError(null);
     try {
       const result = await syncAccount(accountId);
-      await handleIncomingCandidates(result.candidates);
+      await processPersistedExternalScheduleCandidates({ candidateIds: result.candidates.map((candidate) => candidate.id) });
       // Reload accounts to get updated lastSyncedAt
       await loadAccounts();
       toast.success(t("feedback.emailSyncSuccess"));
@@ -424,16 +484,10 @@ export function IntegrationsPage() {
                           fontWeight: 500,
                           padding: "2px 8px",
                           borderRadius: 999,
-                          background: acc.connected
-                            ? "rgba(34,197,94,0.1)"
-                            : "rgba(245,158,11,0.1)",
-                          color: acc.connected
-                            ? "var(--color-success)"
-                            : "var(--color-warning)",
-                          border: `1px solid ${acc.connected ? "rgba(34,197,94,0.2)" : "rgba(245,158,11,0.2)"}`,
+                          ...getAccountStatusStyle(acc),
                         }}
                       >
-                        {acc.connected ? t("settings.email.connected") : t("settings.email.notConnected")}
+                        {getAccountStatusLabel(acc, t)}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
@@ -444,6 +498,11 @@ export function IntegrationsPage() {
                         </span>
                       )}
                     </div>
+                    {acc.lastSyncError && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: "var(--color-error)" }}>
+                        {acc.lastSyncError}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -463,7 +522,9 @@ export function IntegrationsPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {syncing === acc.id ? t("integrations.syncing") || "同步中..." : t("settings.email.sync")}
+                    {syncing === acc.id
+                      ? t("integrations.syncing") || "同步中..."
+                      : t("integrations.manualCheck") || "立即检查"}
                   </button>
 
                   <button

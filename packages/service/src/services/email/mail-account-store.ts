@@ -19,6 +19,7 @@ export interface MailAccountRecord {
   authStatus: MailAccountAuthStatus;
   syncStatus: MailAccountSyncStatus;
   lastSyncedAt: string | null;
+  lastSyncError: string | null;
   scopes: string[];
   createdAt: string;
   updatedAt: string;
@@ -36,6 +37,7 @@ const MAIL_ACCOUNT_COLUMNS: Array<[string, string]> = [
   ["display_name", "ALTER TABLE mail_accounts ADD COLUMN display_name TEXT"],
   ["created_at", "ALTER TABLE mail_accounts ADD COLUMN created_at TEXT NOT NULL DEFAULT ''"],
   ["updated_at", "ALTER TABLE mail_accounts ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''"],
+  ["last_sync_error", "ALTER TABLE mail_accounts ADD COLUMN last_sync_error TEXT"],
 ];
 
 function defaultDataDirectory(): string {
@@ -72,6 +74,7 @@ function mapRowToMailAccount(row: Record<string, unknown>): MailAccountRecord {
     authStatus: (row.auth_status as MailAccountAuthStatus) ?? "disconnected",
     syncStatus: (row.sync_status as MailAccountSyncStatus) ?? "idle",
     lastSyncedAt: row.last_synced_at ? String(row.last_synced_at) : null,
+    lastSyncError: row.last_sync_error ? String(row.last_sync_error) : null,
     scopes: row.scopes ? JSON.parse(String(row.scopes)) as string[] : [],
     createdAt: String(row.created_at ?? ""),
     updatedAt: String(row.updated_at ?? ""),
@@ -102,6 +105,7 @@ export class MailAccountStore {
         auth_status TEXT NOT NULL DEFAULT 'disconnected',
         sync_status TEXT NOT NULL DEFAULT 'idle',
         last_synced_at TEXT,
+        last_sync_error TEXT,
         scopes TEXT NOT NULL DEFAULT '[]',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -129,7 +133,7 @@ export class MailAccountStore {
     const rows = this.db
       .prepare(
         `SELECT id, provider, email_address, imap_host, imap_port, username, secure, display_name,
-                auth_status, sync_status, last_synced_at, scopes, created_at, updated_at
+                auth_status, sync_status, last_synced_at, last_sync_error, scopes, created_at, updated_at
            FROM mail_accounts
           ORDER BY created_at DESC, email_address ASC`
       )
@@ -142,7 +146,7 @@ export class MailAccountStore {
     const row = this.db
       .prepare(
         `SELECT id, provider, email_address, imap_host, imap_port, username, secure, display_name,
-                auth_status, sync_status, last_synced_at, scopes, created_at, updated_at
+                auth_status, sync_status, last_synced_at, last_sync_error, scopes, created_at, updated_at
            FROM mail_accounts
           WHERE id = ?`
       )
@@ -155,7 +159,7 @@ export class MailAccountStore {
     const row = this.db
       .prepare(
         `SELECT id, provider, email_address, imap_host, imap_port, username, secure, display_name,
-                auth_status, sync_status, last_synced_at, scopes, created_at, updated_at
+                auth_status, sync_status, last_synced_at, last_sync_error, scopes, created_at, updated_at
            FROM mail_accounts
           WHERE lower(email_address) = lower(?)`
       )
@@ -169,9 +173,9 @@ export class MailAccountStore {
       .prepare(
         `INSERT INTO mail_accounts (
             id, provider, email_address, imap_host, imap_port, username, secure, display_name,
-            auth_status, sync_status, last_synced_at, scopes, created_at, updated_at
+            auth_status, sync_status, last_synced_at, last_sync_error, scopes, created_at, updated_at
           ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
           ON CONFLICT(id) DO UPDATE SET
             provider = excluded.provider,
@@ -184,6 +188,7 @@ export class MailAccountStore {
             auth_status = excluded.auth_status,
             sync_status = excluded.sync_status,
             last_synced_at = excluded.last_synced_at,
+            last_sync_error = excluded.last_sync_error,
             scopes = excluded.scopes,
             created_at = excluded.created_at,
             updated_at = excluded.updated_at`
@@ -200,6 +205,7 @@ export class MailAccountStore {
         account.authStatus,
         account.syncStatus,
         account.lastSyncedAt,
+        account.lastSyncError,
         JSON.stringify(account.scopes),
         account.createdAt,
         account.updatedAt
@@ -208,7 +214,7 @@ export class MailAccountStore {
 
   updateAccountState(
     id: string,
-    updates: Partial<Pick<MailAccountRecord, "authStatus" | "syncStatus" | "lastSyncedAt" | "updatedAt">>
+    updates: Partial<Pick<MailAccountRecord, "authStatus" | "syncStatus" | "lastSyncedAt" | "lastSyncError" | "updatedAt">>
   ): void {
     const existing = this.getAccount(id);
     if (!existing) {
@@ -220,6 +226,7 @@ export class MailAccountStore {
       authStatus: updates.authStatus ?? existing.authStatus,
       syncStatus: updates.syncStatus ?? existing.syncStatus,
       lastSyncedAt: updates.lastSyncedAt ?? existing.lastSyncedAt,
+      lastSyncError: updates.lastSyncError ?? existing.lastSyncError,
       updatedAt: updates.updatedAt ?? new Date().toISOString(),
     });
   }

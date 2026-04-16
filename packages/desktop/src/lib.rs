@@ -164,6 +164,24 @@ fn ensure_mail_accounts_schema(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn ensure_external_schedule_candidates_schema(conn: &Connection) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare("PRAGMA table_info(external_schedule_candidates)")?;
+    let existing_columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .collect::<HashSet<_>>();
+
+    if !existing_columns.contains("notified_at") {
+        conn.execute(
+            "ALTER TABLE external_schedule_candidates ADD COLUMN notified_at TEXT",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
 fn compute_end_at(start_at: &str, duration_minutes: i32) -> Result<String, String> {
     let start = chrono::DateTime::parse_from_rfc3339(start_at)
         .map_err(|e| format!("invalid start_at: {e}"))?;
@@ -276,12 +294,15 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
             confidence REAL NOT NULL DEFAULT 0,
             raw_payload_json TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL,
+            notified_at TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )",
         [],
     )
     .ok();
+
+    ensure_external_schedule_candidates_schema(&conn).ok();
 
     Mutex::new(conn)
 });
@@ -355,6 +376,7 @@ pub struct ExternalScheduleCandidate {
     pub confidence: f64,
     pub raw_payload_json: String,
     pub status: String,
+    pub notified_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -464,8 +486,9 @@ fn map_external_schedule_candidate(
         confidence: row.get(12)?,
         raw_payload_json: row.get(13)?,
         status: row.get(14)?,
-        created_at: row.get(15)?,
-        updated_at: row.get(16)?,
+        notified_at: row.get(15)?,
+        created_at: row.get(16)?,
+        updated_at: row.get(17)?,
     })
 }
 
@@ -857,12 +880,13 @@ fn upsert_external_schedule_candidate(input: CreateExternalScheduleCandidateInpu
         "INSERT OR REPLACE INTO external_schedule_candidates (
             id, source, source_account_id, source_event_id, source_message_id,
             title, start_at, end_at, timezone, location, notes, attendees_json,
-            confidence, raw_payload_json, status, created_at, updated_at
+            confidence, raw_payload_json, status, notified_at, created_at, updated_at
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5,
             ?6, ?7, ?8, ?9, ?10, ?11, ?12,
             ?13, ?14,
             COALESCE((SELECT status FROM external_schedule_candidates WHERE id = ?1), 'pending'),
+            COALESCE((SELECT notified_at FROM external_schedule_candidates WHERE id = ?1), NULL),
             COALESCE((SELECT created_at FROM external_schedule_candidates WHERE id = ?1), ?15),
             ?15
         )",
@@ -895,7 +919,7 @@ fn get_external_schedule_candidate(id: String) -> Result<Option<ExternalSchedule
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, source, source_account_id, source_event_id, source_message_id, title, start_at, end_at, timezone, location, notes, attendees_json, confidence, raw_payload_json, status, created_at, updated_at
+            "SELECT id, source, source_account_id, source_event_id, source_message_id, title, start_at, end_at, timezone, location, notes, attendees_json, confidence, raw_payload_json, status, notified_at, created_at, updated_at
              FROM external_schedule_candidates WHERE id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -910,7 +934,7 @@ fn list_pending_external_schedule_candidates() -> Result<Vec<ExternalScheduleCan
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, source, source_account_id, source_event_id, source_message_id, title, start_at, end_at, timezone, location, notes, attendees_json, confidence, raw_payload_json, status, created_at, updated_at
+            "SELECT id, source, source_account_id, source_event_id, source_message_id, title, start_at, end_at, timezone, location, notes, attendees_json, confidence, raw_payload_json, status, notified_at, created_at, updated_at
              FROM external_schedule_candidates
              WHERE status = 'pending'
              ORDER BY start_at ASC, created_at ASC",
@@ -939,6 +963,23 @@ fn update_external_schedule_candidate_status(id: String, status: String) -> Resu
     conn.execute(
         "UPDATE external_schedule_candidates SET status = ?1, updated_at = ?2 WHERE id = ?3",
         params![next_status, now, id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn update_external_schedule_candidate_notified_at(
+    id: String,
+    notified_at: Option<String>,
+) -> Result<(), String> {
+    let conn = DB.lock().map_err(|e| e.to_string())?;
+    let now = now_rfc3339();
+
+    conn.execute(
+        "UPDATE external_schedule_candidates SET notified_at = ?1, updated_at = ?2 WHERE id = ?3",
+        params![notified_at, now, id],
     )
     .map_err(|e| e.to_string())?;
 
@@ -1031,6 +1072,7 @@ pub fn run() {
             get_external_schedule_candidate,
             list_pending_external_schedule_candidates,
             update_external_schedule_candidate_status,
+            update_external_schedule_candidate_notified_at,
             show_system_notification
         ])
         .run(tauri::generate_context!())

@@ -1,10 +1,10 @@
-# Mail Auto Sync (IMAP IDLE) Design
+# Mail Auto Sync (IMAP IDLE + Catch-up Polling) Design
 
 **Date:** 2026-04-16
 
 ## Goal
 
-Replace the current user-triggered email sync flow with an automatic background sync flow based on persistent IMAP watchers.
+Replace the current user-triggered email sync flow with an automatic background sync flow based on persistent IMAP watchers plus a bounded catch-up polling fallback.
 
 After this change:
 
@@ -31,7 +31,7 @@ This has four problems:
 
 ## Chosen Direction
 
-Use IMAP long-lived connections in `packages/service` as the source of truth for mailbox watching.
+Use IMAP long-lived connections in `packages/service` as the source of truth for mailbox watching, with periodic catch-up sync as a reliability fallback.
 
 The service will:
 
@@ -39,6 +39,7 @@ The service will:
 - keep the IMAP connection alive with heartbeat and reconnect behavior
 - treat IMAP `mail` events as a trigger, not as the final source of truth
 - run a debounced incremental catch-up sync after each trigger
+- run a low-frequency fallback incremental sync even if no `mail` event arrives
 - persist watcher cursors and detected schedule candidates in the shared Daily SQLite database
 - emit lightweight runtime events to the renderer for status refresh, notifications, and immediate UI updates
 
@@ -163,6 +164,7 @@ Responsibilities:
 - subscribe to connector events such as `mail`, `close`, `error`, and `reconnected`
 - run initial catch-up sync on startup
 - debounce rapid `mail` events into one incremental sync job
+- maintain a low-frequency periodic catch-up timer so providers with unreliable IDLE push still converge
 - update `mail_accounts` runtime state and `mail_sync_cursors`
 
 The watcher must guarantee only one sync job per account at a time. If multiple `mail` events arrive during a sync, it should mark the account as needing one follow-up sync when the current job completes.
@@ -249,6 +251,19 @@ When IMAP emits `mail` for an account:
 7. it emits a runtime event with account id and candidate ids
 
 The watcher must not rely only on the event payload count, because IMAP `mail` indicates new mail exists but does not replace durable incremental reconciliation.
+
+### No Event Fallback
+
+Some IMAP providers or mailbox states do not reliably surface `mail` events even while IDLE is active.
+
+To keep automatic sync effective in those cases, each watcher also runs a low-frequency catch-up sync timer.
+
+Rules:
+
+- the fallback timer does not replace IMAP `mail`; it only closes reliability gaps
+- the timer reuses the same serialized incremental sync path as event-driven sync
+- if a sync is already running, the watcher should coalesce the fallback trigger into a single follow-up pass
+- the production interval should stay conservative enough to avoid unnecessary load while still recovering within a user-noticeable window
 
 ## Incremental Sync Rules
 

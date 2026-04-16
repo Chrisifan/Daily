@@ -27,4 +27,5 @@ export interface ExternalScheduleCandidate {
   confidence: number;
   rawPayload: Record<string, unknown>;
   status: ExternalScheduleCandidateStatus;
+  notifiedAt?: string;
 }

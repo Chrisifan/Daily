@@ -7,16 +7,17 @@ import { Router } from "express";
 import path from "node:path";
 import { ImapConnector } from "../services/email/imap-connector.js";
 import type { ImapConnectorConfig } from "../services/email/models/email.js";
-import { detectEmailScheduleCandidate } from "../services/intake/email-schedule-candidate-detector.js";
 import type { ExternalScheduleCandidate } from "../services/intake/external-schedule-candidate.js";
 import {
   MailAccountStore,
   type MailAccountRecord,
 } from "../services/email/mail-account-store.js";
-import { MailSecretStore } from "../services/email/mail-secret-store.js";
+import type { MailSecretStoreLike } from "../services/email/mail-secret-store.js";
 import { migrateLegacyMailAccounts } from "../services/email/mail-account-migration.js";
+import { MailWatchService } from "../services/email/mail-watch-service.js";
+import type { MailWatchEvents } from "../services/email/mail-watch-events.js";
 
-const router: Router = Router();
+const LEGACY_CONFIG_PATH = path.join(process.cwd(), "config", "mail-accounts.json");
 
 export interface AccountResponse {
   id: string;
@@ -26,7 +27,10 @@ export interface AccountResponse {
   username: string;
   secure: boolean;
   displayName?: string;
+  authStatus: MailAccountRecord["authStatus"];
+  syncStatus: MailAccountRecord["syncStatus"];
   lastSyncedAt?: string;
+  lastSyncError?: string;
   createdAt: string;
   connected: boolean;
 }
@@ -49,10 +53,13 @@ export interface SyncAccountResponse {
   lastSyncedAt: string;
 }
 
-const LEGACY_CONFIG_PATH = path.join(process.cwd(), "config", "mail-accounts.json");
-const mailAccountStore = new MailAccountStore();
-const mailSecretStore = new MailSecretStore();
-let mailAccountInitPromise: Promise<void> | null = null;
+export interface EmailRouteDependencies {
+  mailAccountStore: MailAccountStore;
+  mailSecretStore: Pick<MailSecretStoreLike, "getPassword" | "setPassword" | "deletePassword">;
+  mailWatchService: MailWatchService;
+  mailWatchEvents: MailWatchEvents;
+  ensureMailAccountsReady: () => Promise<void>;
+}
 
 function normalizeDisplayName(displayName: string | undefined, email: string): string | undefined {
   const alias = displayName?.trim();
@@ -76,7 +83,10 @@ function toAccountResponse(acc: MailAccountRecord): AccountResponse {
     username: acc.username,
     secure: acc.secure,
     displayName: normalizeDisplayName(acc.displayName, acc.emailAddress),
+    authStatus: acc.authStatus,
+    syncStatus: acc.syncStatus,
     lastSyncedAt: acc.lastSyncedAt ?? undefined,
+    lastSyncError: acc.lastSyncError ?? undefined,
     createdAt: acc.createdAt,
     connected: acc.authStatus === "connected",
   };
@@ -94,23 +104,44 @@ function isAuthErrorMessage(message: string): boolean {
 }
 
 async function ensureMailAccountsReady(): Promise<void> {
-  if (!mailAccountInitPromise) {
-    mailAccountInitPromise = migrateLegacyMailAccounts({
-      configPath: LEGACY_CONFIG_PATH,
-      store: mailAccountStore,
-      secretStore: mailSecretStore,
-    }).then(() => undefined);
-  }
-
-  try {
-    await mailAccountInitPromise;
-  } catch (error) {
-    mailAccountInitPromise = null;
-    throw error;
-  }
+  throw new Error("ensureMailAccountsReady is injected at runtime");
 }
 
-router.get("/accounts", async (_req, res) => {
+export function createEnsureMailAccountsReady(deps: {
+  configPath?: string;
+  store: MailAccountStore;
+  secretStore: Pick<MailSecretStoreLike, "setPassword" | "getPassword" | "deletePassword">;
+}): () => Promise<void> {
+  let mailAccountInitPromise: Promise<void> | null = null;
+
+  return async function injectedEnsureMailAccountsReady(): Promise<void> {
+    if (!mailAccountInitPromise) {
+      mailAccountInitPromise = migrateLegacyMailAccounts({
+        configPath: deps.configPath ?? LEGACY_CONFIG_PATH,
+        store: deps.store,
+        secretStore: deps.secretStore,
+      }).then(() => undefined);
+    }
+
+    try {
+      await mailAccountInitPromise;
+    } catch (error) {
+      mailAccountInitPromise = null;
+      throw error;
+    }
+  };
+}
+
+export function createEmailRouter({
+  mailAccountStore,
+  mailSecretStore,
+  mailWatchService,
+  mailWatchEvents,
+  ensureMailAccountsReady,
+}: EmailRouteDependencies): Router {
+  const router: Router = Router();
+
+  router.get("/accounts", async (_req, res) => {
   try {
     await ensureMailAccountsReady();
     const accounts = mailAccountStore.listAccounts().map(toAccountResponse);
@@ -121,7 +152,37 @@ router.get("/accounts", async (_req, res) => {
   }
 });
 
-router.post("/accounts", async (req, res) => {
+  router.get("/watch/status", async (_req, res) => {
+    try {
+      await ensureMailAccountsReady();
+      res.json({ success: true, data: mailWatchService.getStatusSnapshot() });
+    } catch (err) {
+      console.error("[email/watch/status] GET error:", err);
+      res.status(500).json({ error: "Failed to read watch status", message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  router.get("/watch/events", async (req, res) => {
+    try {
+      await ensureMailAccountsReady();
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+      res.write(": connected\n\n");
+
+      const unsubscribe = mailWatchEvents.subscribe((payload) => {
+        res.write(payload);
+      });
+
+      req.on("close", unsubscribe);
+    } catch (err) {
+      console.error("[email/watch/events] GET error:", err);
+      res.status(500).json({ error: "Failed to open watch events", message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  router.post("/accounts", async (req, res) => {
   try {
     await ensureMailAccountsReady();
     const { email, imapHost, imapPort, username, password, secure, displayName } = req.body;
@@ -149,6 +210,7 @@ router.post("/accounts", async (req, res) => {
       authStatus: "disconnected",
       syncStatus: "idle",
       lastSyncedAt: null,
+      lastSyncError: null,
       scopes: [],
       createdAt: now,
       updatedAt: now,
@@ -162,6 +224,8 @@ router.post("/accounts", async (req, res) => {
       throw error;
     }
 
+    await mailWatchService.registerAccount(id);
+
     console.log(`[email/accounts] Added account: ${accountRecord.emailAddress} (${accountRecord.id})`);
     const accounts = mailAccountStore.listAccounts().map(toAccountResponse);
     res.json({ success: true, data: accounts });
@@ -171,7 +235,7 @@ router.post("/accounts", async (req, res) => {
   }
 });
 
-router.delete("/accounts/:id", async (req, res) => {
+  router.delete("/accounts/:id", async (req, res) => {
   try {
     await ensureMailAccountsReady();
     const { id } = req.params;
@@ -183,6 +247,7 @@ router.delete("/accounts/:id", async (req, res) => {
 
     await mailSecretStore.deletePassword(id);
     mailAccountStore.deleteAccount(id);
+    await mailWatchService.removeAccount(id);
 
     console.log(`[email/accounts] Deleted account: ${account.emailAddress} (${account.id})`);
     const accounts = mailAccountStore.listAccounts().map(toAccountResponse);
@@ -193,7 +258,7 @@ router.delete("/accounts/:id", async (req, res) => {
   }
 });
 
-router.post("/accounts/test", async (req, res) => {
+  router.post("/accounts/test", async (req, res) => {
   try {
     const { email, imapHost, imapPort, username, password, secure } = req.body;
 
@@ -245,7 +310,7 @@ router.post("/accounts/test", async (req, res) => {
   }
 });
 
-router.post("/accounts/sync", async (req, res) => {
+  router.post("/accounts/sync", async (req, res) => {
   try {
     await ensureMailAccountsReady();
     const { accountId } = req.body;
@@ -258,110 +323,29 @@ router.post("/accounts/sync", async (req, res) => {
     if (!account) {
       return res.status(404).json({ error: "Account not found" });
     }
+    const candidates = await mailWatchService.syncAccountNow(account.id);
+    const refreshedAccount = mailAccountStore.getAccount(account.id);
+    const syncedAt = refreshedAccount?.lastSyncedAt ?? new Date().toISOString();
 
-    const connectorConfig: ImapConnectorConfig = {
-      host: account.imapHost,
-      port: account.imapPort,
-      user: account.username,
-      password: await mailSecretStore.getPassword(account.id),
-      secure: account.secure,
-      connectionTimeout: 30000,
-      heartbeatInterval: 300000,
-      maxReconnectAttempts: 3,
-      reconnectDelay: 5000,
+    const response: SyncAccountResponse = {
+      accountId,
+      totalEmails: candidates.length,
+      messages: [],
+      candidates,
+      lastSyncedAt: syncedAt,
     };
 
-    mailAccountStore.updateAccountState(account.id, {
-      syncStatus: "syncing",
-      updatedAt: new Date().toISOString(),
+    res.json({
+      success: true,
+      data: response,
     });
-
-    const connector = new ImapConnector(connectorConfig);
-
-    try {
-      await connector.connect();
-      await connector.authenticate();
-
-      const searchResults = await connector.searchEmails({
-        folder: "INBOX",
-        limit: 20,
-      });
-
-      const uids = searchResults.map((result) => result.uid);
-      const emails = await connector.fetchEmails(uids, "INBOX");
-
-      const summaries: EmailSummary[] = emails.map((email) => ({
-        uid: email.uid,
-        subject: email.subject,
-        from: email.from,
-        date: email.date.toISOString(),
-        seen: email.seen,
-        hasAttachments: email.hasAttachments,
-        snippet: (email.body.text || "").slice(0, 100).replace(/\n/g, " ").trim(),
-      }));
-
-      await connector.disconnect();
-
-      const syncedAt = new Date().toISOString();
-      mailAccountStore.updateAccountState(account.id, {
-        authStatus: "connected",
-        syncStatus: "idle",
-        lastSyncedAt: syncedAt,
-        updatedAt: syncedAt,
-      });
-
-      const candidates = emails
-        .map((email) =>
-          detectEmailScheduleCandidate({
-            accountId: account.id,
-            messageId: email.messageId,
-            subject: email.subject,
-            bodyText: email.body.text,
-            bodyHtml: email.body.html,
-            sentAt: email.date.toISOString(),
-            icsEvents: email.icsEvents?.map((event) => ({
-              uid: event.uid,
-              summary: event.summary,
-              start: event.start,
-              end: event.end,
-              timezone: event.timezone,
-              location: event.location,
-              description: event.description,
-              attendees: event.attendees?.map((attendee) => ({
-                name: attendee.name,
-                address: attendee.address,
-              })),
-            })),
-          })
-        )
-        .filter((candidate): candidate is ExternalScheduleCandidate => candidate !== null);
-
-      const response: SyncAccountResponse = {
-        accountId,
-        totalEmails: searchResults.length,
-        messages: summaries,
-        candidates,
-        lastSyncedAt: syncedAt,
-      };
-
-      res.json({
-        success: true,
-        data: response,
-      });
-    } catch (syncErr) {
-      await connector.disconnect().catch(() => {});
-      const message = syncErr instanceof Error ? syncErr.message : String(syncErr);
-      mailAccountStore.updateAccountState(account.id, {
-        authStatus: isAuthErrorMessage(message) ? "error" : account.authStatus,
-        syncStatus: "error",
-        updatedAt: new Date().toISOString(),
-      });
-      throw syncErr;
-    }
   } catch (err) {
     console.error("[email/accounts/sync] Sync error:", err);
     res.status(500).json({ error: "Sync failed", message: err instanceof Error ? err.message : String(err) });
   }
 });
 
-export default router;
+  return router;
+}
+
+export default createEmailRouter;

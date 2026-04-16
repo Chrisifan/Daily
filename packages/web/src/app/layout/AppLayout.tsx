@@ -7,6 +7,7 @@ import { SettingsPopup } from "../../shared/ui/SettingsPopup";
 import { ExternalScheduleReviewDialog } from "../../shared/ui/ExternalScheduleReviewDialog";
 import { AppContext } from "../../shared/hooks/useAppContext";
 import { useExternalScheduleIntake } from "../../shared/hooks/useExternalScheduleIntake";
+import { useMailWatchSync } from "../../shared/hooks/useMailWatchSync";
 import { StartupSplash } from "../../features/onboarding/StartupSplash";
 import {
   getThemeSetting,
@@ -36,6 +37,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     confirmCandidate,
     dismissCandidate,
   } = useExternalScheduleIntake();
+  useMailWatchSync();
 
   useEffect(() => {
     getThemeSetting().then((theme) => {

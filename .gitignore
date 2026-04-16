@@ -24,6 +24,7 @@ packages/service/config/mail-accounts*.bak
 *.njsproj
 *.sln
 *.sw?
+.worktrees/
 
 # Changeset
 .changeset/*.md

@@ -47,6 +47,7 @@ function mapLegacyAccount(account: LegacyStoredAccount): MailAccountRecord {
     authStatus: account.lastSyncedAt ? "connected" : "disconnected",
     syncStatus: "idle",
     lastSyncedAt: account.lastSyncedAt ?? null,
+    lastSyncError: null,
     scopes: [],
     createdAt: account.createdAt || now,
     updatedAt: now,

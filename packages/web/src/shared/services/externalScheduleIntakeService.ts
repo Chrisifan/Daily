@@ -23,6 +23,7 @@ interface DesktopExternalScheduleCandidate {
   confidence: number;
   raw_payload_json: string;
   status: ExternalScheduleCandidateStatus;
+  notified_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +45,7 @@ function desktopCandidateToWeb(candidate: DesktopExternalScheduleCandidate): Ext
     confidence: candidate.confidence,
     rawPayload: JSON.parse(candidate.raw_payload_json) as Record<string, unknown>,
     status: candidate.status,
+    notifiedAt: candidate.notified_at ?? undefined,
   };
 }
 
@@ -77,6 +79,13 @@ async function notifyCandidate(candidate: ExternalScheduleCandidate, automatic: 
     title: getNotificationTitle(candidate.source, automatic),
     body: getNotificationBody(candidate, automatic),
   });
+}
+
+export async function updateExternalScheduleCandidateNotifiedAt(
+  id: string,
+  notifiedAt: string | null
+): Promise<void> {
+  await invoke("update_external_schedule_candidate_notified_at", { id, notifiedAt });
 }
 
 export async function upsertExternalCandidate(candidate: ExternalScheduleCandidate): Promise<void> {
@@ -139,26 +148,48 @@ export async function createScheduleFromCandidate(candidate: ExternalScheduleCan
 }
 
 export async function handleIncomingCandidates(candidates: ExternalScheduleCandidate[]): Promise<void> {
-  const { externalScheduleCreationMode } = getStoredSettings();
-  const pendingCandidateIds: string[] = [];
-
   for (const candidate of candidates) {
     await upsertExternalCandidate(candidate);
-    const persistedCandidate = await getExternalScheduleCandidate(candidate.id);
+  }
 
-    if (!persistedCandidate || persistedCandidate.status !== "pending") {
+  await processPersistedExternalScheduleCandidates({ candidateIds: candidates.map((candidate) => candidate.id) });
+}
+
+export async function processPersistedExternalScheduleCandidates(options?: {
+  candidateIds?: string[];
+}): Promise<void> {
+  const { externalScheduleCreationMode } = getStoredSettings();
+  const pendingCandidateIds: string[] = [];
+  const candidates = options?.candidateIds?.length
+    ? (
+        await Promise.all(
+          options.candidateIds.map(async (candidateId) => getExternalScheduleCandidate(candidateId))
+        )
+      ).filter((candidate): candidate is ExternalScheduleCandidate => candidate !== null)
+    : await listPendingExternalScheduleCandidates();
+
+  for (const candidate of candidates) {
+    if (candidate.status !== "pending") {
       continue;
     }
 
     if (externalScheduleCreationMode === "automatic") {
-      await createScheduleFromCandidate(persistedCandidate);
-      await updateExternalScheduleCandidateStatus(persistedCandidate.id, "auto_created");
-      await notifyCandidate(persistedCandidate, true);
+      await createScheduleFromCandidate(candidate);
+      await updateExternalScheduleCandidateStatus(candidate.id, "auto_created");
+
+      if (!candidate.notifiedAt) {
+        await notifyCandidate(candidate, true);
+        await updateExternalScheduleCandidateNotifiedAt(candidate.id, new Date().toISOString());
+      }
       continue;
     }
 
-    pendingCandidateIds.push(persistedCandidate.id);
-    await notifyCandidate(persistedCandidate, false);
+    pendingCandidateIds.push(candidate.id);
+
+    if (!candidate.notifiedAt) {
+      await notifyCandidate(candidate, false);
+      await updateExternalScheduleCandidateNotifiedAt(candidate.id, new Date().toISOString());
+    }
   }
 
   if (pendingCandidateIds.length > 0) {

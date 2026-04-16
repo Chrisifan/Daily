@@ -25,6 +25,7 @@ test("MailAccountStore persists and lists mail account metadata in SQLite", asyn
     authStatus: "connected",
     syncStatus: "idle",
     lastSyncedAt: "2026-04-15T10:00:00.000Z",
+    lastSyncError: null,
     scopes: [],
     createdAt: "2026-04-15T09:00:00.000Z",
     updatedAt: "2026-04-15T10:00:00.000Z",
@@ -56,6 +57,7 @@ test("MailAccountStore deletes mail account metadata from SQLite", async () => {
     authStatus: "connected",
     syncStatus: "idle",
     lastSyncedAt: null,
+    lastSyncError: null,
     scopes: [],
     createdAt: "2026-04-15T09:00:00.000Z",
     updatedAt: "2026-04-15T10:00:00.000Z",
@@ -66,5 +68,33 @@ test("MailAccountStore deletes mail account metadata from SQLite", async () => {
   const accounts = await store.listAccounts();
   assert.deepEqual(accounts, []);
 
+  await fs.rm(dbPath, { force: true });
+});
+
+test("MailAccountStore persists background sync errors", async () => {
+  const dbPath = createTempDbPath("mail-account-state");
+  const store = new MailAccountStore({ dbPath });
+
+  await store.upsertAccount({
+    id: "acc-error",
+    provider: "imap",
+    emailAddress: "watch@example.com",
+    imapHost: "imap.example.com",
+    imapPort: 993,
+    username: "watch@example.com",
+    secure: true,
+    displayName: "Watcher",
+    authStatus: "error",
+    syncStatus: "error",
+    lastSyncedAt: null,
+    lastSyncError: "socket timeout",
+    scopes: [],
+    createdAt: "2026-04-16T00:00:00.000Z",
+    updatedAt: "2026-04-16T00:00:00.000Z",
+  });
+
+  const account = await store.getAccount("acc-error");
+
+  assert.equal(account?.lastSyncError, "socket timeout");
   await fs.rm(dbPath, { force: true });
 });
