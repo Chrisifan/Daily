@@ -10,8 +10,16 @@ import type { ExternalScheduleCandidate } from "../../domain/intake/types";
 import {
   processPersistedExternalScheduleCandidates,
 } from "../../shared/services/externalScheduleIntakeService";
+import {
+  getSystemCalendarStatus,
+  requestSystemCalendarAccess,
+  syncSystemCalendar,
+  type SystemCalendarStatus,
+} from "../../shared/services/systemCalendarService";
+import { getSystemCalendarViewState } from "./system-calendar-view-state";
 import { MAIL_WATCH_STATUS_CHANGED_EVENT } from "../../shared/hooks/useMailWatchSync";
 import { formatDateTime } from "../../shared/utils/date";
+import { emitScheduleReminderRefresh } from "../../shared/services/scheduleReminderService";
 import { shouldShowBlockingAccountsLoading } from "./integrations-view-state";
 
 // ==================== 类型定义 ====================
@@ -192,6 +200,37 @@ function getAccountStatusStyle(account: Account): CSSProperties {
   };
 }
 
+function getStatusBadgeStyle(
+  tone: "success" | "warning" | "error" | "neutral",
+): CSSProperties {
+  if (tone === "success") {
+    return {
+      background: "var(--color-success-soft)",
+      color: "var(--color-success)",
+      border: "1px solid color-mix(in srgb, var(--color-success) 24%, transparent)",
+    };
+  }
+  if (tone === "error") {
+    return {
+      background: "var(--color-error-soft)",
+      color: "var(--color-error)",
+      border: "1px solid color-mix(in srgb, var(--color-error) 24%, transparent)",
+    };
+  }
+  if (tone === "neutral") {
+    return {
+      background: "var(--color-border-light)",
+      color: "var(--color-text-secondary)",
+      border: "1px solid var(--color-border)",
+    };
+  }
+  return {
+    background: "var(--color-warning-soft)",
+    color: "var(--color-warning)",
+    border: "1px solid color-mix(in srgb, var(--color-warning) 24%, transparent)",
+  };
+}
+
 // ==================== 组件 ====================
 
 export function IntegrationsPage() {
@@ -201,6 +240,10 @@ export function IntegrationsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [systemCalendarStatus, setSystemCalendarStatus] = useState<SystemCalendarStatus | null>(null);
+  const [systemCalendarLoading, setSystemCalendarLoading] = useState(true);
+  const [systemCalendarError, setSystemCalendarError] = useState<string | null>(null);
+  const [systemCalendarBusyAction, setSystemCalendarBusyAction] = useState<"connect" | "sync" | null>(null);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -236,9 +279,36 @@ export function IntegrationsPage() {
     }
   }, [t]);
 
+  const loadSystemCalendar = useCallback(async (options?: { background?: boolean }) => {
+    const background = options?.background === true;
+    if (!background) {
+      setSystemCalendarLoading(true);
+      setSystemCalendarError(null);
+    }
+
+    try {
+      const status = await getSystemCalendarStatus();
+      setSystemCalendarStatus(status);
+    } catch (err) {
+      if (!background) {
+        setSystemCalendarError(
+          err instanceof Error ? err.message : t("integrations.loadFailed") || "加载失败",
+        );
+      }
+    } finally {
+      if (!background) {
+        setSystemCalendarLoading(false);
+      }
+    }
+  }, [t]);
+
   useEffect(() => {
     loadAccounts();
   }, [loadAccounts]);
+
+  useEffect(() => {
+    loadSystemCalendar();
+  }, [loadSystemCalendar]);
 
   useEffect(() => {
     const handleStatusChanged = () => {
@@ -393,6 +463,72 @@ export function IntegrationsPage() {
       setSyncing(null);
     }
   };
+
+  const handleConnectSystemCalendar = useCallback(async () => {
+    setSystemCalendarBusyAction("connect");
+    setSystemCalendarError(null);
+
+    try {
+      const status = await requestSystemCalendarAccess();
+      setSystemCalendarStatus(status);
+
+      if (status.authStatus === "connected") {
+        toast.success(t("feedback.systemCalendarConnected"));
+      } else {
+        const message =
+          status.lastSyncError ??
+          t("integrations.systemCalendar.errorDescription") ??
+          t("feedback.systemCalendarConnectFailed");
+        setSystemCalendarError(message);
+        toast.error(t("feedback.systemCalendarConnectFailed"), message);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("feedback.systemCalendarConnectFailed");
+      setSystemCalendarError(message);
+      toast.error(t("feedback.systemCalendarConnectFailed"), message);
+    } finally {
+      setSystemCalendarBusyAction(null);
+    }
+  }, [t, toast]);
+
+  const handleSyncSystemCalendar = useCallback(async () => {
+    setSystemCalendarBusyAction("sync");
+    setSystemCalendarError(null);
+
+    try {
+      const status = await syncSystemCalendar();
+      setSystemCalendarStatus(status);
+      emitScheduleReminderRefresh();
+
+      if (status.authStatus === "connected" && status.syncStatus === "idle" && !status.lastSyncError) {
+        toast.success(t("feedback.systemCalendarSynced"));
+      } else {
+        const message =
+          status.lastSyncError ??
+          t("integrations.systemCalendar.errorDescription") ??
+          t("feedback.systemCalendarSyncFailed");
+        setSystemCalendarError(message);
+        toast.error(t("feedback.systemCalendarSyncFailed"), message);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("feedback.systemCalendarSyncFailed");
+      setSystemCalendarError(message);
+      toast.error(t("feedback.systemCalendarSyncFailed"), message);
+    } finally {
+      setSystemCalendarBusyAction(null);
+    }
+  }, [t, toast]);
+
+  const resolvedSystemCalendarStatus =
+    systemCalendarStatus ?? {
+      available: false,
+      authStatus: "disconnected" as const,
+      syncStatus: "idle" as const,
+      lastSyncedAt: null,
+      lastSyncError: null,
+    };
+  const systemCalendarViewState = getSystemCalendarViewState(resolvedSystemCalendarStatus);
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "8px 0 24px" }}>
@@ -588,6 +724,121 @@ export function IntegrationsPage() {
           </div>
         )}
 
+      </GlassCard>
+
+      <GlassCard className="card" style={{ padding: 24, marginTop: 16 }}>
+        <div className="panel-head" style={{ marginBottom: 16 }}>
+          <div>
+            <p className="panel-eyebrow">{t("integrations.systemCalendar.title")}</p>
+            <h2 className="panel-title">{t("integrations.systemCalendar.title")}</h2>
+          </div>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 500,
+              padding: "2px 8px",
+              borderRadius: 999,
+              ...getStatusBadgeStyle(systemCalendarViewState.badgeTone),
+            }}
+          >
+            {t(systemCalendarViewState.statusLabelKey)}
+          </span>
+        </div>
+
+        {systemCalendarLoading ? (
+          <div style={{ textAlign: "center", padding: "24px 0", color: "var(--color-text-muted)", fontSize: 13 }}>
+            {t("integrations.loading") || "加载中..."}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              padding: "16px 18px",
+              borderRadius: 16,
+              background: "var(--color-border-light)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--color-text-secondary)" }}>
+              {t(systemCalendarViewState.helperTextKey)}
+            </p>
+
+            {resolvedSystemCalendarStatus.lastSyncedAt && (
+              <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                {t("integrations.lastSync") || "上次同步"}: {formatDateTime(resolvedSystemCalendarStatus.lastSyncedAt)}
+              </div>
+            )}
+
+            {(systemCalendarError ||
+              (systemCalendarViewState.showErrorText && resolvedSystemCalendarStatus.lastSyncError)) && (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "var(--color-error-soft)",
+                  border: "1px solid color-mix(in srgb, var(--color-error) 18%, transparent)",
+                  color: "var(--color-error)",
+                  fontSize: 12,
+                }}
+              >
+                {systemCalendarError ?? resolvedSystemCalendarStatus.lastSyncError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => {
+                  void handleConnectSystemCalendar();
+                }}
+                disabled={!systemCalendarViewState.connectEnabled || systemCalendarBusyAction !== null}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor:
+                    !systemCalendarViewState.connectEnabled || systemCalendarBusyAction !== null
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity:
+                    !systemCalendarViewState.connectEnabled || systemCalendarBusyAction !== null ? 0.6 : 1,
+                }}
+              >
+                {systemCalendarBusyAction === "connect"
+                  ? t("integrations.syncing") || "同步中..."
+                  : t("integrations.systemCalendar.connectAction")}
+              </button>
+
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={() => {
+                  void handleSyncSystemCalendar();
+                }}
+                disabled={!systemCalendarViewState.syncEnabled || systemCalendarBusyAction !== null}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: "none",
+                  cursor:
+                    !systemCalendarViewState.syncEnabled || systemCalendarBusyAction !== null
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity:
+                    !systemCalendarViewState.syncEnabled || systemCalendarBusyAction !== null ? 0.65 : 1,
+                }}
+              >
+                {systemCalendarBusyAction === "sync"
+                  ? t("integrations.syncing") || "同步中..."
+                  : t("integrations.systemCalendar.syncAction")}
+              </button>
+            </div>
+          </div>
+        )}
       </GlassCard>
 
       <AnimatePresence>
