@@ -53,6 +53,7 @@ export interface ScheduleItem {
   preparationMinutes?: number;
   travelMinutes?: number;
   isFlexible: boolean;
+  completedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

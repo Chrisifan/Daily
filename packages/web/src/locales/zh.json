@@ -230,7 +230,7 @@
     },
     "tasks": {
       "addNewTask": "添加新任务",
-      "todayTodo": "今日待办",
+      "todayTodo": "今日日程",
       "completed": "{{completed}} / {{total}} 已完成",
       "todayCount": "今日 {{count}} 项日程",
       "todayCountBadge": "{{count}} 项",
@@ -286,7 +286,9 @@
     "routineStartTitle": "开始作息",
     "routineEndTitle": "结束作息",
     "routinePreset": "默认作息",
-    "routineFallback": "今天还没有安排，时间轴已按你的作息区间展开。"
+    "routineFallback": "今天还没有安排，时间轴已按你的作息区间展开。",
+    "markComplete": "标记为已完成",
+    "markIncomplete": "取消完成"
   },
   "onboarding": {
     "badge": "初次设置",

@@ -97,6 +97,10 @@ fn ensure_schedule_items_schema(conn: &Connection) -> rusqlite::Result<()> {
             "updated_at",
             "ALTER TABLE schedule_items ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''",
         ),
+        (
+            "completed_at",
+            "ALTER TABLE schedule_items ADD COLUMN completed_at TEXT",
+        ),
     ];
 
     for (column, sql) in migrations {
@@ -277,6 +281,7 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
             preparation_minutes INTEGER,
             travel_minutes INTEGER,
             is_flexible INTEGER DEFAULT 0,
+            completed_at TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )",
@@ -384,6 +389,7 @@ pub struct ScheduleItem {
     pub workspace_id: Option<String>,
     pub priority: String,
     pub is_flexible: bool,
+    pub completed_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -418,6 +424,7 @@ pub struct UpdateScheduleInput {
     pub workspace_id: Option<Option<String>>,
     pub priority: Option<String>,
     pub is_flexible: Option<bool>,
+    pub completed_at: Option<Option<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -523,8 +530,9 @@ fn map_schedule_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScheduleItem> 
         workspace_id: row.get(11)?,
         priority: row.get(12)?,
         is_flexible: row.get::<_, i32>(13)? != 0,
-        created_at: row.get(14)?,
-        updated_at: row.get(15)?,
+        completed_at: row.get(14)?,
+        created_at: row.get(15)?,
+        updated_at: row.get(16)?,
     })
 }
 
@@ -558,7 +566,7 @@ fn get_schedules() -> Result<Vec<ScheduleItem>, String> {
     let conn = DB.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
-        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, created_at, updated_at FROM schedule_items ORDER BY start_at")
+        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, completed_at, created_at, updated_at FROM schedule_items ORDER BY start_at")
         .map_err(|e| e.to_string())?;
 
     let items = stmt
@@ -644,6 +652,7 @@ fn create_schedule(input: CreateScheduleInput) -> Result<ScheduleItem, String> {
         priority: input.priority,
         is_flexible: input.is_flexible,
         created_at: now.clone(),
+        completed_at: None,
         updated_at: now,
     })
 }
@@ -725,6 +734,7 @@ fn create_imported_schedule(input: CreateImportedScheduleInput) -> Result<Schedu
         workspace_id: input.workspace_id,
         priority: input.priority,
         is_flexible: input.is_flexible,
+        completed_at: None,
         created_at: now.clone(),
         updated_at: now,
     })
@@ -852,9 +862,16 @@ fn update_schedule(id: String, input: UpdateScheduleInput) -> Result<ScheduleIte
         )
         .map_err(|e| e.to_string())?;
     }
+    if let Some(completed_at) = input.completed_at {
+        conn.execute(
+            "UPDATE schedule_items SET completed_at = ?1, updated_at = ?2 WHERE id = ?3",
+            params![completed_at, now, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
 
     let mut stmt = conn
-        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, created_at, updated_at FROM schedule_items WHERE id = ?1")
+        .prepare("SELECT id, source, title, icon, start_at, timezone, duration_minutes, repeat_mode, repeat_group_id, location, notes, workspace_id, priority, is_flexible, completed_at, created_at, updated_at FROM schedule_items WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let item = stmt
@@ -1218,5 +1235,24 @@ mod tests {
             script,
             "display notification \"Line 1\\nLine 2 \\\\ test\" with title \"Daily \\\"Focus\\\"\""
         );
+    }
+
+    #[test]
+    fn ensure_schedule_items_schema_adds_completed_at_column() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute(
+            "CREATE TABLE schedule_items (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                start_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("create legacy table");
+
+        super::ensure_schedule_items_schema(&conn).expect("schema migration");
+
+        let columns = super::schedule_items_columns(&conn).expect("load columns");
+        assert!(columns.contains("completed_at"));
     }
 }

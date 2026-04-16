@@ -21,6 +21,7 @@ interface RustScheduleItem {
   preparation_minutes?: number;
   travel_minutes?: number;
   is_flexible: boolean;
+  completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +45,7 @@ function rustToScheduleItem(rust: RustScheduleItem): ScheduleItem {
     preparationMinutes: rust.preparation_minutes,
     travelMinutes: rust.travel_minutes,
     isFlexible: rust.is_flexible,
+    completedAt: rust.completed_at ?? undefined,
     createdAt: rust.created_at,
     updatedAt: rust.updated_at,
   };
@@ -77,14 +79,24 @@ interface UpdateScheduleInput {
   workspace_id?: string | null;
   priority?: string;
   is_flexible?: boolean;
+  completed_at?: string | null;
 }
+
+type CreateScheduleData = Omit<
+  ScheduleItem,
+  "id" | "source" | "createdAt" | "updatedAt" | "completedAt"
+>;
+
+type UpdateScheduleData = Partial<
+  Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">
+>;
 
 export interface UseScheduleStore {
   schedules: ScheduleItem[];
   loading: boolean;
   error: string | null;
-  addSchedule: (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => Promise<ScheduleItem>;
-  updateSchedule: (id: string, data: Partial<Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">>) => Promise<void>;
+  addSchedule: (data: CreateScheduleData) => Promise<ScheduleItem>;
+  updateSchedule: (id: string, data: UpdateScheduleData) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
   deleteAllSchedules: () => Promise<void>;
   refreshSchedules: () => Promise<void>;
@@ -115,7 +127,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
   }, [refreshSchedules]);
 
   const addSchedule = useCallback(
-    async (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">): Promise<ScheduleItem> => {
+    async (data: CreateScheduleData): Promise<ScheduleItem> => {
       const input: CreateScheduleInput = {
         title: data.title,
         icon: data.icon,
@@ -141,7 +153,7 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
   );
 
   const updateSchedule = useCallback(
-    async (id: string, data: Partial<Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">>): Promise<void> => {
+    async (id: string, data: UpdateScheduleData): Promise<void> => {
       const input: UpdateScheduleInput = {};
       if (data.title !== undefined) input.title = data.title;
       if (data.icon !== undefined) input.icon = data.icon;
@@ -157,6 +169,9 @@ export function useScheduleStore(initialSchedules: ScheduleItem[] = []): UseSche
       }
       if (data.priority !== undefined) input.priority = data.priority;
       if (data.isFlexible !== undefined) input.is_flexible = data.isFlexible;
+      if (Object.prototype.hasOwnProperty.call(data, "completedAt")) {
+        input.completed_at = data.completedAt ?? null;
+      }
 
       const result = await invoke<RustScheduleItem>("update_schedule", { id, input });
       const schedule = rustToScheduleItem(result);

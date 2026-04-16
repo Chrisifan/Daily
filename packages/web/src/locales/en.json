@@ -230,7 +230,7 @@
     },
     "tasks": {
       "addNewTask": "Add New Task",
-      "todayTodo": "Today's To-dos",
+      "todayTodo": "Today's Schedule",
       "completed": "{{completed}} / {{total}} Completed",
       "todayCount": "{{count}} schedules today",
       "todayCountBadge": "{{count}} items",
@@ -286,7 +286,9 @@
     "routineStartTitle": "Start Routine",
     "routineEndTitle": "End Routine",
     "routinePreset": "Default routine",
-    "routineFallback": "No schedules yet today, so the timeline is expanded using your routine window."
+    "routineFallback": "No schedules yet today, so the timeline is expanded using your routine window.",
+    "markComplete": "Mark as complete",
+    "markIncomplete": "Mark as incomplete"
   },
   "onboarding": {
     "badge": "First Setup",

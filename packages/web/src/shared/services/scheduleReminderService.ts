@@ -23,6 +23,7 @@ interface RustScheduleItem {
   preparation_minutes?: number;
   travel_minutes?: number;
   is_flexible: boolean;
+  completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +47,7 @@ function rustToScheduleItem(rust: RustScheduleItem): ScheduleItem {
     preparationMinutes: rust.preparation_minutes,
     travelMinutes: rust.travel_minutes,
     isFlexible: rust.is_flexible,
+    completedAt: rust.completed_at ?? undefined,
     createdAt: rust.created_at,
     updatedAt: rust.updated_at,
   };

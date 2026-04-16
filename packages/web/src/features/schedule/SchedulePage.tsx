@@ -12,6 +12,11 @@ import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { useToast } from "../../shared/ui/ToastProvider";
 import { useTranslation } from "react-i18next";
 
+type ScheduleFormData = Omit<
+  ScheduleItem,
+  "id" | "source" | "createdAt" | "updatedAt" | "completedAt"
+>;
+
 export function SchedulePage() {
   const { t } = useTranslation();
   const toast = useToast();
@@ -41,7 +46,7 @@ export function SchedulePage() {
     setSelectedDate(null);
   }, []);
 
-  const handleSubmit = useCallback(async (data: Omit<ScheduleItem, "id" | "source" | "createdAt" | "updatedAt">) => {
+  const handleSubmit = useCallback(async (data: ScheduleFormData) => {
     if (editingSchedule) {
       await updateSchedule(editingSchedule.id, data);
     } else {
@@ -112,6 +117,20 @@ export function SchedulePage() {
     }
   }, [deleteSchedule, handleModalClose, refreshSchedules, schedulePendingDelete, t, toast]);
 
+  const handleToggleScheduleComplete = useCallback(
+    async (schedule: ScheduleItem, completed: boolean) => {
+      try {
+        await updateSchedule(schedule.id, {
+          completedAt: completed ? new Date().toISOString() : undefined,
+        });
+      } catch (error) {
+        console.error("Failed to update schedule completion:", error);
+        toast.error(t("feedback.scheduleUpdateFailed"));
+      }
+    },
+    [t, toast, updateSchedule],
+  );
+
   useEffect(() => {
     const shouldCreate = searchParams.get("create") === "1";
     const scheduleId = searchParams.get("scheduleId");
@@ -141,11 +160,12 @@ export function SchedulePage() {
     <div className="relative z-10 -mr-12">
 
       <div className="flex-1 min-h-0">
-        <CalendarView
-          schedules={schedules}
-          onEditSchedule={handleEditSchedule}
-          onAddSchedule={handleAddSchedule}
-        />
+      <CalendarView
+        schedules={schedules}
+        onEditSchedule={handleEditSchedule}
+        onAddSchedule={handleAddSchedule}
+        onToggleScheduleComplete={handleToggleScheduleComplete}
+      />
       </div>
 
       <ScheduleModal

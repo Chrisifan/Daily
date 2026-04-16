@@ -1,6 +1,6 @@
 import type { HourlyForecast, WeatherCondition, WeatherSnapshot } from "../../domain/weather/types";
 
-function wmoCodeToCondition(code: number, isNight: boolean): WeatherCondition {
+export function wmoCodeToCondition(code: number, isNight: boolean): WeatherCondition {
   if (isNight) return "night";
   if (code === 0) return "sunny";
   if (code === 1 || code === 2) return "cloudy";
@@ -13,15 +13,14 @@ function wmoCodeToCondition(code: number, isNight: boolean): WeatherCondition {
   return "thunderstorm";
 }
 
-function wmoCodeToDescription(code: number): string {
+export function wmoCodeToDescription(code: number): string {
   if (code === 0) return "home.weather.sunny";
   if (code === 1 || code === 2) return "home.weather.cloudy";
   if (code === 3) return "home.weather.overcast";
   if (code <= 48) return "home.weather.haze";
-  if (code <= 57) return "home.weather.rainy";
   if (code <= 67) return "home.weather.rainy";
   if (code <= 77) return "home.weather.snow";
-  if (code === 82) return "home.weather.rainy";
+  if (code <= 82) return "home.weather.rainy";
   if (code <= 86) return "home.weather.snow";
   return "home.weather.thunderstorm";
 }

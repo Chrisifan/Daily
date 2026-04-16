@@ -52,6 +52,21 @@ test("buildReminderCandidates skips schedules that have already started", () => 
   assert.equal(candidates.length, 0);
 });
 
+test("buildReminderCandidates skips schedules that are already completed", () => {
+  const completedSchedule = {
+    ...createSchedule({ id: "done", startAt: "2026-04-16T10:00:00Z" }),
+    completedAt: "2026-04-16T09:40:00Z",
+  } as ScheduleItem;
+
+  const candidates = buildReminderCandidates(
+    [completedSchedule],
+    "10",
+    new Date("2026-04-16T09:00:00Z"),
+  );
+
+  assert.equal(candidates.length, 0);
+});
+
 test("findDueAndUpcomingReminderCandidates separates immediately due and future reminders", () => {
   const candidates = buildReminderCandidates(
     [

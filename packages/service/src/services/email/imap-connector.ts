@@ -57,7 +57,6 @@ export class ImapConnector extends EventEmitter {
   private config: ImapConnectorConfig;
   private state: ConnectionState = ConnectionState.DISCONNECTED;
   private reconnectAttempts = 0;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private shouldReconnect = false;
 
   constructor(config: ImapConnectorConfig) {
@@ -147,7 +146,6 @@ export class ImapConnector extends EventEmitter {
             return;
           }
           this.setState(ConnectionState.AUTHENTICATED);
-          this.startHeartbeat();
           console.log(`[imap-connector] 已认证用户: ${this.config.user}`);
           resolve();
         });
@@ -164,7 +162,6 @@ export class ImapConnector extends EventEmitter {
    */
   async disconnect(): Promise<void> {
     this.shouldReconnect = false;
-    this.stopHeartbeat();
     this.setState(ConnectionState.DISCONNECTING);
 
     return new Promise((resolve) => {
@@ -454,6 +451,7 @@ export class ImapConnector extends EventEmitter {
       tlsOptions: this.config.tlsOptions,
       connTimeout: this.config.connectionTimeout,
       authTimeout: 15000,
+      keepalive: buildImapKeepaliveConfig(this.config.heartbeatInterval),
       debug: process.env.IMAP_DEBUG === "true" ? console.log : undefined,
     });
   }
@@ -495,7 +493,6 @@ export class ImapConnector extends EventEmitter {
     });
 
     this.imap.on("close", (hadError: boolean) => {
-      this.stopHeartbeat();
       if (hadError && this.shouldReconnect) {
         this.handleReconnect();
       } else {
@@ -525,43 +522,6 @@ export class ImapConnector extends EventEmitter {
     } catch (err) {
       const error = this.mapError(err as Error);
       throw error;
-    }
-  }
-
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    if (!this.config.heartbeatInterval) {
-      return;
-    }
-
-    this.heartbeatTimer = setInterval(async () => {
-      if (!this.shouldReconnect || !this.isConnected()) {
-        return;
-      }
-
-      try {
-        // NOOP 命令保持连接活跃
-        await new Promise<void>((resolve, reject) => {
-          this.imap.status("INBOX", (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        });
-        console.debug("[imap-connector] 心跳保活成功");
-      } catch (err) {
-        console.warn("[imap-connector] 心跳保活失败，尝试重连:", err);
-        this.handleReconnect();
-      }
-    }, this.config.heartbeatInterval);
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
     }
   }
 
@@ -922,6 +882,20 @@ export class ImapConnector extends EventEmitter {
  */
 export function createImapConnector(config: ImapConnectorConfig): ImapConnector {
   return new ImapConnector(config);
+}
+
+export function buildImapKeepaliveConfig(
+  heartbeatInterval?: number
+): false | { interval: number; idleInterval: number; forceNoop: boolean } {
+  if (!heartbeatInterval || heartbeatInterval <= 0) {
+    return false;
+  }
+
+  return {
+    interval: heartbeatInterval,
+    idleInterval: heartbeatInterval,
+    forceNoop: false,
+  };
 }
 
 /**

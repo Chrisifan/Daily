@@ -35,6 +35,12 @@ export function TodayTasks({
       const now = new Date();
       return sortByDate(filterTodayItems(schedules, "startAt"))
         .sort((a, b) => {
+          const aCompleted = Boolean(a.completedAt);
+          const bCompleted = Boolean(b.completedAt);
+          if (aCompleted !== bCompleted) {
+            return aCompleted ? 1 : -1;
+          }
+
           const aStartsAt = new Date(a.startAt);
           const bStartsAt = new Date(b.startAt);
           const aUpcoming = aStartsAt >= now;
@@ -124,6 +130,7 @@ export function TodayTasks({
               const linkedWorkspace = schedule.workspaceId
                 ? workspaceMap.get(schedule.workspaceId)
                 : undefined;
+              const isCompleted = Boolean(schedule.completedAt);
 
               return (
                 <motion.button
@@ -132,7 +139,7 @@ export function TodayTasks({
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.48 + index * 0.06, duration: 0.3 }}
-                  className={`task-row task-row--button${linkedWorkspace ? " task-row--with-link" : ""}`}
+                  className={`task-row task-row--button${linkedWorkspace ? " task-row--with-link" : ""}${isCompleted ? " task-row--completed" : ""}`}
                   onClick={() => onOpenSchedule?.(schedule)}
                   style={
                     {
@@ -143,12 +150,16 @@ export function TodayTasks({
                   }
                 >
                   <div className={`task-main${linkedWorkspace ? " task-main--with-link" : ""}`}>
-                    <p className="m-0 task-text">{schedule.title}</p>
-                    <p className="m-0 task-meta">{getScheduleMeta(schedule)}</p>
+                    <p className={`m-0 task-text${isCompleted ? " task-text--completed" : ""}`}>
+                      {schedule.title}
+                    </p>
+                    <p className={`m-0 task-meta${isCompleted ? " task-meta--completed" : ""}`}>
+                      {getScheduleMeta(schedule)}
+                    </p>
                   </div>
                   {linkedWorkspace ? (
                     <div
-                      className="task-link"
+                      className={`task-link${isCompleted ? " task-link--completed" : ""}`}
                       title={t("home.tasks.workspaceLink", { name: linkedWorkspace.name })}
                     >
                       <Link2 size={12} />

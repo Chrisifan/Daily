@@ -18,6 +18,27 @@ export interface UseWeatherResult {
   needsLocation: boolean;
 }
 
+export type WeatherQueryKey = [
+  "weather",
+  string,
+  string | null,
+  number | null,
+  number | null,
+];
+
+export function buildWeatherQueryKey(
+  lang: string,
+  settings = getStoredSettings(),
+): WeatherQueryKey {
+  return [
+    "weather",
+    lang,
+    settings.locationCity,
+    settings.locationLatitude,
+    settings.locationLongitude,
+  ];
+}
+
 async function fetchWeather(): Promise<WeatherSnapshot> {
   console.log(`[fetchWeather] starting to fetch weather data`);
 
@@ -80,9 +101,11 @@ export function useWeather(): UseWeatherResult {
   const { i18n } = useTranslation();
   const lang = i18n.language || "en";
   const isZh = lang.startsWith("zh");
+  const settings = getStoredSettings();
+  const weatherQueryKey = buildWeatherQueryKey(lang, settings);
 
   const { data, status, error, isPending, isFetching, isSuccess } = useQuery({
-    queryKey: ["weather", lang],
+    queryKey: weatherQueryKey,
     queryFn: fetchWeather,
     staleTime: 15 * 60 * 1000,
     refetchInterval: 30 * 60 * 1000,
@@ -91,10 +114,9 @@ export function useWeather(): UseWeatherResult {
   });
 
   const refresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["weather", lang] });
-  }, [queryClient, lang]);
+    queryClient.invalidateQueries({ queryKey: weatherQueryKey });
+  }, [queryClient, weatherQueryKey]);
 
-  const settings = getStoredSettings();
   const needsLocation =
     settings.locationLatitude === null ||
     settings.locationLongitude === null ||

@@ -38,6 +38,10 @@ export function buildReminderCandidates(
   }
 
   return schedules.reduce<ScheduleReminderCandidate[]>((candidates, schedule) => {
+      if (schedule.completedAt) {
+        return candidates;
+      }
+
       const startAtDate = parseISO(schedule.startAt);
       if (startAtDate <= now) {
         return candidates;

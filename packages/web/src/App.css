@@ -166,6 +166,15 @@ body {
   background: var(--color-text-muted);
 }
 
+.schedule-timeline-viewport {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.schedule-timeline-viewport::-webkit-scrollbar {
+  display: none;
+}
+
 /* ============================================================
    Selection & Links
    ============================================================ */
@@ -1042,6 +1051,20 @@ button[class*='rounded-sm'] {
   align-items: flex-start;
 }
 
+.task-row--completed {
+  border-color: color-mix(in srgb, var(--color-border) 96%, white 4%);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface) 98%, white 2%) 0%,
+      color-mix(in srgb, var(--color-surface) 94%, var(--color-border-light) 6%) 100%
+    );
+}
+
+.task-row--completed::before {
+  opacity: 0.42;
+}
+
 .task-main {
   display: grid;
   gap: 2px;
@@ -1055,8 +1078,15 @@ button[class*='rounded-sm'] {
 }
 
 .task-text       { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.task-text--completed {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in srgb, var(--color-text-muted) 74%, transparent);
+}
 .task-text--add  { color: var(--color-text-muted); }
 .task-meta       { font-size: 11px; color: var(--color-text-secondary); }
+.task-meta--completed { color: var(--color-text-muted); }
 
 .task-link {
   position: absolute;
@@ -1074,6 +1104,11 @@ button[class*='rounded-sm'] {
   color: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-border-light) 82%, white 18%);
   border: 1px solid color-mix(in srgb, var(--color-border) 88%, white 12%);
+}
+
+.task-link--completed {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-border-light) 90%, white 10%);
 }
 
 .task-link__text {

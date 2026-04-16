@@ -627,7 +627,7 @@ interface ScheduleModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (
-    data: Omit<ScheduleItem, 'id' | 'source' | 'createdAt' | 'updatedAt'>
+    data: Omit<ScheduleItem, 'id' | 'source' | 'createdAt' | 'updatedAt' | 'completedAt'>
   ) => Promise<void> | void;
   onDelete?: () => void;
   initialData?: Partial<ScheduleItem>;

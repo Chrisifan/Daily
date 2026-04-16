@@ -222,3 +222,64 @@ test("MailWatchService catches up with new mail even when the connector does not
   await service.stop();
   await fs.rm(dbPath, { force: true });
 });
+
+test("MailWatchService clears auth errors after the connector reconnects", async () => {
+  const dbPath = createTempDbPath("watch-service-reconnect");
+  const accountStore = new MailAccountStore({ dbPath });
+  const cursorStore = new MailSyncCursorStore({ dbPath });
+  const candidateStore = new ExternalScheduleCandidateStore({ dbPath });
+  const events = createMailWatchEvents();
+  const connector = new FakeConnector([]);
+
+  await accountStore.upsertAccount({
+    id: "acc-watch",
+    provider: "imap",
+    emailAddress: "watch@example.com",
+    imapHost: "imap.example.com",
+    imapPort: 993,
+    username: "watch@example.com",
+    secure: true,
+    authStatus: "disconnected",
+    syncStatus: "idle",
+    lastSyncedAt: null,
+    lastSyncError: null,
+    scopes: [],
+    createdAt: "2026-04-16T00:00:00.000Z",
+    updatedAt: "2026-04-16T00:00:00.000Z",
+  });
+
+  const secretStore = {
+    async getPassword(): Promise<string> {
+      return "password";
+    },
+  } as Pick<MailSecretStore, "getPassword">;
+
+  const service = new MailWatchService({
+    accountStore,
+    cursorStore,
+    candidateStore,
+    secretStore,
+    events,
+    connectorFactory: (_config: ImapConnectorConfig) => connector,
+    fallbackSyncIntervalMs: 0,
+  });
+
+  await service.start();
+
+  connector.emit("error", new Error("Not authenticated"));
+  let snapshot = service.getStatusSnapshot();
+  assert.equal(snapshot[0]?.authStatus, "error");
+  assert.equal(snapshot[0]?.syncStatus, "error");
+  assert.equal(snapshot[0]?.lastSyncError, "Not authenticated");
+
+  connector.emit("reconnected");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  snapshot = service.getStatusSnapshot();
+  assert.equal(snapshot[0]?.authStatus, "connected");
+  assert.equal(snapshot[0]?.syncStatus, "idle");
+  assert.equal(snapshot[0]?.lastSyncError, null);
+
+  await service.stop();
+  await fs.rm(dbPath, { force: true });
+});

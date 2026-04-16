@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { Ref } from 'react';
 import { getStoredSettings } from '../../shared/services/settingsService';
 import {
-  Inbox,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -27,6 +26,7 @@ import {
   Music4,
   HeartPulse,
   CalendarCheck,
+  Check,
 } from 'lucide-react';
 import {
   format,
@@ -71,6 +71,7 @@ interface CalendarViewProps {
   schedules: ScheduleItem[];
   onEditSchedule?: (schedule: ScheduleItem) => void;
   onAddSchedule?: (date?: Date) => void;
+  onToggleScheduleComplete?: (schedule: ScheduleItem, completed: boolean) => Promise<void> | void;
 }
 
 interface TimelineSchedule extends ScheduleItem {
@@ -124,11 +125,16 @@ function formatBoundaryTime(
   return formatTime(date);
 }
 
-export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: CalendarViewProps) {
+export function CalendarView({
+  schedules,
+  onEditSchedule,
+  onAddSchedule,
+  onToggleScheduleComplete,
+}: CalendarViewProps) {
   const { t, i18n } = useTranslation();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [completedSchedules, setCompletedSchedules] = useState<Set<string>>(new Set());
+  const [completionPendingIds, setCompletionPendingIds] = useState<Set<string>>(new Set());
   const [now, setNow] = useState<Date>(new Date());
   const pickerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -583,17 +589,30 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
     onAddSchedule?.(clickedDate);
   };
 
-  const toggleScheduleComplete = useCallback((scheduleId: string) => {
-    setCompletedSchedules((prev) => {
-      const next = new Set(prev);
-      if (next.has(scheduleId)) {
-        next.delete(scheduleId);
-      } else {
-        next.add(scheduleId);
+  const toggleScheduleComplete = useCallback(
+    async (schedule: ScheduleItem) => {
+      if (!onToggleScheduleComplete || completionPendingIds.has(schedule.id)) {
+        return;
       }
-      return next;
-    });
-  }, []);
+
+      setCompletionPendingIds((prev) => {
+        const next = new Set(prev);
+        next.add(schedule.id);
+        return next;
+      });
+
+      try {
+        await onToggleScheduleComplete(schedule, !schedule.completedAt);
+      } finally {
+        setCompletionPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(schedule.id);
+          return next;
+        });
+      }
+    },
+    [completionPendingIds, onToggleScheduleComplete]
+  );
 
   const splitScheduleIntoSegments = useCallback((schedule: TimelineSchedule) => {
     const startDate = parseISO(schedule.startAt);
@@ -808,7 +827,7 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 rounded-3xl overflow-hidden px-32 py-8"
+            className="schedule-timeline-viewport flex-1 rounded-3xl overflow-hidden px-32 py-8"
             ref={timelineViewportRef}
             style={{
               backgroundColor: 'var(--color-surface)',
@@ -1062,7 +1081,8 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                       const endDateLocal = new Date(endDate.getTime() - tzOffset);
                       const isUpcoming = nowLocal < startDateLocal;
                       const isEnded = nowLocal > endDateLocal;
-                      const isCompleted = completedSchedules.has(schedule.id);
+                      const isCompleted = Boolean(schedule.completedAt);
+                      const isCompletionPending = completionPendingIds.has(schedule.id);
                       const isBoundarySchedule =
                         isVirtualSchedule && schedule.durationMinutes === 0;
                       const elapsedRatio =
@@ -1324,9 +1344,14 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 <h4
                                   className="text-sm font-semibold truncate"
                                   style={{
-                                    color: completedSchedules.has(schedule.id)
+                                    color: isCompleted
                                       ? 'var(--color-text-muted)'
                                       : 'var(--color-text)',
+                                    textDecoration: isCompleted ? 'line-through' : 'none',
+                                    textDecorationThickness: isCompleted ? '1.5px' : undefined,
+                                    textDecorationColor: isCompleted
+                                      ? 'color-mix(in srgb, var(--color-text-muted) 75%, transparent)'
+                                      : undefined,
                                   }}
                                 >
                                   {isMultiSegment
@@ -1406,28 +1431,42 @@ export function CalendarView({ schedules, onEditSchedule, onAddSchedule }: Calen
                                 </div>
                               )}
                             </div>
-                            {isFirstSegment && !isVirtualSchedule && (
+                            {isFirstSegment && !isVirtualSchedule && onToggleScheduleComplete && (
                               <motion.button
-                                onClick={() => toggleScheduleComplete(schedule.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void toggleScheduleComplete(schedule);
+                                }}
                                 whileTap={{ scale: 0.85 }}
                                 className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-3"
+                                disabled={isCompletionPending}
+                                aria-label={
+                                  isCompleted ? t('calendar.markIncomplete') : t('calendar.markComplete')
+                                }
                                 style={{
-                                  backgroundColor: completedSchedules.has(schedule.id)
-                                    ? colors.border
+                                  backgroundColor: isCompleted
+                                    ? `color-mix(in srgb, ${colors.border} 18%, white 82%)`
                                     : 'transparent',
                                   border: `2px solid ${colors.border}`,
+                                  opacity: isCompletionPending ? 0.6 : 1,
+                                  cursor: isCompletionPending ? 'wait' : 'pointer',
                                 }}
                               >
                                 <motion.div
                                   initial={false}
                                   animate={{
-                                    scale: completedSchedules.has(schedule.id) ? 1 : 0,
-                                    opacity: completedSchedules.has(schedule.id) ? 1 : 0,
+                                    scale: isCompleted ? 1 : 0.7,
+                                    opacity: isCompleted ? 1 : 0,
                                   }}
                                   transition={{ duration: 0.15 }}
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: colors.border }}
-                                />
+                                  className="flex items-center justify-center"
+                                >
+                                  <Check
+                                    className="w-3.5 h-3.5"
+                                    strokeWidth={3}
+                                    style={{ color: colors.border }}
+                                  />
+                                </motion.div>
                               </motion.button>
                             )}
                           </div>
