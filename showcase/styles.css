@@ -837,6 +837,10 @@ a {
   gap: 14px;
 }
 
+.studio-main-grid--image {
+  grid-template-columns: 1fr 240px;
+}
+
 .editor-surface {
   border-radius: 24px;
   overflow: hidden;
@@ -900,6 +904,39 @@ a {
 .tree-item__path {
   color: var(--muted);
   font-size: 11px;
+}
+
+.canvas-surface,
+.template-surface {
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.canvas-surface__stage {
+  display: grid;
+  place-items: center;
+  min-height: 340px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 248, 242, 0.98), rgba(244, 226, 210, 0.92));
+}
+
+.canvas-artboard {
+  width: min(100%, 440px);
+  min-height: 220px;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #ffdcc7, #ffd6e2 52%, #f4c9a5);
+  box-shadow: 0 18px 42px rgba(150, 103, 72, 0.2);
+  color: #5c3c26;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.inspector-card--image {
+  background: rgba(255, 245, 238, 0.8);
 }
 
 .workbench-overview-layout {

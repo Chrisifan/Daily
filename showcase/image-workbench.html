@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Image Workbench Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-neutral theme-workbench-image">
+    <div class="page-frame workbench-frame">
+      <header class="page-topbar">
+        <a class="brand-inline" href="./index.html">
+          <span class="brand-badge">D</span>
+          <span>Daily Showcase</span>
+        </a>
+        <nav class="page-nav">
+          <a class="nav-link" href="./workspaces.html">工作台入口</a>
+          <a class="nav-link" href="./code-workbench.html">代码工作台</a>
+          <a class="nav-link active" href="./image-workbench.html">图片工作台</a>
+        </nav>
+      </header>
+
+      <main class="studio-layout studio-layout--image">
+        <aside class="panel studio-sidebar">
+          <div class="studio-sidebar__section">
+            <p class="eyebrow">Assets / Layers</p>
+            <h2>Campaign Export Batch</h2>
+            <div id="image-layer-list"></div>
+          </div>
+        </aside>
+
+        <section class="panel studio-main">
+          <div class="studio-toolbar">
+            <div id="image-surface-tabs"></div>
+            <div class="action-row" id="image-toolbar-actions"></div>
+          </div>
+          <div class="studio-main-grid studio-main-grid--image">
+            <section class="canvas-surface" id="image-canvas-surface"></section>
+            <section class="template-surface" id="image-template-surface"></section>
+          </div>
+          <div class="output-strip">
+            <section class="output-panel" id="image-history-panel"></section>
+            <section class="output-panel" id="image-export-panel"></section>
+          </div>
+        </section>
+
+        <aside class="panel studio-inspector">
+          <p class="eyebrow">AI / Inspector</p>
+          <div class="stack" id="image-inspector"></div>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./image-workbench.js"></script>
+  </body>
+</html>

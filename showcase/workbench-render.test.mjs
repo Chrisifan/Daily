@@ -70,3 +70,13 @@ test("renderStatusTabs supports code editor and preview tab labels", () => {
   assert.match(html, /Preview/);
   assert.match(html, /Terminal/);
 });
+
+test("renderActionButtons supports image editing actions", () => {
+  const html = renderActionButtons([
+    { label: "Remove BG", tone: "primary" },
+    { label: "Batch Export", tone: "ghost" },
+  ]);
+
+  assert.match(html, /Remove BG/);
+  assert.match(html, /Batch Export/);
+});
