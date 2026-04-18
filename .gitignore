@@ -25,6 +25,7 @@ packages/service/config/mail-accounts*.bak
 *.sln
 *.sw?
 .worktrees/
+.superpowers/
 
 # Changeset
 .changeset/*.md
