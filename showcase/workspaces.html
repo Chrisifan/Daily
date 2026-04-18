@@ -21,45 +21,41 @@
         </a>
         <nav class="page-nav">
           <a class="nav-link" href="./home.html">首页</a>
-          <a class="nav-link" href="./schedule.html">日程</a>
-          <a class="nav-link active" href="./workspaces.html">工作区</a>
-          <a class="nav-link" href="./integrations.html">集成</a>
+          <a class="nav-link active" href="./workspaces.html">工作台入口</a>
+          <a class="nav-link" href="./code-workbench.html">代码工作台</a>
+          <a class="nav-link" href="./image-workbench.html">图片工作台</a>
         </nav>
       </header>
 
-      <main class="workspace-layout">
-        <section class="panel workspace-types">
-          <p class="eyebrow">Templates</p>
-          <h1>工作区类型</h1>
-          <div class="type-grid" id="workspace-types"></div>
+      <main class="launcher-layout">
+        <section class="panel launcher-hero">
+          <p class="eyebrow">Daily Launchpad</p>
+          <h1>从 Daily 进入专业工作台</h1>
+          <p class="lead">
+            Daily 根据当前任务、来源和时间段，把你带到最合适的工作台，而不是只给你一块看板。
+          </p>
+          <div class="launcher-meta-strip" id="launcher-meta-strip"></div>
         </section>
 
-        <section class="panel workspace-list-panel">
+        <section class="panel launcher-surface-panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Active Workspaces</p>
-              <h2>当前工作区</h2>
+              <p class="eyebrow">Workbench Surfaces</p>
+              <h2>选择工作台</h2>
             </div>
-            <button class="btn btn-primary">新建工作区</button>
           </div>
-          <div class="workspace-list" id="workspace-list"></div>
+          <div class="launcher-grid" id="launcher-grid"></div>
         </section>
 
-        <section class="panel workspace-detail-panel">
-          <p class="eyebrow">Workspace Detail</p>
-          <h2>客户项目 Atlas</h2>
-          <div class="stack gap-sm">
-            <div class="workspace-summary-box">
-              <p class="meta-kicker">写作工作区</p>
-              <p class="subtle">已绑定邮件、Google Calendar 和本地资料目录。今天重点是评审、回信和文档修改。</p>
-            </div>
-            <div class="mini-list" id="workspace-detail-items"></div>
-          </div>
+        <section class="panel launcher-routing-panel">
+          <p class="eyebrow">Routing Reason</p>
+          <h2>为什么 Daily 推荐你来这里</h2>
+          <div class="mini-list" id="launcher-reasons"></div>
         </section>
       </main>
     </div>
 
     <script src="./showcase.js"></script>
-    <script src="./workspaces.js"></script>
+    <script type="module" src="./workspaces.js"></script>
   </body>
 </html>

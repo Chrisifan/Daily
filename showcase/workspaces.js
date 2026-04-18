@@ -1,67 +1,48 @@
-const types = [
+import { renderLauncherCards } from "./workbench-shared.js";
+
+const meta = [
+  ["当前焦点", "代码修复 + Hero Banner 导出"],
+  ["活跃来源", "Git, Calendar, Assets, Feedback"],
+  ["时间压力", "16:30 review / 18:30 确认截止"],
+];
+
+const launchers = [
   {
-    name: "代码",
-    description: "开发任务、bug 修复、code review、技术会议。",
-    chips: ["PR", "Issue", "本地项目"],
+    title: "代码工作台",
+    description: "进入带编辑器、终端、预览和 AI agent 的开发界面。",
+    href: "./code-workbench.html",
+    kicker: "Open IDE",
+    chips: ["Editor", "Terminal", "Preview", "Agent"],
   },
   {
-    name: "图片处理",
-    description: "修图、导出、素材整理、视觉评审。",
-    chips: ["附件", "导出", "素材"],
-  },
-  {
-    name: "写作",
-    description: "文章、文案、提纲、周报、资料整理。",
-    chips: ["稿件", "提纲", "反馈邮件"],
-  },
-  {
-    name: "通用",
-    description: "行政事务、临时项目、跨类型任务。",
-    chips: ["待办", "日历", "摘要"],
+    title: "图片工作台",
+    description: "进入带画布、图层、模板、AI 工具和导出队列的编辑界面。",
+    href: "./image-workbench.html",
+    kicker: "Open Canvas",
+    chips: ["Canvas", "Layers", "Template", "Export"],
   },
 ];
 
-const workspaces = [
-  ["客户项目 Atlas", "写作", "46%", "已绑定邮件和日历"],
-  ["设计系统升级", "代码", "74%", "本周重点处理 review"],
-  ["视觉导出批次", "图片处理", "52%", "2 个素材待确认"],
+const reasons = [
+  ["代码工作台", "你当前有一个待修复回归、一个待 review PR，以及 16:30 前的连续开发窗口。"],
+  ["图片工作台", "你今天还有一批主视觉要在 18:30 前导出确认，当前反馈已收齐。"],
+  ["Daily 的作用", "先判断你该进入哪种工作面，再把上下文预装进那个界面。"],
 ];
 
-const details = [
-  ["已接入 Gmail", "用于提取反馈和待办"],
-  ["已接入 Google Calendar", "同步评审和专注时段"],
-  ["已绑定资料目录", "用于统一查看相关文件"],
-];
-
-document.getElementById("workspace-types").innerHTML = types
+document.getElementById("launcher-meta-strip").innerHTML = meta
   .map(
-    (type) => `
-      <article class="type-card">
-        <h3>${type.name}</h3>
-        <p class="subtle">${type.description}</p>
-        <div class="type-chips">
-          ${type.chips.map((chip) => `<span class="type-chip">${chip}</span>`).join("")}
-        </div>
+    ([title, value]) => `
+      <article class="summary-stat">
+        <span class="summary-stat__label">${title}</span>
+        <strong class="summary-stat__value summary-stat__value--sm">${value}</strong>
       </article>
     `
   )
   .join("");
 
-document.getElementById("workspace-list").innerHTML = workspaces
-  .map(
-    ([name, type, score, meta]) => `
-      <article class="workspace-row">
-        <div>
-          <strong>${name}</strong>
-          <p class="subtle">${type} · ${meta}</p>
-        </div>
-        <span class="meta-pill">${score}</span>
-      </article>
-    `
-  )
-  .join("");
+document.getElementById("launcher-grid").innerHTML = renderLauncherCards(launchers);
 
-document.getElementById("workspace-detail-items").innerHTML = details
+document.getElementById("launcher-reasons").innerHTML = reasons
   .map(
     ([title, text]) => `
       <article class="detail-row">

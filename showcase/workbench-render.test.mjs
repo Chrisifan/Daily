@@ -43,3 +43,18 @@ test("renderActionButtons outputs tool actions", () => {
   assert.match(html, /Fix with AI/);
   assert.match(html, /tool-button/);
 });
+
+test("renderLauncherCards supports image-workbench launch copy", () => {
+  const html = renderLauncherCards([
+    {
+      title: "图片工作台",
+      description: "进入带画布、图层、AI 工具和导出队列的编辑界面",
+      href: "./image-workbench.html",
+      chips: ["Canvas", "Layers", "Export"],
+    },
+  ]);
+
+  assert.match(html, /图片工作台/);
+  assert.match(html, /image-workbench\.html/);
+  assert.match(html, /Canvas/);
+});
