@@ -48,6 +48,7 @@ import {
   normalizeRoutineEndMinutes,
   parseRoutineTime,
 } from '../../shared/utils/routineTime';
+import { resolveDisplayStartSlot } from './calendar-layout';
 
 const ICON_MAP: Record<ScheduleIcon, typeof Clock> = {
   clock: Clock,
@@ -444,6 +445,7 @@ export function CalendarView({
     > = {};
 
     let previousDisplayEndSlot = 0;
+    let previousCompressedEndSlot = 0;
 
     timelineSchedules.forEach((schedule, index) => {
       const compressedStartSlot = compressedSlotMap[schedule.id] ?? 0;
@@ -463,9 +465,12 @@ export function CalendarView({
       const displayStartSlot =
         index === 0
           ? compressedStartSlot
-          : overlapsPrevious
-            ? previousDisplayEndSlot
-            : Math.max(compressedStartSlot, previousDisplayEndSlot);
+          : resolveDisplayStartSlot({
+              compressedStartSlot,
+              previousDisplayEndSlot,
+              previousCompressedEndSlot,
+              overlapsPrevious,
+            });
       const displayEndSlot = displayStartSlot + durationSlots;
 
       layoutMap[schedule.id] = {
@@ -477,6 +482,7 @@ export function CalendarView({
       };
 
       previousDisplayEndSlot = displayEndSlot;
+      previousCompressedEndSlot = compressedStartSlot + durationSlots;
     });
 
     return {

@@ -3,6 +3,7 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
@@ -209,6 +210,8 @@ fn ensure_schedule_reminder_deliveries_schema(conn: &Connection) -> rusqlite::Re
 }
 
 const SYSTEM_CALENDAR_SYNC_STATE_ID: &str = "system-calendar";
+const STALE_SYSTEM_CALENDAR_SYNC_TIMEOUT_SECONDS: i64 = 120;
+static SYSTEM_CALENDAR_SYNC_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 fn ensure_system_calendar_sync_state_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute(
@@ -292,18 +295,62 @@ fn read_system_calendar_status(
     ensure_system_calendar_sync_state_schema(conn)?;
 
     let available = is_system_calendar_supported_for_platform(platform);
-    let (auth_status, sync_status, last_synced_at, last_sync_error): (
+    let (auth_status, sync_status, last_synced_at, last_sync_error, updated_at): (
         String,
         String,
         Option<String>,
         Option<String>,
+        String,
     ) = conn.query_row(
-        "SELECT auth_status, sync_status, last_synced_at, last_sync_error
+        "SELECT auth_status, sync_status, last_synced_at, last_sync_error, updated_at
          FROM system_calendar_sync_state
          WHERE id = ?1",
         params![SYSTEM_CALENDAR_SYNC_STATE_ID],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
     )?;
+
+    if sync_status == "syncing" && !SYSTEM_CALENDAR_SYNC_IN_PROGRESS.load(Ordering::SeqCst) {
+        let interrupted_message = "system calendar sync was interrupted";
+        update_system_calendar_sync_state(
+            conn,
+            &auth_status,
+            "error",
+            last_synced_at.as_deref(),
+            Some(interrupted_message),
+        )?;
+
+        return Ok(SystemCalendarStatus {
+            available,
+            auth_status,
+            sync_status: "error".to_string(),
+            last_synced_at,
+            last_sync_error: Some(interrupted_message.to_string()),
+        });
+    }
+
+    if sync_status == "syncing" {
+        if let Ok(updated_at) = chrono::DateTime::parse_from_rfc3339(&updated_at) {
+            let stale_after = chrono::Duration::seconds(STALE_SYSTEM_CALENDAR_SYNC_TIMEOUT_SECONDS);
+            if chrono::Utc::now() - updated_at.with_timezone(&chrono::Utc) > stale_after {
+                let stale_message = "system calendar sync was interrupted";
+                update_system_calendar_sync_state(
+                    conn,
+                    &auth_status,
+                    "error",
+                    last_synced_at.as_deref(),
+                    Some(stale_message),
+                )?;
+
+                return Ok(SystemCalendarStatus {
+                    available,
+                    auth_status,
+                    sync_status: "error".to_string(),
+                    last_synced_at,
+                    last_sync_error: Some(stale_message.to_string()),
+                });
+            }
+        }
+    }
 
     Ok(SystemCalendarStatus {
         available,
@@ -1260,38 +1307,61 @@ fn request_system_calendar_access() -> Result<SystemCalendarStatus, String> {
     read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-fn sync_system_calendar() -> Result<SystemCalendarStatus, String> {
-    let conn = DB.lock().map_err(|e| e.to_string())?;
+struct SystemCalendarSyncGuard;
+
+impl SystemCalendarSyncGuard {
+    fn acquire() -> Self {
+        SYSTEM_CALENDAR_SYNC_IN_PROGRESS.store(true, Ordering::SeqCst);
+        Self
+    }
+}
+
+impl Drop for SystemCalendarSyncGuard {
+    fn drop(&mut self) {
+        SYSTEM_CALENDAR_SYNC_IN_PROGRESS.store(false, Ordering::SeqCst);
+    }
+}
+
+fn sync_system_calendar_blocking() -> Result<SystemCalendarStatus, String> {
     let platform = current_platform_name();
+    let _sync_guard = SystemCalendarSyncGuard::acquire();
 
     if !is_system_calendar_supported_for_platform(platform) {
+        let conn = DB.lock().map_err(|e| e.to_string())?;
         return read_system_calendar_status(&conn, platform).map_err(|e| e.to_string());
     }
 
-    let current_status = read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?;
+    let current_status = {
+        let conn = DB.lock().map_err(|e| e.to_string())?;
+        let current_status = read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?;
 
-    update_system_calendar_sync_state(
-        &conn,
-        if current_status.auth_status == "connected" {
-            "connected"
-        } else {
-            "disconnected"
-        },
-        "syncing",
-        current_status.last_synced_at.as_deref(),
-        None,
-    )
-    .map_err(|e| e.to_string())?;
+        update_system_calendar_sync_state(
+            &conn,
+            if current_status.auth_status == "connected" {
+                "connected"
+            } else {
+                "disconnected"
+            },
+            "syncing",
+            current_status.last_synced_at.as_deref(),
+            None,
+        )
+        .map_err(|e| e.to_string())?;
+
+        current_status
+    };
 
     let window = system_calendar::default_sync_window(chrono::Utc::now());
-    let next_status = match system_calendar::fetch_events(&window) {
+    let fetch_result = system_calendar::fetch_events(&window);
+    let next_status = match fetch_result {
         Ok(events) => match events
             .iter()
             .map(system_calendar::map_native_event)
             .collect::<Result<Vec<_>, _>>()
         {
-            Ok(mapped_events) => match system_calendar::sync_events(&conn, &mapped_events, &window) {
+            Ok(mapped_events) => {
+                let conn = DB.lock().map_err(|e| e.to_string())?;
+                match system_calendar::sync_events(&conn, &mapped_events, &window) {
                 Ok(()) => {
                     let synced_at = now_rfc3339();
                     update_system_calendar_sync_state(
@@ -1316,8 +1386,10 @@ fn sync_system_calendar() -> Result<SystemCalendarStatus, String> {
                     .map_err(|e| e.to_string())?;
                     read_system_calendar_status(&conn, platform).map_err(|e| e.to_string())?
                 }
-            },
+                }
+            }
             Err(error) => {
+                let conn = DB.lock().map_err(|e| e.to_string())?;
                 update_system_calendar_sync_state(
                     &conn,
                     "connected",
@@ -1330,6 +1402,7 @@ fn sync_system_calendar() -> Result<SystemCalendarStatus, String> {
             }
         },
         Err(error) => {
+            let conn = DB.lock().map_err(|e| e.to_string())?;
             let auth_status = if current_status.auth_status == "connected" {
                 "connected"
             } else {
@@ -1348,6 +1421,13 @@ fn sync_system_calendar() -> Result<SystemCalendarStatus, String> {
     };
 
     Ok(next_status)
+}
+
+#[tauri::command]
+async fn sync_system_calendar() -> Result<SystemCalendarStatus, String> {
+    tauri::async_runtime::spawn_blocking(sync_system_calendar_blocking)
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 #[cfg(target_os = "macos")]
@@ -1565,6 +1645,44 @@ mod tests {
         assert_eq!(status.sync_status, "idle");
         assert_eq!(status.last_synced_at, None);
         assert_eq!(status.last_sync_error, None);
+    }
+
+    #[test]
+    fn stale_system_calendar_syncing_state_is_reset_to_error() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        super::ensure_system_calendar_sync_state_schema(&conn).expect("schema migration");
+
+        conn.execute(
+            "UPDATE system_calendar_sync_state
+             SET auth_status = 'connected',
+                 sync_status = 'syncing',
+                 last_sync_error = NULL,
+                 updated_at = '2000-01-01T00:00:00Z'
+             WHERE id = ?1",
+            params![super::SYSTEM_CALENDAR_SYNC_STATE_ID],
+        )
+        .expect("seed stale syncing state");
+
+        let status = super::read_system_calendar_status(&conn, "macos").expect("status");
+
+        assert_eq!(status.auth_status, "connected");
+        assert_eq!(status.sync_status, "error");
+        assert_eq!(
+            status.last_sync_error.as_deref(),
+            Some("system calendar sync was interrupted")
+        );
+    }
+
+    #[test]
+    fn system_calendar_default_sync_window_omits_subseconds_for_applescript() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-04-17T12:34:56.789+00:00")
+            .expect("parse timestamp")
+            .with_timezone(&chrono::Utc);
+
+        let window = super::system_calendar::default_sync_window(now);
+
+        assert!(!window.start_at.contains('.'));
+        assert!(!window.end_at.contains('.'));
     }
 
     #[test]

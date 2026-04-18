@@ -1,8 +1,10 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 use std::collections::HashSet;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread::sleep;
+use std::time::{Duration as StdDuration, Instant};
 
 const SYSTEM_CALENDAR_SOURCE: &str = "system_calendar";
 const SYSTEM_CALENDAR_ICON: &str = "meeting";
@@ -38,8 +40,8 @@ pub(crate) struct SystemCalendarSyncWindow {
 
 pub(crate) fn default_sync_window(now: DateTime<Utc>) -> SystemCalendarSyncWindow {
     SystemCalendarSyncWindow {
-        start_at: (now - Duration::days(30)).to_rfc3339(),
-        end_at: (now + Duration::days(180)).to_rfc3339(),
+        start_at: (now - Duration::days(30)).to_rfc3339_opts(SecondsFormat::Secs, true),
+        end_at: (now + Duration::days(180)).to_rfc3339_opts(SecondsFormat::Secs, true),
     }
 }
 
@@ -138,9 +140,39 @@ end tell
 pub(crate) fn fetch_events(window: &SystemCalendarSyncWindow) -> Result<Vec<SystemCalendarNativeEvent>, String> {
     #[cfg(target_os = "macos")]
     {
-        let output = run_osascript(FETCH_EVENTS_SCRIPT, &[&window.start_at, &window.end_at])?;
-        serde_json::from_str::<Vec<SystemCalendarNativeEvent>>(&output)
-            .map_err(|error| format!("failed to parse system calendar events: {error}"))
+        let calendar_count = system_calendar_count()?;
+        let mut all_events = Vec::new();
+        let mut success_count = 0usize;
+        let mut failures = Vec::new();
+
+        for index in 1..=calendar_count {
+            let calendar_index = index.to_string();
+            match run_osascript_with_timeout(
+                FETCH_EVENTS_SCRIPT,
+                &[&window.start_at, &window.end_at, &calendar_index],
+                StdDuration::from_secs(8),
+            ) {
+                Ok(output) => {
+                    let events = serde_json::from_str::<Vec<SystemCalendarNativeEvent>>(&output)
+                        .map_err(|error| format!("failed to parse system calendar events: {error}"))?;
+                    all_events.extend(events);
+                    success_count += 1;
+                }
+                Err(error) => {
+                    failures.push(format!("calendar #{index}: {error}"));
+                }
+            }
+        }
+
+        if success_count == 0 && !failures.is_empty() {
+            return Err(failures.join("; "));
+        }
+
+        for failure in failures {
+            eprintln!("[system-calendar] skipped {}", failure);
+        }
+
+        Ok(all_events)
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -283,13 +315,43 @@ fn to_sql_error(message: String) -> rusqlite::Error {
 
 #[cfg(target_os = "macos")]
 fn run_osascript(script: &str, args: &[&str]) -> Result<String, String> {
+    run_osascript_with_timeout(script, args, StdDuration::from_secs(15))
+}
+
+#[cfg(target_os = "macos")]
+fn run_osascript_with_timeout(
+    script: &str,
+    args: &[&str],
+    timeout: StdDuration,
+) -> Result<String, String> {
     let mut command = Command::new("osascript");
-    command.arg("-e").arg(script);
+    for line in script.lines() {
+        command.arg("-e").arg(line);
+    }
     for arg in args {
         command.arg(arg);
     }
 
-    let output = command.output().map_err(|error| error.to_string())?;
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    let deadline = Instant::now() + timeout;
+
+    loop {
+        match child.try_wait().map_err(|error| error.to_string())? {
+            Some(_) => break,
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("osascript timed out after {}s", timeout.as_secs()));
+            }
+            None => sleep(StdDuration::from_millis(50)),
+        }
+    }
+
+    let output = child.wait_with_output().map_err(|error| error.to_string())?;
     if output.status.success() {
         return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
     }
@@ -300,6 +362,23 @@ fn run_osascript(script: &str, args: &[&str]) -> Result<String, String> {
     } else {
         stderr
     })
+}
+
+#[cfg(target_os = "macos")]
+fn system_calendar_count() -> Result<usize, String> {
+    let output = run_osascript(
+        r#"
+tell application "Calendar"
+    count calendars
+end tell
+"#,
+        &[],
+    )?;
+
+    output
+        .trim()
+        .parse::<usize>()
+        .map_err(|error| format!("failed to parse system calendar count: {error}"))
 }
 
 #[cfg(target_os = "macos")]
@@ -325,58 +404,96 @@ end safeText
 on run argv
     set startIso to item 1 of argv
     set endIso to item 2 of argv
+    set targetCalendars to missing value
     set formatter to my makeFormatter()
-    set startDate to formatter's dateFromString:startIso
-    set endDate to formatter's dateFromString:endIso
-    if startDate is missing value or endDate is missing value then
+    set startDateObj to formatter's dateFromString:startIso
+    set endDateObj to formatter's dateFromString:endIso
+    if startDateObj is missing value or endDateObj is missing value then
         error "Invalid sync window"
+    end if
+    set startDate to startDateObj as date
+    set endDate to endDateObj as date
+    if (count of argv) > 2 then
+        set calendarIndex to (item 3 of argv) as integer
+        using terms from application "Calendar"
+            tell application "Calendar"
+                set targetCalendars to {item calendarIndex of calendars}
+            end tell
+        end using terms from
     end if
 
     set payload to current application's NSMutableArray's alloc()'s init()
 
-    tell application "Calendar"
-        repeat with cal in calendars
-            set matchedEvents to (every event of cal whose start date < endDate and end date > startDate)
-            repeat with evt in matchedEvents
-                set eventPayload to current application's NSMutableDictionary's alloc()'s init()
-                eventPayload's setObject:(my safeText(uid of evt)) forKey:"id"
-                eventPayload's setObject:(my safeText(summary of evt)) forKey:"title"
-                eventPayload's setObject:(formatter's stringFromDate:(start date of evt)) forKey:"start_at"
-                eventPayload's setObject:(formatter's stringFromDate:(end date of evt)) forKey:"end_at"
+    using terms from application "Calendar"
+        tell application "Calendar"
+            if targetCalendars is missing value then
+                set targetCalendars to calendars
+            end if
+            repeat with cal in targetCalendars
+                repeat with evt in (every event of cal whose start date < endDate and end date > startDate)
+                    set eventRef to contents of evt
+                    set eventProps to properties of eventRef
+                    set eventStartDate to start date of eventProps
+                    set eventEndDate to end date of eventProps
+                    set eventId to my safeText(uid of eventProps)
+                    set eventTitle to my safeText(summary of eventProps)
 
-                set tzName to ""
-                try
-                    set tzName to my safeText(time zone of evt)
-                end try
-                if tzName is "" then
-                    set tzName to ((current application's NSTimeZone's localTimeZone()'s name()) as string)
-                end if
-                eventPayload's setObject:tzName forKey:"timezone"
+                    set eventLocation to ""
+                    try
+                        set eventLocation to my safeText(location of eventProps)
+                    end try
 
-                set eventLocation to ""
-                try
-                    set eventLocation to my safeText(location of evt)
-                end try
-                eventPayload's setObject:eventLocation forKey:"location"
+                    set eventNotes to ""
+                    try
+                        set eventNotes to my safeText(description of eventProps)
+                    end try
 
-                set eventNotes to ""
-                try
-                    set eventNotes to my safeText(description of evt)
-                end try
-                eventPayload's setObject:eventNotes forKey:"notes"
+                    set allDayValue to false
+                    try
+                        set allDayValue to allday event of eventProps
+                    end try
 
-                set allDayValue to false
-                try
-                    set allDayValue to allday event of evt
-                end try
-                eventPayload's setObject:(current application's NSNumber's numberWithBool:allDayValue) forKey:"is_all_day"
-                payload's addObject:eventPayload
+                    if eventStartDate < endDate and eventEndDate > startDate then
+                        set eventPayload to current application's NSMutableDictionary's alloc()'s init()
+                        eventPayload's setObject:eventId forKey:"id"
+                        eventPayload's setObject:eventTitle forKey:"title"
+                        eventPayload's setObject:(formatter's stringFromDate:eventStartDate) forKey:"start_at"
+                        eventPayload's setObject:(formatter's stringFromDate:eventEndDate) forKey:"end_at"
+
+                        eventPayload's setObject:"UTC" forKey:"timezone"
+                        eventPayload's setObject:eventLocation forKey:"location"
+                        eventPayload's setObject:eventNotes forKey:"notes"
+                        eventPayload's setObject:(current application's NSNumber's numberWithBool:allDayValue) forKey:"is_all_day"
+                        payload's addObject:eventPayload
+                    end if
+                end repeat
             end repeat
-        end repeat
-    end tell
+        end tell
+    end using terms from
 
     set jsonData to current application's NSJSONSerialization's dataWithJSONObject:payload options:0 |error|:(missing value)
     set jsonText to current application's NSString's alloc()'s initWithData:jsonData encoding:(current application's NSUTF8StringEncoding)
     return jsonText as string
 end run
 "#;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn fetch_script_resolves_event_references_before_reading_properties() {
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("contents of evt"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("using terms from application \"Calendar\""));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("every event of cal whose start date < endDate and end date > startDate"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("set startDate to startDateObj as date"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("set endDate to endDateObj as date"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("if (count of argv) > 2 then"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("set eventProps to properties of eventRef"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("set eventStartDate to start date of eventProps"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("set eventEndDate to end date of eventProps"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("set allDayValue to allday event of eventProps"));
+        assert!(super::FETCH_EVENTS_SCRIPT.contains("setObject:\"UTC\" forKey:\"timezone\""));
+        assert!(!super::FETCH_EVENTS_SCRIPT.contains("repeat with evt in (every event of cal)"));
+        assert!(!super::FETCH_EVENTS_SCRIPT.contains("localTimeZone()"));
+        assert!(!super::FETCH_EVENTS_SCRIPT.contains("|start date|"));
+    }
+}
