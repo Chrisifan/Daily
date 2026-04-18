@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Code Workbench Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-neutral theme-workbench-code">
+    <div class="page-frame workbench-frame">
+      <header class="page-topbar">
+        <a class="brand-inline" href="./index.html">
+          <span class="brand-badge">D</span>
+          <span>Daily Showcase</span>
+        </a>
+        <nav class="page-nav">
+          <a class="nav-link" href="./workspaces.html">工作台入口</a>
+          <a class="nav-link active" href="./code-workbench.html">代码工作台</a>
+          <a class="nav-link" href="./image-workbench.html">图片工作台</a>
+        </nav>
+      </header>
+
+      <main class="studio-layout studio-layout--code">
+        <aside class="panel studio-sidebar">
+          <div class="studio-sidebar__section">
+            <p class="eyebrow">Workspace</p>
+            <h2>设计系统升级</h2>
+            <div id="code-file-tree"></div>
+          </div>
+        </aside>
+
+        <section class="panel studio-main">
+          <div class="studio-toolbar">
+            <div id="code-surface-tabs"></div>
+            <div class="action-row" id="code-toolbar-actions"></div>
+          </div>
+          <div class="studio-main-grid">
+            <section class="editor-surface">
+              <div class="editor-surface__header" id="code-editor-header"></div>
+              <pre class="editor-surface__body" id="code-editor-body"></pre>
+            </section>
+            <section class="preview-surface" id="code-preview-surface"></section>
+          </div>
+          <div class="output-strip">
+            <section class="output-panel" id="code-terminal-panel"></section>
+            <section class="output-panel" id="code-log-panel"></section>
+          </div>
+        </section>
+
+        <aside class="panel studio-inspector">
+          <p class="eyebrow">AI / Inspector</p>
+          <div class="stack" id="code-inspector"></div>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./code-workbench.js"></script>
+  </body>
+</html>

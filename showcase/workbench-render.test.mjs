@@ -58,3 +58,15 @@ test("renderLauncherCards supports image-workbench launch copy", () => {
   assert.match(html, /image-workbench\.html/);
   assert.match(html, /Canvas/);
 });
+
+test("renderStatusTabs supports code editor and preview tab labels", () => {
+  const html = renderStatusTabs([
+    { id: "button", label: "Button.tsx", active: true },
+    { id: "preview", label: "Preview", active: false },
+    { id: "terminal", label: "Terminal", active: false },
+  ]);
+
+  assert.match(html, /Button\.tsx/);
+  assert.match(html, /Preview/);
+  assert.match(html, /Terminal/);
+});
